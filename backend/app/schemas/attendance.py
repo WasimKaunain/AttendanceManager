@@ -36,7 +36,10 @@ class CheckOutRequest(LocationBase):
 class AttendanceResponse(ORMBase):
     id: UUID
     worker_id: str
-    site_id: UUID
+
+    check_in_site_id: Optional[UUID] = None
+    check_out_site_id: Optional[UUID] = None
+
     project_id: UUID
     date: date
 

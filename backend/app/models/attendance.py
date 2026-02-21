@@ -10,7 +10,7 @@ class AttendanceRecord(Base):
 
     worker_id = Column(String, ForeignKey("workers.id"),nullable=False)
     check_in_site_id = Column(UUID(as_uuid=True), ForeignKey("sites.id"), nullable=False)
-    check_out_site_id = Column(UUID(as_uuid=True), ForeignKey("sites.id"), nullable=False)
+    check_out_site_id = Column(UUID(as_uuid=True), ForeignKey("sites.id"), nullable=True)
     project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id"), nullable=False)
 
     date = Column(Date, nullable=False)

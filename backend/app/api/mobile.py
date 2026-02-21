@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query, UploadFile, File, HTTPException
+from fastapi import APIRouter, Depends, Query, UploadFile, File, HTTPException, Form
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from app.db.session import SessionLocal
@@ -10,9 +10,10 @@ import uuid, shutil, math, os
 from datetime import datetime, date
 from app.models.worker import Worker
 from app.models.site import Site
-from app.models.attendance import AttendanceRecord,AttendanceResponse
+from app.models.attendance import AttendanceRecord
 from app.core.dependencies import require_site_manager
 from app.schemas.mobile import (MobileWorkerResponse,LocationRequest,GeofenceResponse,FaceEnrollResponse,MobileAttendanceResponse)
+from app.services.image_service import save_compressed_attendance_image
 
 router = APIRouter(prefix="/mobile", tags=["Mobile"])
 
@@ -29,11 +30,7 @@ def get_db():
 # --------------------------------------------------
 
 UPLOAD_DIR = "uploads/enrolled_faces"
-CHECKIN_DIR = "uploads/checkin_selfies"
-CHECKOUT_DIR = "uploads/checkout_selfies"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
-os.makedirs(CHECKIN_DIR, exist_ok=True)
-os.makedirs(CHECKOUT_DIR, exist_ok=True)
 
 
 @router.post("/enroll-face/{worker_id}", response_model=FaceEnrollResponse)
@@ -220,10 +217,15 @@ def check_in(
         os.remove(temp_path)
         raise HTTPException(403, "Outside geofence")
 
-    # 4️⃣ Move to permanent folder
-    permanent_path = os.path.join(CHECKIN_DIR,f"{worker_id}_{today}.jpg")
+    # 4️⃣ Save compressed to structured folder
+    permanent_path = save_compressed_attendance_image(
+        temp_path=temp_path,
+        worker_name=worker.full_name,
+        mode="Checkin"
+    )
 
-    shutil.move(temp_path, permanent_path)
+    # delete temp
+    os.remove(temp_path)
 
     # 5️⃣ Create attendance record
     record = AttendanceRecord(
@@ -320,22 +322,29 @@ def check_out(
         os.remove(temp_path)
         raise HTTPException(403, "Outside geofence")
 
-    # 7️⃣ Move to permanent storage
-    permanent_path = os.path.join(CHECKOUT_DIR,f"{worker_id}_{today}.jpg")
-
-    shutil.move(temp_path, permanent_path)
-
-    # 8️⃣ Complete check-out
-    record.check_out_time = datetime.utcnow()
-    record.check_out_lat = latitude
-    record.check_out_lng = longitude
-    record.check_out_selfie_url = permanent_path
-    record.check_out_site_id = site.id
-
-    delta = record.check_out_time - record.check_in_time
-    record.total_hours = round(delta.total_seconds() / 3600, 2)
-    record.status = "checked_out"
-
+    # 4️⃣ Save compressed to structured folder
+    permanent_path = save_compressed_attendance_image(
+        temp_path=temp_path,
+        worker_name=worker.full_name,
+        mode="Checkin"
+    )
+    
+    # delete temp
+    os.remove(temp_path)
+    
+    # 5️⃣ Create attendance record
+    record = AttendanceRecord(
+        worker_id=worker_id,
+        check_in_site_id=site.id,
+        project_id=site.project_id,
+        date=today,
+        check_in_time=datetime.utcnow(),
+        check_in_lat=latitude,
+        check_in_lng=longitude,
+        check_in_selfie_url=permanent_path,
+        status="checked_in",
+        geofence_valid=True
+    )
     db.commit()
     db.refresh(record)
 

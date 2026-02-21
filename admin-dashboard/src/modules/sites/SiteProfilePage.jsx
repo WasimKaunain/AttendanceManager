@@ -111,7 +111,7 @@ export default function SiteProfilePage() {
   // -----------------------------
   const toggleMutation = useMutation({
     mutationFn: async () =>
-      api.put(`/sites/${id}`, {
+      api.patch(`/sites/${id}`, {
         status: site.status === "active" ? "inactive" : "active",
       }),
     onSuccess: () =>
@@ -394,7 +394,7 @@ export default function SiteProfilePage() {
         onClose={() => setEditOpen(false)}
         projects={[]}
         onSubmit={(data) => {
-          api.put(`/sites/${id}`, data).then(() => {
+          api.patch(`/sites/${id}`, data).then(() => {
             queryClient.invalidateQueries(["site", id]);
             setEditOpen(false);
           });
