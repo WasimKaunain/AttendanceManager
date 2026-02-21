@@ -6,14 +6,13 @@ from app.services.face_service import extract_face_embedding
 from app.services.audit_service import log_action
 from app.services.geofence import is_within_geofence
 from app.services.face_service import is_same_person
-import uuid, shutil
+import uuid, shutil, math, os
 from datetime import datetime, date
 from app.models.worker import Worker
 from app.models.site import Site
 from app.models.attendance import AttendanceRecord,AttendanceResponse
 from app.core.dependencies import require_site_manager
 from app.schemas.mobile import (MobileWorkerResponse,LocationRequest,GeofenceResponse,FaceEnrollResponse,MobileAttendanceResponse)
-import math
 
 router = APIRouter(prefix="/mobile", tags=["Mobile"])
 
@@ -28,26 +27,41 @@ def get_db():
 # --------------------------------------------------
 # ENROLL FACE
 # --------------------------------------------------
-@router.post("/enroll-face/{worker_id}", response_model=FaceEnrollResponse, dependencies=[Depends(require_site_manager)])
-def enroll_face(
-    worker_id: str,
-    file: UploadFile = File(...),
-    db: Session = Depends(get_db)
-):
+
+UPLOAD_DIR = "uploads/enrolled_faces"
+CHECKIN_DIR = "uploads/checkin_selfies"
+CHECKOUT_DIR = "uploads/checkout_selfies"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+os.makedirs(CHECKIN_DIR, exist_ok=True)
+os.makedirs(CHECKOUT_DIR, exist_ok=True)
+
+
+@router.post("/enroll-face/{worker_id}", response_model=FaceEnrollResponse)
+def enroll_face(worker_id: str,photo: UploadFile = File(...),user=Depends(require_site_manager),db: Session = Depends(get_db)):
     worker = db.query(Worker).filter(Worker.id == worker_id).first()
 
     if not worker:
         raise HTTPException(status_code=404, detail="Worker not found")
 
+    # 1️⃣ Save temporarily
     temp_path = f"/tmp/{uuid.uuid4()}.jpg"
-
     with open(temp_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+        shutil.copyfileobj(photo.file, buffer)
 
+    # 2️⃣ Extract embedding
     embedding = extract_face_embedding(temp_path)
 
+    if not embedding:
+        os.remove(temp_path)
+        raise HTTPException(400, "No face detected")
+
+    # 3️⃣ Save permanent enrolled image
+    permanent_path = os.path.join(UPLOAD_DIR, f"{worker.id}.jpg")
+    shutil.move(temp_path, permanent_path)
+
+    # 4️⃣ Update worker record
     worker.face_embedding = embedding
-    worker.photo_url = f"enrolled/{worker.id}.jpg"
+    worker.photo_url = permanent_path
 
     db.commit()
 
@@ -56,7 +70,7 @@ def enroll_face(
         action="face_enrolled",
         entity_type="worker",
         entity_id=worker.id,
-        details=f"Worker {worker.full_name} face enrolled"
+        details=f"Worker {worker.full_name} face enrolled (mobile)"
     )
 
     return {"message": "Face enrolled successfully"}
@@ -148,7 +162,7 @@ def verify_geofence(
 
 # ===================== CHECK-IN =====================
 
-@router.post("/check-in", response_model=MobileAttendanceResponse, dependencies=[Depends(require_site_manager)])
+@router.post("/check-in", response_model=MobileAttendanceResponse)
 def check_in(
     worker_id: str = Form(...),
     latitude: float = Form(...),
@@ -179,15 +193,23 @@ def check_in(
     if not worker or not worker.face_embedding:
         raise HTTPException(400, "Worker face not enrolled")
 
+    # 1️⃣ Save temporarily
     temp_path = f"/tmp/{uuid.uuid4()}.jpg"
     with open(temp_path, "wb") as buffer:
         shutil.copyfileobj(photo.file, buffer)
 
+    # 2️⃣ Extract face embedding
     live_embedding = extract_face_embedding(temp_path)
 
+    if not live_embedding:
+        os.remove(temp_path)
+        raise HTTPException(400, "No face detected")
+
     if not is_same_person(live_embedding, worker.face_embedding):
+        os.remove(temp_path)
         raise HTTPException(403, "Face verification failed")
 
+    # 3️⃣ Geofence validation
     if not is_within_geofence(
         latitude,
         longitude,
@@ -195,17 +217,24 @@ def check_in(
         site.longitude,
         site.geofence_radius
     ):
+        os.remove(temp_path)
         raise HTTPException(403, "Outside geofence")
 
+    # 4️⃣ Move to permanent folder
+    permanent_path = os.path.join(CHECKIN_DIR,f"{worker_id}_{today}.jpg")
+
+    shutil.move(temp_path, permanent_path)
+
+    # 5️⃣ Create attendance record
     record = AttendanceRecord(
         worker_id=worker_id,
-        site_id=site.id,
+        check_in_site_id=site.id,
         project_id=site.project_id,
         date=today,
         check_in_time=datetime.utcnow(),
         check_in_lat=latitude,
         check_in_lng=longitude,
-        check_in_selfie_url=temp_path,
+        check_in_selfie_url=permanent_path,
         status="checked_in",
         geofence_valid=True
     )
@@ -227,7 +256,7 @@ def check_in(
 
 # ===================== CHECK-OUT =====================
 
-@router.post("/check-out", response_model=MobileAttendanceResponse, dependencies=[Depends(require_site_manager)])
+@router.post("/check-out", response_model=MobileAttendanceResponse)
 def check_out(
     worker_id: str = Form(...),
     latitude: float = Form(...),
@@ -238,6 +267,7 @@ def check_out(
 ):
     today = date.today()
 
+    # 1️⃣ Get site from logged-in manager
     site_id = user.get("site_id")
     if not site_id:
         raise HTTPException(403, "Site not assigned")
@@ -246,6 +276,7 @@ def check_out(
     if not site:
         raise HTTPException(400, "Invalid site")
 
+    # 2️⃣ Fetch attendance record
     record = db.query(AttendanceRecord).filter(
         AttendanceRecord.worker_id == worker_id,
         AttendanceRecord.date == today
@@ -257,19 +288,28 @@ def check_out(
     if record.check_out_time:
         raise HTTPException(400, "Already checked out")
 
+    # 3️⃣ Validate worker & face enrollment
     worker = db.query(Worker).filter(Worker.id == worker_id).first()
     if not worker or not worker.face_embedding:
         raise HTTPException(400, "Worker face not enrolled")
 
+    # 4️⃣ Save temporarily
     temp_path = f"/tmp/{uuid.uuid4()}.jpg"
     with open(temp_path, "wb") as buffer:
         shutil.copyfileobj(photo.file, buffer)
 
+    # 5️⃣ Extract face embedding
     live_embedding = extract_face_embedding(temp_path)
 
+    if not live_embedding:
+        os.remove(temp_path)
+        raise HTTPException(400, "No face detected")
+
     if not is_same_person(live_embedding, worker.face_embedding):
+        os.remove(temp_path)
         raise HTTPException(403, "Face verification failed")
 
+    # 6️⃣ Geofence validation
     if not is_within_geofence(
         latitude,
         longitude,
@@ -277,12 +317,20 @@ def check_out(
         site.longitude,
         site.geofence_radius
     ):
+        os.remove(temp_path)
         raise HTTPException(403, "Outside geofence")
 
+    # 7️⃣ Move to permanent storage
+    permanent_path = os.path.join(CHECKOUT_DIR,f"{worker_id}_{today}.jpg")
+
+    shutil.move(temp_path, permanent_path)
+
+    # 8️⃣ Complete check-out
     record.check_out_time = datetime.utcnow()
     record.check_out_lat = latitude
     record.check_out_lng = longitude
-    record.check_out_selfie_url = temp_path
+    record.check_out_selfie_url = permanent_path
+    record.check_out_site_id = site.id
 
     delta = record.check_out_time - record.check_in_time
     record.total_hours = round(delta.total_seconds() / 3600, 2)
@@ -300,4 +348,3 @@ def check_out(
     )
 
     return record
-
