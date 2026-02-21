@@ -2,17 +2,16 @@ from fastapi import APIRouter, Depends, Query, UploadFile, File, HTTPException, 
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from app.db.session import SessionLocal
-from app.services.face_service import extract_face_embedding
 from app.services.audit_service import log_action
 from app.services.geofence import is_within_geofence
 from app.services.face_service import is_same_person
-import uuid, shutil, math, os
+import uuid, shutil, math, os, json
 from datetime import datetime, date
 from app.models.worker import Worker
 from app.models.site import Site
 from app.models.attendance import AttendanceRecord
 from app.core.dependencies import require_site_manager
-from app.schemas.mobile import (MobileWorkerResponse,LocationRequest,GeofenceResponse,FaceEnrollResponse,MobileAttendanceResponse)
+from app.schemas.mobile import (MobileWorkerResponse,LocationRequest,GeofenceResponse,FaceEnrollResponse,MobileAttendanceResponse,EmbeddingPayload)
 from app.services.image_service import save_compressed_attendance_image
 
 router = APIRouter(prefix="/mobile", tags=["Mobile"])
@@ -34,30 +33,30 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 
 @router.post("/enroll-face/{worker_id}", response_model=FaceEnrollResponse)
-def enroll_face(worker_id: str,photo: UploadFile = File(...),user=Depends(require_site_manager),db: Session = Depends(get_db)):
+def enroll_face(
+    worker_id: str,
+    embedding: str = Form(...),  # JSON string
+    photo: UploadFile = File(...),
+    user=Depends(require_site_manager),
+    db: Session = Depends(get_db)
+):
+    try:
+        embedding_list = json.loads(embedding)
+        payload = EmbeddingPayload(embedding=embedding_list)
+    except:
+        raise HTTPException(400, "Invalid embedding format")
+    
     worker = db.query(Worker).filter(Worker.id == worker_id).first()
 
     if not worker:
         raise HTTPException(status_code=404, detail="Worker not found")
 
-    # 1️⃣ Save temporarily
-    temp_path = f"/tmp/{uuid.uuid4()}.jpg"
-    with open(temp_path, "wb") as buffer:
+    # Save enrolled image
+    permanent_path = os.path.join(UPLOAD_DIR, f"{worker.id}.jpg")
+    with open(permanent_path, "wb") as buffer:
         shutil.copyfileobj(photo.file, buffer)
 
-    # 2️⃣ Extract embedding
-    embedding = extract_face_embedding(temp_path)
-
-    if not embedding:
-        os.remove(temp_path)
-        raise HTTPException(400, "No face detected")
-
-    # 3️⃣ Save permanent enrolled image
-    permanent_path = os.path.join(UPLOAD_DIR, f"{worker.id}.jpg")
-    shutil.move(temp_path, permanent_path)
-
-    # 4️⃣ Update worker record
-    worker.face_embedding = embedding
+    worker.face_embedding = payload.embedding
     worker.photo_url = permanent_path
 
     db.commit()
@@ -164,6 +163,7 @@ def check_in(
     worker_id: str = Form(...),
     latitude: float = Form(...),
     longitude: float = Form(...),
+    embedding: str = Form(...),  # JSON string
     photo: UploadFile = File(...),
     user=Depends(require_site_manager),
     db: Session = Depends(get_db)
@@ -195,14 +195,17 @@ def check_in(
     with open(temp_path, "wb") as buffer:
         shutil.copyfileobj(photo.file, buffer)
 
-    # 2️⃣ Extract face embedding
-    live_embedding = extract_face_embedding(temp_path)
+    try:
+        embedding_list = json.loads(embedding)
+        payload = EmbeddingPayload(embedding=embedding_list)
+    except:
+        raise HTTPException(400, "Invalid embedding format")
 
-    if not live_embedding:
+    if not payload.embedding:
         os.remove(temp_path)
         raise HTTPException(400, "No face detected")
 
-    if not is_same_person(live_embedding, worker.face_embedding):
+    if not is_same_person(payload.embedding, worker.face_embedding):
         os.remove(temp_path)
         raise HTTPException(403, "Face verification failed")
 
@@ -263,6 +266,7 @@ def check_out(
     worker_id: str = Form(...),
     latitude: float = Form(...),
     longitude: float = Form(...),
+    embedding: str = Form(...),  # JSON string
     photo: UploadFile = File(...),
     user=Depends(require_site_manager),
     db: Session = Depends(get_db)
@@ -301,13 +305,17 @@ def check_out(
         shutil.copyfileobj(photo.file, buffer)
 
     # 5️⃣ Extract face embedding
-    live_embedding = extract_face_embedding(temp_path)
+    try:
+        embedding_list = json.loads(embedding)
+        payload = EmbeddingPayload(embedding=embedding_list)
+    except:
+        raise HTTPException(400, "Invalid embedding format")
 
-    if not live_embedding:
+    if not payload.embedding:
         os.remove(temp_path)
         raise HTTPException(400, "No face detected")
 
-    if not is_same_person(live_embedding, worker.face_embedding):
+    if not is_same_person(payload.embedding, worker.face_embedding):
         os.remove(temp_path)
         raise HTTPException(403, "Face verification failed")
 

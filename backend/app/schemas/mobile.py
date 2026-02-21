@@ -1,5 +1,5 @@
-from pydantic import BaseModel
-from typing import Optional
+from pydantic import BaseModel, Field
+from typing import Optional, List
 from uuid import UUID
 from datetime import datetime, date
 from app.schemas.base import ORMBase
@@ -40,46 +40,11 @@ class FaceEnrollResponse(BaseModel):
     message: str
 
 
-from pydantic import BaseModel
-from typing import Optional
-from uuid import UUID
-from datetime import datetime, date
-from app.schemas.base import ORMBase
-
-
 # ----------------------------
-# Worker (Mobile Response)
+# Embedding Payload (Used Internally)
 # ----------------------------
-class MobileWorkerResponse(ORMBase):
-    id: str
-    full_name: str
-    mobile: str
-    site_id: Optional[UUID] = None
-    status: Optional[str] = None
-
-
-# ----------------------------
-# Location Request
-# ----------------------------
-class LocationRequest(BaseModel):
-    latitude: float
-    longitude: float
-
-
-# ----------------------------
-# Geofence Response
-# ----------------------------
-class GeofenceResponse(BaseModel):
-    inside: bool
-    site_id: Optional[UUID] = None
-    site_name: Optional[str] = None
-
-
-# ----------------------------
-# Face Enroll Response
-# ----------------------------
-class FaceEnrollResponse(BaseModel):
-    message: str
+class EmbeddingPayload(BaseModel):
+    embedding: List[float] = Field(..., min_length=64)
 
 
 # ----------------------------

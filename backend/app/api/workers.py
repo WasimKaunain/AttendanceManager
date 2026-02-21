@@ -11,7 +11,6 @@ from app.models.attendance import AttendanceRecord
 from app.schemas.worker import WorkerCreate, WorkerResponse, WorkerUpdate
 from app.core.dependencies import require_admin
 from app.services.audit_service import log_action
-from app.services.face_service import extract_face_embedding
 
 router = APIRouter(prefix="/workers", tags=["Workers"])
 

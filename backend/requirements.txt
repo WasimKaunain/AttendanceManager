@@ -9,5 +9,4 @@ alembic==1.18.3
 python-multipart==0.0.22
 pandas==2.2.2
 reportlab==4.4.10
-deepface==0.0.98
-opencv-python-headless==4.9.0.80
+numpy==2.2.6

@@ -1,16 +1,4 @@
 import numpy as np
-from deepface import DeepFace
-
-
-def extract_face_embedding(image_path: str) -> list[float]:
-    """
-    Takes an image file path
-    Returns face embedding as list[float]
-    """
-    embedding = DeepFace.represent(img_path=image_path,model_name="Facenet",enforce_detection=True)[0]["embedding"]
-
-    return embedding
-
 
 def cosine_similarity(a: list[float], b: list[float]) -> float:
     a = np.array(a)
