@@ -1,0 +1,176 @@
+.
+├── admin-dashboard
+│   ├── eslint.config.js
+│   ├── index.html
+│   ├── package.json
+│   ├── package-lock.json
+│   ├── postcss.config.js
+│   ├── public
+│   │   └── vite.svg
+│   ├── README.md
+│   ├── src
+│   │   ├── app
+│   │   │   ├── App.jsx
+│   │   │   └── main.jsx
+│   │   ├── assets
+│   │   │   └── react.svg
+│   │   ├── core
+│   │   │   ├── api
+│   │   │   │   └── axios.js
+│   │   │   └── auth
+│   │   │       ├── AuthContext.jsx
+│   │   │       └── ProtectedRoute.jsx
+│   │   ├── layout
+│   │   │   ├── DashboardLayout.jsx
+│   │   │   └── Sidebar.jsx
+│   │   ├── modules
+│   │   │   ├── attendance
+│   │   │   │   ├── AttendancePage.jsx
+│   │   │   │   ├── components
+│   │   │   │   │   ├── AttendanceFilters.jsx
+│   │   │   │   │   └── AttendanceSummaryCards.jsx
+│   │   │   │   ├── hooks.js
+│   │   │   │   └── services.js
+│   │   │   ├── audit-logs
+│   │   │   │   ├── AuditLogsPage.jsx
+│   │   │   │   └── hooks.js
+│   │   │   ├── auth
+│   │   │   │   └── LoginPage.jsx
+│   │   │   ├── dashboard
+│   │   │   │   ├── components
+│   │   │   │   │   ├── StatCard.jsx
+│   │   │   │   │   ├── TodayStatus.jsx
+│   │   │   │   │   └── WeeklyChart.jsx
+│   │   │   │   ├── Dashboard.jsx
+│   │   │   │   └── services.js
+│   │   │   ├── projects
+│   │   │   │   ├── components
+│   │   │   │   │   └── ProjectFormDialog.jsx
+│   │   │   │   ├── hooks.js
+│   │   │   │   ├── ProjectProfilePage.jsx
+│   │   │   │   ├── ProjectsPage.jsx
+│   │   │   │   └── services.js
+│   │   │   ├── reports
+│   │   │   │   ├── components
+│   │   │   │   │   ├── FilterPanel.jsx
+│   │   │   │   │   └── ReportTabs.jsx
+│   │   │   │   ├── hooks.js
+│   │   │   │   ├── ReportsPage.jsx
+│   │   │   │   └── services.js
+│   │   │   ├── shifts
+│   │   │   │   ├── components
+│   │   │   │   │   └── ShiftFormDialog.jsx
+│   │   │   │   ├── hooks.js
+│   │   │   │   ├── services.js
+│   │   │   │   └── ShiftsPage.jsx
+│   │   │   ├── sites
+│   │   │   │   ├── components
+│   │   │   │   │   ├── MapPickerModal.jsx
+│   │   │   │   │   └── SiteFormDialog.jsx
+│   │   │   │   ├── hooks.js
+│   │   │   │   ├── servies.js
+│   │   │   │   ├── SiteProfilePage.jsx
+│   │   │   │   └── SitesPage.jsx
+│   │   │   ├── users
+│   │   │   │   ├── components
+│   │   │   │   │   └── UserFormDialog.jsx
+│   │   │   │   ├── hooks.js
+│   │   │   │   ├── services.js
+│   │   │   │   └── UsersPage.jsx
+│   │   │   └── workers
+│   │   │       ├── components
+│   │   │       │   └── WorkerFormDialog.jsx
+│   │   │       ├── hooks.js
+│   │   │       ├── services.js
+│   │   │       ├── WorkerProfilePage.jsx
+│   │   │       └── WorkersPage.jsx
+│   │   ├── services
+│   │   │   └── api.js
+│   │   ├── shared
+│   │   │   └── components
+│   │   │       ├── Badge.jsx
+│   │   │       ├── Card.jsx
+│   │   │       ├── DataTable.jsx
+│   │   │       └── PageHeader.jsx
+│   │   └── styles
+│   │       └── Global.css
+│   ├── tailwind.config.js
+│   └── vite.config.js
+├── backend
+│   ├── alembic
+│   │   ├── env.py
+│   │   ├── README
+│   │   ├── script.py.mako
+│   │   └── versions
+│   │       ├── 13e376652934_initial_schema.py
+│   │       ├── 4f13cf40fda1_update_attendance_record_for_multi_site_.py
+│   │       └── 705b1060fb15_make_checkout_site_id_nullable.py
+│   ├── alembic.ini
+│   ├── app
+│   │   ├── api
+│   │   │   ├── attendance.py
+│   │   │   ├── audit_logs.py
+│   │   │   ├── auth.py
+│   │   │   ├── dashboard.py
+│   │   │   ├── geocode.py
+│   │   │   ├── mobile.py
+│   │   │   ├── projects.py
+│   │   │   ├── reports.py
+│   │   │   ├── shifts.py
+│   │   │   ├── sites.py
+│   │   │   ├── users.py
+│   │   │   └── workers.py
+│   │   ├── core
+│   │   │   ├── dependencies.py
+│   │   │   └── security.py
+│   │   ├── db
+│   │   │   ├── base.py
+│   │   │   └── session.py
+│   │   ├── main.py
+│   │   ├── models
+│   │   │   ├── attendance.py
+│   │   │   ├── audit_log.py
+│   │   │   ├── project.py
+│   │   │   ├── report_log.py
+│   │   │   ├── shift.py
+│   │   │   ├── site.py
+│   │   │   ├── user.py
+│   │   │   └── worker.py
+│   │   ├── schemas
+│   │   │   ├── attendance.py
+│   │   │   ├── audit_log.py
+│   │   │   ├── auth.py
+│   │   │   ├── base.py
+│   │   │   ├── mobile.py
+│   │   │   ├── project.py
+│   │   │   ├── report_schema.py
+│   │   │   ├── shift.py
+│   │   │   ├── site.py
+│   │   │   ├── user.py
+│   │   │   └── worker.py
+│   │   └── services
+│   │       ├── audit_service.py
+│   │       ├── excel_service.py
+│   │       ├── face_service.py
+│   │       ├── geofence.py
+│   │       ├── image_service.py
+│   │       ├── pdf_service.py
+│   │       ├── query_builder.py
+│   │       ├── report_service.py
+│   │       ├── shift_services.py
+│   │       └── user_service.py
+│   ├── daily_attendance_images
+│   │   └── Wasim Konain
+│   │       └── Checkin
+│   │           ├── 2026-02-21_20-12-00.jpg
+│   │           ├── 2026-02-21_20-17-08.jpg
+│   │           └── 2026-02-21_20-17-28.jpg
+│   ├── requirements.txt
+│   └── uploads
+│       └── enrolled_faces
+│           ├── EMP00897896.jpg
+│           ├── EMP90080024.jpg
+│           └── EMP96380023.jpg
+└── structure.txt
+
+48 directories, 126 files

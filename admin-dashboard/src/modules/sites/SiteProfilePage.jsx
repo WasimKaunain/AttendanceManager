@@ -5,29 +5,19 @@ import api from "@/core/api/axios";
 import DashboardLayout from "@/layout/DashboardLayout";
 import { ArrowLeft, Trash2, Pencil } from "lucide-react";
 import SiteFormDialog from "./components/SiteFormDialog";
+import DangerousDialog from "@/modules/data_management/components/DangerousActionModal";
 
-import {
-  MapContainer,
-  TileLayer,
-  Circle,
-} from "react-leaflet";
+import {MapContainer,TileLayer,Circle,} from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  CartesianGrid,
-  ResponsiveContainer,
-} from "recharts";
+import {LineChart,Line,XAxis,YAxis,Tooltip,CartesianGrid,ResponsiveContainer,} from "recharts";
 
 export default function SiteProfilePage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [tab, setTab] = useState("overview");
   const [editOpen, setEditOpen] = useState(false);
 
@@ -99,11 +89,16 @@ export default function SiteProfilePage() {
   }, [attendance]);
 
   // -----------------------------
-  // Delete
+  // Archive
   // -----------------------------
-  const deleteMutation = useMutation({
-    mutationFn: async () => api.delete(`/sites/${id}`),
-    onSuccess: () => navigate("/sites"),
+  const archiveMutation = useMutation({
+    mutationFn: async (payload) =>
+      api.patch(`/sites/${id}/archive`, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries(["site", id]);
+      queryClient.invalidateQueries(["sites"]);
+      navigate("/sites");
+    },
   });
 
   // -----------------------------
@@ -234,19 +229,17 @@ export default function SiteProfilePage() {
                   Edit
                 </button>
 
-                <button
-                  onClick={() => {
-                    if (confirm("Delete this site permanently?")) {
-                      deleteMutation.mutate();
-                    }
-                  }}
-                  className="flex-1 bg-red-500/20 border border-red-400/40 
-                             text-red-700 rounded-xl py-3 font-semibold 
-                             shadow-xl hover:scale-105 transition flex items-center justify-center gap-2"
-                >
-                  <Trash2 size={16} />
-                  Delete
-                </button>
+                {!site.is_deleted && (
+                  <button
+                    onClick={() => setDeleteOpen(true)}
+                    className="flex-1 bg-amber-500/20 border border-amber-400/40 
+                               text-amber-700 rounded-xl py-3 font-semibold 
+                               shadow-xl hover:scale-105 transition flex items-center justify-center gap-2"
+                  >
+                    <Trash2 size={16} />
+                    Archive
+                  </button>
+                )}
               </div>
             </div>
           </GlassCard>
@@ -398,6 +391,20 @@ export default function SiteProfilePage() {
             queryClient.invalidateQueries(["site", id]);
             setEditOpen(false);
           });
+        }}
+      />
+
+      <DangerousDialog
+        open={deleteOpen}
+        title="Archive Site"
+        description="Archiving this site will deactivate all workers in it."
+        confirmLabel="Archive"
+        confirmColor="amber"
+        entityName={site?.name}
+        onClose={() => setDeleteOpen(false)}
+        onConfirm={(payload) => {
+          archiveMutation.mutate(payload);
+          setDeleteOpen(false);
         }}
       />
     </DashboardLayout>

@@ -3,8 +3,7 @@ import sys
 import os
 sys.path.append(os.path.abspath(os.getcwd()))
 from app.db.base import Base
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
+from sqlalchemy import engine_from_config,pool
 from app.models.project import Project
 from app.models.site import Site
 from app.models.worker import Worker
@@ -18,6 +17,14 @@ from alembic import context
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if DATABASE_URL:
+    # Render sometimes gives postgres:// instead of postgresql://
+    if DATABASE_URL.startswith("postgres://"):
+        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+    config.set_main_option("sqlalchemy.url", DATABASE_URL)
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.

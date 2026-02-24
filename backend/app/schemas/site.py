@@ -1,7 +1,8 @@
 from uuid import UUID
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from app.schemas.base import ORMBase
+from datetime import datetime
 
 # -----------------------------
 # Base Schema (shared fields)
@@ -41,3 +42,17 @@ class SiteUpdate(BaseModel):
 # -----------------------------
 class SiteResponse(ORMBase, SiteBase):
     id: UUID
+    is_deleted : bool
+    deleted_at: Optional[datetime] = None
+    deleted_by: Optional[str] = None
+
+
+class ArchiveRequest(BaseModel):
+    reason: str = Field(..., min_length=5)
+
+class ForceDeleteRequest(BaseModel):
+    reason: str = Field(..., min_length=5)
+    confirmation: str
+
+class ActionResponse(BaseModel):
+    message: str

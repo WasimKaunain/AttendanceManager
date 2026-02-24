@@ -1,8 +1,8 @@
 from typing import Optional, Literal
 from uuid import UUID
-from datetime import date
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, model_validator, Field
 from app.schemas.base import ORMBase
+from datetime import datetime, date
 
 
 # -----------------------------
@@ -71,3 +71,19 @@ class WorkerResponse(ORMBase, WorkerBase):
     id: str
     joining_date: date
     photo_url: Optional[str] = None
+
+    #Soft delete schema fields
+    is_deleted: bool
+    deleted_at: Optional[datetime] = None
+    deleted_by: Optional[str] = None
+
+
+class ArchiveRequest(BaseModel):
+    reason: str = Field(..., min_length=5)
+
+class ForceDeleteRequest(BaseModel):
+    reason: str = Field(..., min_length=5)
+    confirmation: str
+
+class ActionResponse(BaseModel):
+    message: str

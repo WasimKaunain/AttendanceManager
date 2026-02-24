@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
 import api from "@/core/api/axios";
 import DashboardLayout from "@/layout/DashboardLayout";
 import PageHeader from "@/shared/components/PageHeader";
@@ -20,10 +19,7 @@ export default function ProjectsPage() {
 
   const { data: projects = [], isLoading } = useQuery({
     queryKey: ["projects"],
-    queryFn: async () => {
-      const res = await api.get("/projects/");
-      return res.data;
-    },
+    queryFn: async () => (await api.get("/projects/")).data,
   });
 
   const createMutation = useMutation({
@@ -52,7 +48,7 @@ export default function ProjectsPage() {
 
   return (
     <DashboardLayout>
-      <div className="p-8 min-h-screen bg-gradient-to-br from-slate-100 via-white to-slate-200 space-y-8">
+      <div className="p-8 min-h-screen space-y-8">
           <PageHeader
             title="Projects"
             subtitle="Manage and monitor construction projects"

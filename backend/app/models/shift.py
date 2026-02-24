@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, ForeignKey
+from sqlalchemy import Column, String, Integer, ForeignKey, Float, Boolean
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
 from app.db.base import Base
@@ -13,3 +13,4 @@ class Shift(Base):
     end_time = Column(String, nullable=False)
     grace_period_minutes = Column(Integer, default=15)
     overtime_threshold_hours = Column(Integer, default=8)
+

@@ -87,6 +87,7 @@ export default function ShiftsPage() {
 
   return (
     <DashboardLayout>
+      <div className="p-8 min-h-screen space-y-8">
       <PageHeader
         title="Shifts"
         subtitle="Manage shifts, grace periods and overtime"
@@ -128,6 +129,7 @@ export default function ShiftsPage() {
           setDialogOpen(false);
         }}
       />
+    </div>
     </DashboardLayout>
   );
 }

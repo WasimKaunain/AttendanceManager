@@ -45,3 +45,8 @@ backend/daily_attendance_images/
 *.log
 *.sqlite3
 *.db
+__pycache__/
+*.egg-info/
+*.pyc
+*.pyo
+*.pyd

@@ -7,9 +7,10 @@ from app.models.project import Project
 from app.models.site import Site
 from app.models.worker import Worker
 from app.models.attendance import AttendanceRecord
-from app.schemas.project import ProjectCreate, ProjectResponse
+from app.schemas.project import ProjectCreate, ProjectResponse, ProjectUpdate
 from app.services.audit_service import log_action
 from app.core.dependencies import require_admin
+from datetime import datetime
 from uuid import UUID
 
 router = APIRouter(prefix="/projects", tags=["Projects"])
@@ -50,52 +51,47 @@ def create_project(data: ProjectCreate, db: Session = Depends(get_db)):
         )
 
 @router.get("/", dependencies=[Depends(require_admin)])
-def list_projects(db: Session = Depends(get_db)):
-    return db.query(Project).all()
+def list_projects(include_deleted: bool = False, db: Session = Depends(get_db)):
+    query = db.query(Project)
+
+    if not include_deleted:
+        query = query.filter(Project.is_deleted == False)
+
+    return query.all()
 
 
-@router.delete("/{project_id}", dependencies=[Depends(require_admin)])
-def delete_project(project_id: str, db: Session = Depends(get_db)):
+@router.delete("/{project_id}/force-delete", dependencies=[Depends(require_admin)])
+def force_delete_project(project_id: str, db: Session = Depends(get_db)):
 
     project = db.query(Project).filter(Project.id == project_id).first()
 
     if not project:
         raise HTTPException(404, "Project not found")
 
-    if project.status not in ["inactive", "completed", "terminated"]:
-        raise HTTPException(
-            400,
-            "Project must be inactive or completed before deletion"
-        )
-
-    # Delete attendance records first
-    db.query(AttendanceRecord).filter(
-        AttendanceRecord.project_id == project_id
-    ).delete()
+    # Delete attendance
+    db.query(AttendanceRecord).filter(AttendanceRecord.project_id == project_id).delete()
 
     # Delete workers
-    db.query(Worker).filter(
-        Worker.project_id == project_id
-    ).delete()
+    db.query(Worker).filter(Worker.project_id == project_id).delete()
 
     # Delete sites
-    db.query(Site).filter(
-        Site.project_id == project_id
-    ).delete()
+    db.query(Site).filter(Site.project_id == project_id).delete()
 
-    # Finally delete project
+    # Delete project
     db.delete(project)
+
     db.commit()
 
     log_action(
         db=db,
-        action="delete",
+        action="force_delete",
         entity_type="project",
         entity_id=str(project_id),
-        details="Project and all related data permanently deleted"
+        details="Project permanently deleted with all linked data"
     )
 
-    return {"message": "Project deleted successfully"}
+    return {"message": "Project permanently deleted"}
+
 
 @router.get("/{project_id}/summary")
 def project_summary(project_id: str, db: Session = Depends(get_db)):
@@ -199,7 +195,7 @@ def update_project_status(
 @router.put("/{project_id}", response_model=ProjectResponse, dependencies=[Depends(require_admin)])
 def update_project(
     project_id: str,
-    data: ProjectCreate,
+    data: ProjectUpdate,
     db: Session = Depends(get_db)
 ):
 
@@ -235,3 +231,80 @@ def update_project(
             status_code=400,
             detail="Project with this code already exists"
         )
+
+
+@router.patch("/{project_id}/archive", dependencies=[Depends(require_admin)])
+def archive_project(project_id: str, db: Session = Depends(get_db)):
+
+    project = db.query(Project).filter(Project.id == project_id).first()
+
+    if not project:
+        raise HTTPException(404, "Project not found")
+
+    if project.is_deleted:
+        raise HTTPException(400, "Project already archived")
+
+    # Archive project
+    project.is_deleted = True
+    project.deleted_at = datetime.utcnow()
+    project.status = "inactive"
+
+    # Deactivate all sites
+    db.query(Site).filter(
+        Site.project_id == project_id
+    ).update({"status": "inactive"})
+
+    # Deactivate all workers
+    db.query(Worker).filter(Worker.project_id == project_id).update({"status": "inactive"})
+
+     # Deactivate all sites
+    db.query(Site).filter(Site.project_id == project_id).update({"status": "inactive"})
+
+    # Deactivate all workers
+    db.query(Worker).filter(Worker.project_id == project_id).update({"status": "inactive"})
+
+    db.commit()
+
+    log_action(
+        db=db,
+        action="archive",
+        entity_type="project",
+        entity_id=str(project_id),
+        details=f"Project {project.name} archived and all linked entities deactivated"
+    )
+
+    return {"message": "Project archived successfully"}
+
+
+@router.patch("/{project_id}/restore", dependencies=[Depends(require_admin)])
+def restore_project(project_id: str, db: Session = Depends(get_db)):
+
+    project = db.query(Project).filter(Project.id == project_id).first()
+
+    if not project:
+        raise HTTPException(404, "Project not found")
+
+    if not project.is_deleted:
+        raise HTTPException(400, "Project is not archived")
+
+    project.is_deleted = False
+    project.deleted_at = None
+    project.status = "active"
+
+    # Activate all sites
+    db.query(Site).filter(Site.project_id == project_id).update({"status": "active"})
+
+    # Activate all workers
+    db.query(Worker).filter(Worker.project_id == project_id).update({"status": "active"})
+
+    db.commit()
+
+    log_action(
+        db=db,
+        action="restore",
+        entity_type="project",
+        entity_id=str(project_id),
+        details=f"Project {project.name} restored"
+    )
+
+    return {"message": "Project restored successfully"}

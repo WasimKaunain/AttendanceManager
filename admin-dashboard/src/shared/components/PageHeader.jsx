@@ -1,22 +1,17 @@
 import { Plus } from "lucide-react";
 
-export default function PageHeader({
-  title,
-  subtitle,
-  onAdd,
-  addLabel = "New",
-}) {
+export default function PageHeader({title,subtitle,onAdd,addLabel = "New",}) {
   return (
     <div className="flex justify-between items-start mb-8">
 
       {/* LEFT SECTION */}
       <div>
-        <h1 className="text-3xl font-bold text-slate-800">
+        <h1 className="text-4xl font-bold tracking-tight text-slate-800 dark:text-white">
           {title}
         </h1>
 
         {subtitle && (
-          <p className="text-slate-500 text-sm mt-1">
+          <p className="text-slate-600 dark:text-slate-400">
             {subtitle}
           </p>
         )}

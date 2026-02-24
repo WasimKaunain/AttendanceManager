@@ -5,6 +5,7 @@ import DashboardLayout from "@/layout/DashboardLayout";
 import { ArrowLeft,Trash2, Pencil } from "lucide-react";
 import { useState } from "react";
 import WorkerFormDialog from "./components/WorkerFormDialog";
+import DangerousDialog from "@/modules/data_management/components/DangerousActionModal";
 
 
 export default function WorkerProfilePage() {
@@ -13,6 +14,7 @@ export default function WorkerProfilePage() {
   const [editOpen, setEditOpen] = useState(false);
   const [tab, setTab] = useState("overview");
   const queryClient = useQueryClient();
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   // -------------------------
   // Fetch Worker
@@ -62,7 +64,15 @@ export default function WorkerProfilePage() {
   const rating = (attendancePercent / 20).toFixed(1); // 0-5 scale
 
 
-  const deleteMutation = useMutation({mutationFn: async (id) => api.delete(`/workers/${id}`),});
+  const archiveMutation = useMutation({
+    mutationFn: async (payload) =>
+      api.patch(`/workers/${id}/archive`, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries(["worker", id]);
+      queryClient.invalidateQueries(["workers"]);
+      navigate("/workers");
+    },
+  });
   const updateMutation = useMutation({mutationFn: async ({ id, data }) =>api.patch(`/workers/${id}`, data),});
 
 
@@ -116,7 +126,7 @@ const toggleMutation = useMutation({
           <GlassCard>
             <div className="relative flex flex-col items-center text-center pt-32 pb-6 space-y-5">
             
-              {/* Gradient Cover Header */}
+              {/* Gradient Cover Header *
               <div className="absolute top-0 left-0 w-full h-28 rounded-t-3xl 
                 bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 
                 opacity-80 blur-[1px]" />
@@ -126,11 +136,9 @@ const toggleMutation = useMutation({
                 ${worker.status === "active" ? "active-glow" : ""}`}>
                 {worker.photo_url ? (
                   <img
-                    src={`/uploads/${worker.photo_url}`}
+                    src={`${import.meta.env.VITE_API_BASE_URL}/uploads/${worker.photo_url}`}
                     alt="profile"
-                    className="w-40 h-40 rounded-full object-cover 
-                               border-[5px] border-white shadow-2xl 
-                               ring-4 ring-pink-400/40"
+                    className="w-40 h-40 rounded-full object-cover border-[5px] border-white shadow-2xl ring-4 ring-pink-400/40"
                   />
                 ) : (
                   <div className="w-40 h-40 rounded-full bg-slate-200 
@@ -245,24 +253,20 @@ const toggleMutation = useMutation({
                     </button>
 
                   {/* Delete Button */}
-                  <button
-                    onClick={() => {
-                      if (confirm("Delete this worker permanently?")) {
-                        deleteMutation.mutate(worker.id, {
-                          onSuccess: () => navigate("/workers"),
-                        });
-                      }
-                    }}
-                    className="flex-1 backdrop-blur-md bg-red-500/20 
-                               border border-red-400/40 
-                               text-red-700 
-                               rounded-xl py-3 font-semibold 
-                               shadow-xl hover:scale-105 transition 
-                               flex items-center justify-center gap-2"
-                  >
-                    <Trash2 size={16} />
-                    Delete
-                  </button>
+                    {!worker.is_deleted && (
+                      <button
+                        onClick={() => setDeleteOpen(true)}
+                        className="flex-1 backdrop-blur-md bg-amber-500/20 
+                                   border border-amber-400/40 
+                                   text-amber-700 
+                                   rounded-xl py-3 font-semibold 
+                                   shadow-xl hover:scale-105 transition 
+                                   flex items-center justify-center gap-2"
+                      >
+                        <Trash2 size={16} />
+                        Archive
+                      </button>
+                    )}
                   
               </div>  
             </div>
@@ -411,6 +415,20 @@ const toggleMutation = useMutation({
             },
           }
         );
+      }}
+    />
+
+    <DangerousDialog
+      open={deleteOpen}
+      title="Archive Worker"
+      description="Archiving this worker will deactivate them but preserve attendance records."
+      confirmLabel="Archive"
+      confirmColor="amber"
+      entityName={worker?.full_name}
+      onClose={() => setDeleteOpen(false)}
+      onConfirm={(payload) => {
+        archiveMutation.mutate(payload);
+        setDeleteOpen(false);
       }}
     />
     </DashboardLayout>

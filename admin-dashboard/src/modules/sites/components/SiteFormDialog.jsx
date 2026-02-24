@@ -48,10 +48,12 @@ export default function SiteFormDialog({open,onClose,onSubmit,initialData,projec
             className="w-full border rounded p-2"
           >
             <option value="">Select Project</option>
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
+            {projects
+              .filter((p) => p.status === "active")
+              .map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
             ))}
           </select>
 

@@ -1,5 +1,6 @@
 
-from sqlalchemy import Column, String, Date, Enum
+from xmlrpc import server
+from sqlalchemy import Column, String, Date, Boolean, DateTime
 from app.db.base import Base
 import uuid
 from sqlalchemy.dialects.postgresql import UUID
@@ -16,3 +17,6 @@ class Project(Base):
     status = Column(String, default="active")  # inactive, completed, terminated
     start_date = Column(Date, default=date.today)
     end_date = Column(Date)
+    is_deleted = Column(Boolean, nullable=False, default=False, server_default="false")  # soft delete flag
+    deleted_at = Column(DateTime, nullable=True)
+    deleted_by = Column(String, nullable=True)

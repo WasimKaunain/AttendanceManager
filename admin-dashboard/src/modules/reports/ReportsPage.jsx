@@ -5,6 +5,7 @@ import DashboardLayout from "@/layout/DashboardLayout";
 import ReportTabs from "./components/ReportTabs";
 import FilterPanel from "./components/FilterPanel";
 import { useReports } from "./hooks";
+import PageHeader from "@/shared/components/PageHeader";
 
 export default function ReportsPage() {
   const [activeTab, setActiveTab] = useState("attendance");
@@ -12,6 +13,7 @@ export default function ReportsPage() {
   const [format, setFormat] = useState("excel");
   const navigate = useNavigate();
   const { downloadReport, loading } = useReports();
+  const {dialogOpen, setDialogOpen} = useState(false);
 
   const handleGenerate = () => {
     downloadReport({
@@ -30,11 +32,8 @@ export default function ReportsPage() {
   );
 
   return (
-    <DashboardLayout>
-      <div className="p-8 space-y-8 
-                      bg-gradient-to-br 
-                      from-slate-100 via-white to-slate-200 
-                      min-h-screen">
+    <DashboardLayout theme="reports">
+      <div className="p-8 min-h-screen space-y-8 ">
 
         {/* Back */}
         <button
@@ -46,14 +45,10 @@ export default function ReportsPage() {
         </button>
 
         {/* Header */}
-        <div>
-          <h1 className="text-3xl font-bold text-slate-800">
-            Reports & Analytics
-          </h1>
-          <p className="text-slate-500 text-sm">
-            Generate workforce and project insights
-          </p>
-        </div>
+        <PageHeader
+          title="Reports & Analytics"
+          subtitle="Generate workforce and project insights"
+        />
 
         {/* Tabs */}
         <GlassCard>

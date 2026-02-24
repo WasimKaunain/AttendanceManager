@@ -52,12 +52,14 @@ def enroll_face(
         raise HTTPException(status_code=404, detail="Worker not found")
 
     # Save enrolled image
-    permanent_path = os.path.join(UPLOAD_DIR, f"{worker.id}.jpg")
-    with open(permanent_path, "wb") as buffer:
+    filename = f"{worker.id}.jpg"
+    file_path = os.path.join(UPLOAD_DIR, filename)
+    
+    with open(file_path, "wb") as buffer:
         shutil.copyfileobj(photo.file, buffer)
-
+    
     worker.face_embedding = payload.embedding
-    worker.photo_url = permanent_path
+    worker.photo_url = f"enrolled_faces/{filename}"
 
     db.commit()
 

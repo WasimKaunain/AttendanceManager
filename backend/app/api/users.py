@@ -29,11 +29,7 @@ def get_users(
 
 
 @router.post("", response_model=UserResponse)
-def create_user(
-    data: UserCreate,
-    db: Session = Depends(get_db),
-    _: dict = Depends(require_admin)
-):
+def create_user(data: UserCreate,db: Session = Depends(get_db),_: dict = Depends(require_admin)):
     existing = db.query(User).filter(User.username == data.username).first()
     if existing:
         raise HTTPException(status_code=400, detail="Username already exists")
@@ -59,13 +55,8 @@ def create_user(
     return new_user
 
 
-@router.put("/{user_id}", response_model=UserResponse)
-def update_user(
-    user_id: UUID,
-    data: UserUpdate,
-    db: Session = Depends(get_db),
-    _: dict = Depends(require_admin)
-):
+@router.patch("/{user_id}", response_model=UserResponse)
+def update_user(user_id: UUID,data: UserUpdate,db: Session = Depends(get_db),_: dict = Depends(require_admin)):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")

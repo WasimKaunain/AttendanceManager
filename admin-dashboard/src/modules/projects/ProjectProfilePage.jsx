@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import api from "@/core/api/axios";
 import DashboardLayout from "@/layout/DashboardLayout";
+import DangerousDialog from "@/modules/data_management/components/DangerousActionModal";
 
 export default function ProjectProfilePage() {
 
@@ -75,16 +76,14 @@ export default function ProjectProfilePage() {
   });
 
   // ---------------- DELETE PROJECT ----------------
-  const deleteMutation = useMutation({
-    mutationFn: async () => {
-      return await api.delete(`/projects/${id}`);
+  const archiveMutation = useMutation({
+    mutationFn: async (payload) => {
+      return await api.patch(`/projects/${id}/archive`, payload);
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["project-summary", id] });
       queryClient.invalidateQueries({ queryKey: ["projects"] });
       navigate("/projects");
-    },
-    onError: (err) => {
-      alert(err.response?.data?.detail || "Deletion failed");
     },
   });
 
@@ -154,12 +153,14 @@ export default function ProjectProfilePage() {
               Change Status
             </button>
 
-            <button
-              onClick={() => setDeleteOpen(true)}
-              className="px-4 py-2 bg-red-600 text-white rounded-xl shadow-lg hover:scale-105 transition"
-            >
-              Delete
-            </button>
+            {!project.is_deleted && (
+              <button
+                onClick={() => setDeleteOpen(true)}
+                className="px-4 py-2 bg-amber-500 text-white rounded-xl shadow-lg hover:scale-105 transition"
+              >
+                Archive
+              </button>
+            )}
 
           </div>
 
@@ -255,40 +256,21 @@ export default function ProjectProfilePage() {
         </div>
       )}
 
-      {/* ---------------- DELETE MODAL ---------------- */}
-      {deleteOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white w-[500px] rounded-xl p-6 shadow-xl">
-            <h2 className="text-lg font-semibold text-red-600 mb-3">
-              ⚠ Dangerous Action
-            </h2>
+      <DangerousDialog
+        open={deleteOpen}
+        title="Archive Project"
+        description="Archiving this project will deactivate all linked sites and workers."
+        confirmLabel="Archive"
+        confirmColor="amber"
+        entityName={project.name}
+        onClose={() => setDeleteOpen(false)}
+        onConfirm={(payload) => {
+          archiveMutation.mutate(payload);
+          setDeleteOpen(false);
+        }}
+      />
 
-            <p className="text-sm text-slate-600 mb-6">
-              Deleting this project will permanently remove all related sites,
-              workers, and attendance records.
-            </p>
 
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setDeleteOpen(false)}
-                className="px-4 py-2 border rounded"
-              >
-                Cancel
-              </button>
-
-              <button
-                onClick={() => {
-                  deleteMutation.mutate();
-                  setDeleteOpen(false);
-                }}
-                className="px-4 py-2 bg-red-600 text-white rounded"
-              >
-                {deleteMutation.isPending ? "Deleting..." : "Delete Permanently"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
       {statusModalOpen && (
         <div
           className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"

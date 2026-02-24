@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Float, ForeignKey, Date
+from sqlalchemy import Column, String, Float, ForeignKey, Date, Boolean, DateTime
 from sqlalchemy.dialects.postgresql import ARRAY
 from datetime import date
 from app.db.base import Base
@@ -30,3 +30,7 @@ class Worker(Base):
     daily_rate = Column(Float)
     hourly_rate = Column(Float)
     monthly_salary = Column(Float)
+
+    is_deleted = Column(Boolean, nullable=False, default=False, server_default="false")  # soft delete flag
+    deleted_at = Column(DateTime, nullable=True)
+    deleted_by = Column(String, nullable=True)

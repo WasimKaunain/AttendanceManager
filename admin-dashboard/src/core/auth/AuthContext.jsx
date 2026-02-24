@@ -5,23 +5,31 @@ import { jwtDecode } from "jwt-decode";
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-
-  useEffect(() => {
-    const token = localStorage.getItem("access_token");
-    if (token) {
-      try {
-        const decoded = jwtDecode(token);
-        setUser({
-          id: decoded.sub,
-          role: decoded.role,
-        });
-      } catch (err) {
-        console.error("Invalid token");
-        logout();
+    const [user, setUser] = useState(null);
+    const [loading, setLoading] = useState(true);
+    
+    useEffect(() => {
+      const token = localStorage.getItem("access_token");
+    
+      if (token) {
+        try {
+          const decoded = jwtDecode(token);
+        
+          if (decoded.exp * 1000 < Date.now()) {
+            logout();
+          } else {
+            setUser({
+              id: decoded.sub,
+              role: decoded.role,
+            });
+          }
+        } catch {
+          logout();
+        }
       }
-    }
-  }, []);
+    
+      setLoading(false);
+    }, []);
 
   const login = async (username, password) => {
     const res = await api.post("/auth/login", {

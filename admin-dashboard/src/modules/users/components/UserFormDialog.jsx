@@ -1,12 +1,8 @@
 import { useState, useEffect } from "react";
 import api from "@/core/api/axios";
 
-export default function UserFormDialog({
-  open,
-  onClose,
-  onSubmit,
-  initialData,
-}) {
+export default function UserFormDialog({open,onClose,onSubmit,initialData,}) 
+{
   const [form, setForm] = useState({
     username: "",
     password: "",
@@ -52,13 +48,20 @@ export default function UserFormDialog({
 
   const handleSubmit = (e) => {
     e.preventDefault();
-
+  
+    const payload = { ...form };
+  
     // If admin → remove site_id
-    if (form.role === "admin") {
-      form.site_id = null;
+    if (payload.role === "admin") {
+      payload.site_id = null;
     }
-
-    onSubmit(form);
+  
+    // If edit mode and password empty → remove it
+    if (initialData && !payload.password) {
+      delete payload.password;
+    }
+  
+    onSubmit(payload);
     onClose();
   };
 
@@ -81,17 +84,15 @@ export default function UserFormDialog({
           />
 
           {/* Password */}
-          {!initialData && (
-            <input
-              name="password"
-              type="password"
-              placeholder="Password"
-              value={form.password}
-              onChange={handleChange}
-              className="w-full border p-3 rounded-xl focus:ring-2 focus:ring-black outline-none"
-              required
-            />
-          )}
+          <input
+            name="password"
+            type="password"
+            placeholder={initialData ? "New Password (leave blank to keep current)" : "Password"}
+            value={form.password}
+            onChange={handleChange}
+            className="w-full border p-3 rounded-xl focus:ring-2 focus:ring-black outline-none"
+            required={!initialData}
+          />
 
           {/* Role */}
           <select

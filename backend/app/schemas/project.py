@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from typing import Optional
 from uuid import UUID
 from pydantic import Field
@@ -45,3 +45,6 @@ class ProjectUpdate(ORMBase):
 
 class ProjectResponse(ProjectBase):
     id: UUID
+    is_deleted : bool
+    deleted_at: Optional[datetime] = None
+    deleted_by: Optional[str] = None

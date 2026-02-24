@@ -12,6 +12,8 @@ import Shifts from "../modules/shifts/ShiftsPage";
 import AuditLogs from "../modules/audit-logs/AuditLogsPage";
 import Reports from "../modules/reports/ReportsPage";
 import Users from "../modules/users/UsersPage";
+import AdministrationPage from "../modules/administration/AdministrationPage";
+import DataManagementPage from "../modules/data_management/DataManagementPage";
 import ProtectedRoute from "../core/auth/ProtectedRoute";
 
 export default function App() {
@@ -114,7 +116,7 @@ export default function App() {
         <Route
           path="/users"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute roles={["admin"]}>
               <Users />
             </ProtectedRoute>
           }
@@ -123,12 +125,29 @@ export default function App() {
         <Route
           path="/audit-logs"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute roles={["admin"]}>
               <AuditLogs />
             </ProtectedRoute>
           }
         />
 
+        <Route
+          path="/administration"
+          element={
+            <ProtectedRoute roles={["admin"]}>
+              <AdministrationPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/data-management"
+          element={
+            <ProtectedRoute roles={["admin"]}>
+              <DataManagementPage />
+            </ProtectedRoute>
+          }
+        />
 
       </Routes>
     </BrowserRouter>

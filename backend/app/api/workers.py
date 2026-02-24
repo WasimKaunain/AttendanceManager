@@ -1,14 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from datetime import date
-import shutil
-import uuid
+from datetime import datetime
 
 from app.db.session import SessionLocal
 from app.models.worker import Worker
 from app.models.attendance import AttendanceRecord
-from app.schemas.worker import WorkerCreate, WorkerResponse, WorkerUpdate
+from app.schemas.worker import WorkerCreate, WorkerResponse, WorkerUpdate, ActionResponse, ForceDeleteRequest, ArchiveRequest
 from app.core.dependencies import require_admin
 from app.services.audit_service import log_action
 
@@ -99,11 +97,15 @@ def delete_worker(worker_id: str, db: Session = Depends(get_db)):
 # --------------------------------------------------
 @router.get("/", dependencies=[Depends(require_admin)])
 def list_workers(
+    include_deleted: bool = False,
     project_id: str | None = None,
     site_id: str | None = None,
     db: Session = Depends(get_db)
 ):
     query = db.query(Worker)
+
+    if not include_deleted:
+        query = query.filter(Worker.is_deleted == False)
 
     if project_id:
         query = query.filter(Worker.project_id == project_id)
@@ -177,3 +179,89 @@ def patch_worker(
     db.refresh(worker)
 
     return worker
+
+
+@router.patch("/{worker_id}/archive",response_model=ActionResponse,dependencies=[Depends(require_admin)])
+def archive_worker(worker_id: str,payload: ArchiveRequest,db: Session = Depends(get_db)):
+    worker = db.query(Worker).filter(Worker.id == worker_id).first()
+
+    if not worker:
+        raise HTTPException(404, "Worker not found")
+
+    if worker.is_deleted:
+        raise HTTPException(400, "Worker already archived")
+
+    worker.is_deleted = True
+    worker.deleted_at = datetime.utcnow()
+    worker.status = "inactive"
+
+    db.commit()
+
+    log_action(
+        db=db,
+        action="archive",
+        entity_type="worker",
+        entity_id=worker.id,
+        details=payload.reason
+    )
+
+    return {"message": "Worker archived successfully"}
+
+
+
+@router.patch("/{worker_id}/restore",response_model=ActionResponse,dependencies=[Depends(require_admin)])
+def restore_worker(worker_id: str, db: Session = Depends(get_db)):
+
+    worker = db.query(Worker).filter(Worker.id == worker_id).first()
+
+    if not worker:
+        raise HTTPException(404, "Worker not found")
+
+    if not worker.is_deleted:
+        raise HTTPException(400, "Worker is not archived")
+
+    worker.is_deleted = False
+    worker.deleted_at = None
+    worker.deleted_by = None
+    worker.status = "active"
+
+    db.commit()
+
+    log_action(
+        db=db,
+        action="restore",
+        entity_type="worker",
+        entity_id=worker.id,
+        details=f"Worker {worker.full_name} restored"
+    )
+
+    return {"message": "Worker restored successfully"}
+
+
+
+@router.delete("/{worker_id}/force-delete",response_model=ActionResponse,dependencies=[Depends(require_admin)])
+def force_delete_worker(worker_id: str,payload: ForceDeleteRequest,db: Session = Depends(get_db)):
+    worker = db.query(Worker).filter(Worker.id == worker_id).first()
+
+    if not worker:
+        raise HTTPException(404, "Worker not found")
+
+    if payload.confirmation != worker.full_name:
+        raise HTTPException(400, "Confirmation text mismatch")
+
+    # Delete attendance linked to worker
+    db.query(AttendanceRecord).filter(AttendanceRecord.worker_id == worker_id).delete()
+
+    # Delete worker
+    db.delete(worker)
+    db.commit()
+
+    log_action(
+        db=db,
+        action="force_delete",
+        entity_type="worker",
+        entity_id=worker.id,
+        details=payload.reason
+    )
+
+    return {"message": "Worker permanently deleted"}

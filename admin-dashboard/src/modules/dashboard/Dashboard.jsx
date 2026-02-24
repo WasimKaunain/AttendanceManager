@@ -3,32 +3,21 @@ import DashboardLayout from "@/layout/DashboardLayout";
 import StatCard from "./components/StatCard";
 import WeeklyChart from "./components/WeeklyChart";
 import TodayStatus from "./components/TodayStatus";
-
-import {
-  FolderKanban,
-  MapPin,
-  Users,
-  UserCheck,
-} from "lucide-react";
-
-import {
-  getDashboardStats,
-  getWeeklyAttendance,
-  getRecentActivity,
-} from "./services";
+import PageHeader from "@/shared/components/PageHeader";
+import {FolderKanban,MapPin,Users,UserCheck,} from "lucide-react";
+import {getDashboardStats,getWeeklyAttendance,getRecentActivity,} from "./services";
 
 export default function DashboardPage() {
   const [stats, setStats] = useState(null);
   const [weeklyData, setWeeklyData] = useState([]);
   const [recentActivity, setRecentActivity] = useState([]);
-
+  const [dialogOpen, setDialogOpen] = useState(false);
   useEffect(() => {
     const fetchData = async () => {
       try {
         const statsData = await getDashboardStats();
         const weekly = await getWeeklyAttendance();
         const recent = await getRecentActivity();
-
         setStats(statsData);
         setWeeklyData(weekly);
         setRecentActivity(recent);
@@ -49,15 +38,12 @@ export default function DashboardPage() {
 
   return (
     <DashboardLayout>
-      <div className="p-8 min-h-screen bg-gradient-to-br from-slate-100 via-white to-slate-200 space-y-8">
+      <div className="p-8 min-h-screen space-y-8">
 
-        {/* HEADER */}
-        <div>
-          <h1 className="text-3xl font-bold text-slate-800">Dashboard</h1>
-          <p className="text-slate-500 text-sm">
-            Overview of projects, workforce and attendance
-          </p>
-        </div>
+        <PageHeader
+          title="Dashboard"
+          subtitle="Overview of projects, workforce and attendance"
+        />  
 
         {/* TOP STATS */}
         <div className="grid grid-cols-4 gap-6">

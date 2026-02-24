@@ -150,6 +150,7 @@ export default function WorkersPage() {
   // -------------------------
   return (
     <DashboardLayout>
+      <div className="p-8 min-h-screen space-y-8">
       <PageHeader
         title="Workers"
         subtitle="Manage workforce and face enrollment"
@@ -298,7 +299,7 @@ export default function WorkersPage() {
           setEditingWorker(null);
         }}
       />
-
+    </div>
     </DashboardLayout>
   );
 }

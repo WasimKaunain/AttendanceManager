@@ -78,7 +78,7 @@ export default function WorkerFormDialog({
             className="w-full border rounded p-2"
           >
             <option value="">Select Project</option>
-            {projects.map((p) => (
+            {projects.filter((p) => p.status === "active").map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}
               </option>
@@ -93,7 +93,7 @@ export default function WorkerFormDialog({
             className="w-full border rounded p-2"
           >
             <option value="">Select Site</option>
-            {filteredSites.map((s) => (
+            {filteredSites.filter((s) => s.status === "active").map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name}
               </option>

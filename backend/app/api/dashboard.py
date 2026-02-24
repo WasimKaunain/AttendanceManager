@@ -128,7 +128,7 @@ def recent_activity(db: Session = Depends(get_db)):
     return [
         {
             "workerId": str(r.worker_id),
-            "siteId": str(r.site_id),
+           # "siteId": str(r.site_id),
             "projectId": str(r.project_id),
             "date": str(r.date),
             "checkInTime": r.check_in_time.strftime("%H:%M") if r.check_in_time else None,
