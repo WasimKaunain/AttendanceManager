@@ -39,7 +39,6 @@ export default function AdministrationPage() {
         <PageHeader
           title="Administration"
           subtitle="System control and privileged operations"
-          onAdd={() => setDialogOpen(true)}
         />
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
