@@ -11,7 +11,7 @@ const menuItems = [
   { name: "Sites", icon: MapPin, path: "/sites" },
   { name: "Workers", icon: Users, path: "/workers" },
   { name: "Attendance", icon: ClipboardCheck, path: "/attendance" },
-  { name: "Shifts", icon: Clock, path: "/shifts" },
+  // { name: "Shifts", icon: Clock, path: "/shifts" },
   { name: "Reports", icon: BarChart3, path: "/reports" },
   { name: "Administration", icon: UserCog, path: "/administration", role: "admin" },
 ];

@@ -1,75 +1,143 @@
-import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import api from "@/core/api/axios";
 
-const filterConfig = {
-  attendance: ["project", "site", "worker", "date_range"],
-  projects: ["status", "date_range"],
-  workers: ["project", "site", "status"],
-  sites: ["project", "status"],
-  shifts: ["status"]
-};
+export default function FilterPanel({ reportType, filters, onChange }) {
+  const { data: projects = [] } = useQuery({
+    queryKey: ["projects"],
+    queryFn: async () => (await api.get("/projects/")).data,
+  });
 
-export default function FilterPanel({ reportType, onChange }) {
-  const [filters, setFilters] = useState({});
+  const { data: sites = [] } = useQuery({
+    queryKey: ["sites"],
+    queryFn: async () => (await api.get("/sites/")).data,
+  });
+
+  const { data: workers = [] } = useQuery({
+    queryKey: ["workers"],
+    queryFn: async () => (await api.get("/workers/")).data,
+  });
 
   const handleChange = (key, value) => {
-    const updated = { ...filters, [key]: value };
-    setFilters(updated);
-    onChange(updated);
+    onChange((prev) => ({ ...prev, [key]: value }));
   };
 
-  const activeFilters = filterConfig[reportType] || [];
-
   return (
-    <div className="grid grid-cols-3 gap-4 mt-4">
-      {activeFilters.includes("project") && (
-        <input
-          placeholder="Project ID"
+    <div className="grid md:grid-cols-3 gap-6">
+
+      {/* PROJECT REPORT */}
+      {reportType === "projects" && (
+        <select
+          value={filters?.project_id || ""}
           onChange={(e) => handleChange("project_id", e.target.value)}
-          className="border p-2 rounded"
-        />
+          className="border p-3 rounded-xl"
+        >
+          <option value="">Select Project</option>
+          {projects.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </select>
       )}
 
-      {activeFilters.includes("site") && (
-        <input
-          placeholder="Site ID"
+      {/* SITE REPORT */}
+      {reportType === "sites" && (
+        <select
+          value={filters?.site_id || ""}
           onChange={(e) => handleChange("site_id", e.target.value)}
-          className="border p-2 rounded"
-        />
+          className="border p-3 rounded-xl"
+        >
+          <option value="">Select Site</option>
+          {sites.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name}
+            </option>
+          ))}
+        </select>
       )}
 
-      {activeFilters.includes("worker") && (
-        <input
-          placeholder="Worker ID"
+      {/* WORKER REPORT */}
+      {reportType === "workers" && (
+        <select
+          value={filters?.worker_id || ""}
           onChange={(e) => handleChange("worker_id", e.target.value)}
-          className="border p-2 rounded"
-        />
+          className="border p-3 rounded-xl"
+        >
+          <option value="">Select Worker</option>
+          {workers.map((w) => (
+            <option key={w.id} value={w.id}>
+              {w.full_name}
+            </option>
+          ))}
+        </select>
       )}
 
-      {activeFilters.includes("date_range") && (
+      {/* ATTENDANCE SITEWISE */}
+      {reportType === "attendance_sitewise" && (
         <>
+          <select
+            value={filters?.site_id || ""}
+            onChange={(e) => handleChange("site_id", e.target.value)}
+            className="border p-3 rounded-xl"
+          >
+            <option value="">Select Site</option>
+            {sites.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+
           <input
             type="date"
+            value={filters?.from_date || ""}
             onChange={(e) => handleChange("from_date", e.target.value)}
-            className="border p-2 rounded"
+            className="border p-3 rounded-xl"
           />
+
           <input
             type="date"
+            value={filters?.to_date || ""}
+            min={filters?.from_date || undefined}
             onChange={(e) => handleChange("to_date", e.target.value)}
-            className="border p-2 rounded"
+            className="border p-3 rounded-xl"
           />
         </>
       )}
 
-      {activeFilters.includes("status") && (
-        <select
-          onChange={(e) => handleChange("status", e.target.value)}
-          className="border p-2 rounded"
-        >
-          <option value="">All Status</option>
-          <option value="active">Active</option>
-          <option value="inactive">Inactive</option>
-        </select>
+      {/* ATTENDANCE WORKERWISE */}
+      {reportType === "attendance_workerwise" && (
+        <>
+          <select
+            value={filters?.worker_id || ""}
+            onChange={(e) => handleChange("worker_id", e.target.value)}
+            className="border p-3 rounded-xl"
+          >
+            <option value="">Select Worker</option>
+            {workers.map((w) => (
+              <option key={w.id} value={w.id}>
+                {w.full_name}
+              </option>
+            ))}
+          </select>
+
+          <input
+            type="date"
+            value={filters?.from_date || ""}
+            onChange={(e) => handleChange("from_date", e.target.value)}
+            className="border p-3 rounded-xl"
+          />
+
+          <input
+            type="date"
+            value={filters?.to_date || ""}
+            min={filters?.from_date || undefined}
+            onChange={(e) => handleChange("to_date", e.target.value)}
+            className="border p-3 rounded-xl"
+          />
+        </>
       )}
+
     </div>
   );
 }

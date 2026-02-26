@@ -8,19 +8,25 @@ import { useReports } from "./hooks";
 import PageHeader from "@/shared/components/PageHeader";
 
 export default function ReportsPage() {
-  const [activeTab, setActiveTab] = useState("attendance");
+  const [activeTab, setActiveTab] = useState("projects");
   const [filters, setFilters] = useState({});
   const [format, setFormat] = useState("excel");
   const navigate = useNavigate();
   const { downloadReport, loading } = useReports();
-  const {dialogOpen, setDialogOpen} = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
-  const handleGenerate = () => {
-    downloadReport({
-      report_type: activeTab,
-      filters,
-      format,
-    });
+const handleGenerate = () => {
+  const finalFormat =
+    activeTab === "attendance_sitewise" ||
+    activeTab === "attendance_workerwise"
+      ? format
+      : "pdf";
+
+  downloadReport({
+    report_type: activeTab,
+    filters,
+    format: finalFormat,
+  });
   };
 
   const GlassCard = ({ children }) => (
@@ -30,6 +36,47 @@ export default function ReportsPage() {
       {children}
     </div>
   );
+
+  const isAttendance =
+    activeTab === "attendance_sitewise" ||
+    activeTab === "attendance_workerwise";
+
+  const isValidDateRange =
+    !filters?.from_date ||
+    !filters?.to_date ||
+    new Date(filters.to_date) >= new Date(filters.from_date);
+
+  const isValidFilters = (() => {
+    switch (activeTab) {
+      case "projects":
+        return !!filters?.project_id;
+
+      case "sites":
+        return !!filters?.site_id;
+
+      case "workers":
+        return !!filters?.worker_id;
+
+      case "attendance_sitewise":
+        return (
+          !!filters?.site_id &&
+          !!filters?.from_date &&
+          !!filters?.to_date &&
+          isValidDateRange
+        );
+
+      case "attendance_workerwise":
+        return (
+          !!filters?.worker_id &&
+          !!filters?.from_date &&
+          !!filters?.to_date &&
+          isValidDateRange
+        );
+
+      default:
+        return false;
+    }
+  })();
 
   return (
     <DashboardLayout theme="reports">
@@ -62,66 +109,66 @@ export default function ReportsPage() {
         <GlassCard>
           <FilterPanel
             reportType={activeTab}
+            filters={filters}
             onChange={setFilters}
           />
         </GlassCard>
 
-        {/* Format Selection */}
-        <GlassCard>
-          <div className="flex gap-6 items-center">
-
-            <div className="text-sm font-medium text-slate-700">
-              Export Format:
-            </div>
-
-            <div className="flex gap-4">
-
-              <button
-                onClick={() => setFormat("excel")}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition
-                ${
-                  format === "excel"
-                    ? "bg-green-500/20 border-green-400/40 text-green-700"
-                    : "bg-white/40 border-white/40"
-                }`}
-              >
-                <FileSpreadsheet size={16} />
-                Excel
-              </button>
-
-              <button
-                onClick={() => setFormat("pdf")}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition
-                ${
-                  format === "pdf"
-                    ? "bg-red-500/20 border-red-400/40 text-red-700"
-                    : "bg-white/40 border-white/40"
-                }`}
-              >
-                <FileText size={16} />
-                PDF
-              </button>
-
-            </div>
-
-          </div>
-        </GlassCard>
+        {/* Format Selection (Only for Attendance Reports) */}
+          {(activeTab === "attendance_sitewise" ||
+            activeTab === "attendance_workerwise") && (
+            <GlassCard>
+              <div className="flex gap-6 items-center">
+                <div className="text-sm font-medium text-slate-700">
+                  Export Format:
+                </div>
+            
+                <div className="flex gap-4">
+                  <button
+                    onClick={() => setFormat("excel")}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition
+                    ${
+                      format === "excel"
+                        ? "bg-green-500/20 border-green-400/40 text-green-700"
+                        : "bg-white/40 border-white/40"
+                    }`}
+                  >
+                    Excel
+                  </button>
+                  
+                  <button
+                    onClick={() => setFormat("pdf")}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition
+                    ${
+                      format === "pdf"
+                        ? "bg-red-500/20 border-red-400/40 text-red-700"
+                        : "bg-white/40 border-white/40"
+                    }`}
+                  >
+                    PDF
+                  </button>
+                </div>
+              </div>
+            </GlassCard>
+          )}
 
         {/* Generate Button */}
-        <div>
           <button
             onClick={handleGenerate}
-            disabled={loading}
-            className="px-8 py-3 rounded-2xl 
-                       bg-gradient-to-r 
-                       from-indigo-500 to-purple-600 
-                       text-white font-semibold 
-                       shadow-xl hover:scale-105 
-                       transition-all duration-300"
+            disabled={loading || !isValidFilters}
+            className={`px-8 py-3 rounded-2xl 
+              bg-gradient-to-r 
+              from-indigo-500 to-purple-600 
+              text-white font-semibold 
+              shadow-xl transition-all duration-300
+              ${
+                loading || !isValidFilters
+                  ? "opacity-50 cursor-not-allowed"
+                  : "hover:scale-105"
+              }`}
           >
             {loading ? "Generating..." : "Generate Report"}
           </button>
-        </div>
 
       </div>
     </DashboardLayout>

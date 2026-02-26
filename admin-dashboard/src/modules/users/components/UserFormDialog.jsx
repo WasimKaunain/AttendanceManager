@@ -52,9 +52,9 @@ export default function UserFormDialog({open,onClose,onSubmit,initialData,})
     const payload = { ...form };
   
     // If admin → remove site_id
-    if (payload.role === "admin") {
-      payload.site_id = null;
-    }
+  if (payload.role === "admin" || !payload.site_id) {
+    payload.site_id = null;
+  }
   
     // If edit mode and password empty → remove it
     if (initialData && !payload.password) {
@@ -76,9 +76,11 @@ export default function UserFormDialog({open,onClose,onSubmit,initialData,})
           {/* Username */}
           <input
             name="username"
+            type="text"
             placeholder="Username"
             value={form.username}
             onChange={handleChange}
+            autoComplete="off"
             className="w-full border p-3 rounded-xl focus:ring-2 focus:ring-black outline-none"
             required
           />
@@ -90,6 +92,7 @@ export default function UserFormDialog({open,onClose,onSubmit,initialData,})
             placeholder={initialData ? "New Password (leave blank to keep current)" : "Password"}
             value={form.password}
             onChange={handleChange}
+            autoComplete="new-password"
             className="w-full border p-3 rounded-xl focus:ring-2 focus:ring-black outline-none"
             required={!initialData}
           />
@@ -112,7 +115,6 @@ export default function UserFormDialog({open,onClose,onSubmit,initialData,})
               value={form.site_id}
               onChange={handleChange}
               className="w-full border p-3 rounded-xl focus:ring-2 focus:ring-black outline-none"
-              required
             >
               <option value="">Select Site</option>
               {sites.map((site) => (

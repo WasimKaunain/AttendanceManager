@@ -11,21 +11,31 @@ export default function AttendanceFilters({
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         
         {/* Date */}
-        <div>
-          <label className="text-xs text-slate-500 block mb-1">
-            Date
-          </label>
-          <input
-            type="date"
-            value={filters.date || ""}
-            onChange={(e) =>
-              setFilters({
-                ...filters,
-                date: e.target.value,
-              })
-            }
-            className="w-full border rounded p-2"
-          />
+        <div className="grid md:grid-cols-2 gap-4">
+          <div>
+            <label className="text-sm text-slate-600">From Date</label>
+            <input
+              type="date"
+              value={filters.start_date}
+              onChange={(e) =>
+                setFilters({ ...filters, start_date: e.target.value })
+              }
+              className="w-full mt-1 border rounded-lg px-3 py-2"
+            />
+          </div>
+            
+          <div>
+            <label className="text-sm text-slate-600">To Date</label>
+            <input
+              type="date"
+              value={filters.end_date}
+              min={filters.start_date || undefined}
+              onChange={(e) =>
+                setFilters({ ...filters, end_date: e.target.value })
+              }
+              className="w-full mt-1 border rounded-lg px-3 py-2"
+            />
+          </div>
         </div>
 
         {/* Project */}

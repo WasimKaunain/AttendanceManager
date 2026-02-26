@@ -15,8 +15,10 @@ import api from "@/core/api/axios";
 
 export default function AttendancePage() {
   const navigate = useNavigate();
+
   const [filters, setFilters] = useState({
-  date: "",
+  start_date: "",
+  end_date: "",
   project_id: "",
   site_id: "",
   search: "",
@@ -49,8 +51,25 @@ export default function AttendancePage() {
 
 const filtered = useMemo(() => {
   return (attendanceQuery.data || []).filter((r) => {
-    if (filters.date && r.date !== filters.date)
-      return false;
+      if (filters.start_date && filters.end_date) {
+        const start = new Date(filters.start_date);
+        const end = new Date(filters.end_date);
+        
+      // If invalid range, return empty result safely
+      if (end < start) {return false;}
+        }
+
+    if (filters.start_date) {
+      if (new Date(r.date) < new Date(filters.start_date)) {
+        return false;
+      }
+    }
+
+    if (filters.end_date) {
+      if (new Date(r.date) > new Date(filters.end_date)) {
+        return false;
+      }
+    }
 
     if (
       filters.site_id &&
@@ -99,6 +118,7 @@ const filtered = useMemo(() => {
       render: (r) =>
         format(new Date(r.date), "MMM d, yyyy"),
     },
+
     {
       key: "check_in_time",
       label: "Check In",

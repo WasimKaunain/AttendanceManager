@@ -11,7 +11,7 @@ class Project(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String, nullable=False)
-    code = Column(String, unique=True, nullable=False)
+    code = Column(String, unique=True)
     description = Column(String)
     client_name = Column(String)
     status = Column(String, default="active")  # inactive, completed, terminated

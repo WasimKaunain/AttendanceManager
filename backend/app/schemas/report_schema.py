@@ -9,9 +9,9 @@ class ReportType(str, Enum):
     projects = "projects"
     sites = "sites"
     workers = "workers"
-    attendance = "attendance"
+    attendance_sitewise = "attendance_sitewise"
+    attendance_workerwise = "attendance_workerwise"
     shifts = "shifts"
-
 
 class ReportFormat(str, Enum):
     excel = "excel"

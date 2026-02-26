@@ -336,7 +336,7 @@ def check_out(
     permanent_path = save_compressed_attendance_image(
         temp_path=temp_path,
         worker_name=worker.full_name,
-        mode="Checkin"
+        mode="Checkout"
     )
     
     # delete temp
@@ -345,14 +345,14 @@ def check_out(
     # 5️⃣ Create attendance record
     record = AttendanceRecord(
         worker_id=worker_id,
-        check_in_site_id=site.id,
+        check_out_site_id=site.id,
         project_id=site.project_id,
         date=today,
-        check_in_time=datetime.utcnow(),
-        check_in_lat=latitude,
-        check_in_lng=longitude,
-        check_in_selfie_url=permanent_path,
-        status="checked_in",
+        check_out_time=datetime.utcnow(),
+        check_out_lat=latitude,
+        check_out_lng=longitude,
+        check_out_selfie_url=permanent_path,
+        status="checked_out",
         geofence_valid=True
     )
     db.commit()

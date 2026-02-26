@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from app.api import auth, projects, sites, workers, attendance, shifts, dashboard, audit_logs, geocode, users, mobile
+from app.api import auth, projects, sites, workers, attendance, shifts, dashboard, audit_logs, geocode, users, mobile, reports
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import os
@@ -35,6 +35,7 @@ app.include_router(audit_logs.router)
 app.include_router(geocode.router)  
 app.include_router(users.router)  
 app.include_router(mobile.router)
+app.include_router(reports.router)
 
 @app.get("/")
 def health():

@@ -30,9 +30,9 @@ def get_db():
 # ------------------------------
 @router.get("/stats")
 def get_dashboard_stats(db: Session = Depends(get_db)):
-    active_projects = db.query(Project).count()
-    active_sites = db.query(Site).count()
-    total_workers = db.query(Worker).count()
+    active_projects = db.query(Project).filter(Project.status == 'active').count()
+    active_sites = db.query(Site).filter(Site.status == 'active').count()
+    total_workers = db.query(Worker).filter(Worker.status == 'active').count()
 
     today = date.today()
 
