@@ -12,18 +12,14 @@ BASE_ATTENDANCE_DIR = "daily_attendance_images"
 #     return "".join(c for c in name if c.isalnum() or c in (" ", "_")).rstrip()
 
 
-def save_compressed_attendance_image(
-    temp_path: str,
-    worker_id: str,
-    mode: str  # "Checkin" or "Checkout"
-) -> str:
+def save_compressed_attendance_image(temp_path: str,worker_name: str,mode: str)  # "Checkin" or "Checkout") -> str:
 
     # 1️⃣ Generate timestamp filename
     timestamp = datetime.utcnow().strftime("%Y-%m-%d_%H-%M-%S")
 
     object_key = (
         f"Attendance Images/"
-        f"{worker_id}/"
+        f"{worker_name}/"
         f"{mode}/"
         f"{timestamp}.jpg"
     )

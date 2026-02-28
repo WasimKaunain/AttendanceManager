@@ -17,5 +17,5 @@ def is_within_geofence(lat1: float, lon1: float,lat2: float, lon2: float,radius_
 
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
     distance = R * c
-
+    print(f"distance : {distance}")
     return distance <= radius_m
