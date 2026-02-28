@@ -1,8 +1,6 @@
 from fastapi import FastAPI
 from app.api import auth, projects, sites, workers, attendance, shifts, dashboard, audit_logs, geocode, users, mobile, reports
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-import os
 app = FastAPI(title="Attendance Manager API")
 
 app.add_middleware(
@@ -18,12 +16,6 @@ app.add_middleware(
 )
 
 
-
-
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
-
-app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 app.include_router(auth.router)
 app.include_router(projects.router)
 app.include_router(sites.router)
