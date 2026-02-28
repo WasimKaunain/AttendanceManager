@@ -116,40 +116,24 @@ def verify_geofence(data: LocationRequest,user=Depends(require_site_manager),db:
     site_id = user.get("site_id")
 
     if not site_id:
-        return GeofenceResponse(
-            inside=False,
-            site_id=None,
-            site_name=None
-        )
+        return GeofenceResponse(inside=False,site_id=None,site_name=None)
 
     site = db.query(Site).filter(Site.id == site_id).first()
+    print(f"Site name : {site.name}")
 
     if not site:
-        return GeofenceResponse(
-            inside=False,
-            site_id=None,
-            site_name=None
-        )
+        return GeofenceResponse(inside=False,site_id=None,site_name=None)
 
-    distance = calculate_distance(
-        data.latitude,
-        data.longitude,
-        site.latitude,
-        site.longitude
-    )
+    distance = calculate_distance(data.latitude,data.longitude,site.latitude,site.longitude)
+    print(f"Site longitude : {site.longitude}")
+    print(f"Site latitude : {site.latitude}")
+    print(f"User longitude : {data.longitude}")
+    print(f"User longitude : {data.longitude}")
 
     if distance <= site.geofence_radius:
-        return GeofenceResponse(
-            inside=True,
-            site_id=site.id,
-            site_name=site.name
-        )
+        return GeofenceResponse(inside=True,site_id=site.id,site_name=site.name)
 
-    return GeofenceResponse(
-        inside=False,
-        site_id=site.id,
-        site_name=site.name
-    )
+    return GeofenceResponse(inside=False,site_id=site.id,site_name=site.name)
 
 # ===================== CHECK-IN =====================
 
@@ -172,6 +156,7 @@ def check_in(
     site = db.query(Site).filter(Site.id == site_id).first()
     if not site:
         raise HTTPException(400, "Invalid site")
+    print(f"Valid site and Site name : {site.name}")
 
     existing = db.query(AttendanceRecord).filter(AttendanceRecord.worker_id == worker_id,AttendanceRecord.date == today).first()
 

@@ -1,11 +1,7 @@
 import math
 
 
-def is_within_geofence(
-    lat1: float, lon1: float,
-    lat2: float, lon2: float,
-    radius_m: float
-) -> bool:
+def is_within_geofence(lat1: float, lon1: float,lat2: float, lon2: float,radius_m: float) -> bool:
     R = 6371000  # Earth radius in meters
 
     phi1 = math.radians(lat1)
