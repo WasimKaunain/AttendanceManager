@@ -4,7 +4,7 @@ from sqlalchemy import or_
 from app.db.session import SessionLocal
 from app.services.audit_service import log_action
 from app.services.geofence import is_within_geofence
-from app.services.face_service import is_same_person
+from app.services.face_service import is_same_person, cosine_similarity
 import uuid, shutil, math, os, json
 from datetime import datetime, date
 from app.models.worker import Worker
@@ -13,6 +13,7 @@ from app.models.attendance import AttendanceRecord
 from app.core.dependencies import require_site_manager
 from app.schemas.mobile import (MobileWorkerResponse,LocationRequest,GeofenceResponse,FaceEnrollResponse,MobileAttendanceResponse,EmbeddingPayload)
 from app.services.image_service import save_compressed_attendance_image
+from app.services.r2 import  upload_file_to_r2
 
 router = APIRouter(prefix="/mobile", tags=["Mobile"])
 
@@ -27,10 +28,6 @@ def get_db():
 # --------------------------------------------------
 # ENROLL FACE
 # --------------------------------------------------
-
-UPLOAD_DIR = "uploads/enrolled_faces"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-
 
 @router.post("/enroll-face/{worker_id}", response_model=FaceEnrollResponse)
 def enroll_face(
@@ -52,14 +49,13 @@ def enroll_face(
         raise HTTPException(status_code=404, detail="Worker not found")
 
     # Save enrolled image
-    filename = f"{worker.id}.jpg"
-    file_path = os.path.join(UPLOAD_DIR, filename)
-    
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(photo.file, buffer)
+    file_bytes = photo.file.read()
+    object_key = f"Enrolled Faces/{worker.id}.jpg"
+
+    upload_file_to_r2(file_bytes=file_bytes,object_key=object_key,content_type="image/jpeg")
     
     worker.face_embedding = payload.embedding
-    worker.photo_url = f"enrolled_faces/{filename}"
+    worker.photo_url = object_key
 
     db.commit()
 
@@ -115,11 +111,8 @@ def calculate_distance(lat1, lon1, lat2, lon2):
 
 
 @router.post("/verify-geofence", response_model=GeofenceResponse)
-def verify_geofence(
-    data: LocationRequest,
-    user=Depends(require_site_manager),
-    db: Session = Depends(get_db)
-):
+def verify_geofence(data: LocationRequest,user=Depends(require_site_manager),db: Session = Depends(get_db)):
+
     site_id = user.get("site_id")
 
     if not site_id:
@@ -180,10 +173,7 @@ def check_in(
     if not site:
         raise HTTPException(400, "Invalid site")
 
-    existing = db.query(AttendanceRecord).filter(
-        AttendanceRecord.worker_id == worker_id,
-        AttendanceRecord.date == today
-    ).first()
+    existing = db.query(AttendanceRecord).filter(AttendanceRecord.worker_id == worker_id,AttendanceRecord.date == today).first()
 
     if existing:
         raise HTTPException(400, "Already checked in today")
@@ -210,6 +200,9 @@ def check_in(
     if not is_same_person(payload.embedding, worker.face_embedding):
         os.remove(temp_path)
         raise HTTPException(403, "Face verification failed")
+    similarity = cosine_similarity(payload.embedding, worker.face_embedding)
+    print("Similarity:", similarity)
+
 
     # 3️⃣ Geofence validation
     if not is_within_geofence(
@@ -225,7 +218,7 @@ def check_in(
     # 4️⃣ Save compressed to structured folder
     permanent_path = save_compressed_attendance_image(
         temp_path=temp_path,
-        worker_name=worker.full_name,
+        worker_name=worker.id,
         mode="Checkin"
     )
 
@@ -285,10 +278,7 @@ def check_out(
         raise HTTPException(400, "Invalid site")
 
     # 2️⃣ Fetch attendance record
-    record = db.query(AttendanceRecord).filter(
-        AttendanceRecord.worker_id == worker_id,
-        AttendanceRecord.date == today
-    ).first()
+    record = db.query(AttendanceRecord).filter(AttendanceRecord.worker_id == worker_id,AttendanceRecord.date == today).first()
 
     if not record or not record.check_in_time:
         raise HTTPException(400, "No check-in found")
@@ -320,7 +310,7 @@ def check_out(
     if not is_same_person(payload.embedding, worker.face_embedding):
         os.remove(temp_path)
         raise HTTPException(403, "Face verification failed")
-
+    
     # 6️⃣ Geofence validation
     if not is_within_geofence(
         latitude,
@@ -335,26 +325,22 @@ def check_out(
     # 4️⃣ Save compressed to structured folder
     permanent_path = save_compressed_attendance_image(
         temp_path=temp_path,
-        worker_name=worker.full_name,
+        worker_name=worker.id,
         mode="Checkout"
     )
     
     # delete temp
     os.remove(temp_path)
     
-    # 5️⃣ Create attendance record
-    record = AttendanceRecord(
-        worker_id=worker_id,
-        check_out_site_id=site.id,
-        project_id=site.project_id,
-        date=today,
-        check_out_time=datetime.utcnow(),
-        check_out_lat=latitude,
-        check_out_lng=longitude,
-        check_out_selfie_url=permanent_path,
-        status="checked_out",
-        geofence_valid=True
-    )
+    # 5️⃣ Update attendance record
+    record.check_out_site_id = site.id
+    record.check_out_time = datetime.utcnow()
+    record.check_out_lat = latitude
+    record.check_out_lng = longitude
+    record.check_out_selfie_url = permanent_path
+    record.status = "checked_out"
+    record.geofence_valid = True
+
     db.commit()
     db.refresh(record)
 

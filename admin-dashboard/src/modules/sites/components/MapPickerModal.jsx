@@ -18,23 +18,21 @@ export default function MapPickerModal({ open, onClose, onConfirm }) {
   // Reverse Geocoding (Backend API)
   // -----------------------------------
   const fetchAddress = async (lat, lng) => {
-    try {
-      const res = await fetch(
-        `http://127.0.0.1:8000/geocode/reverse?lat=${lat}&lon=${lng}`
-      );
-
-      const data = await res.json();
-      setAddress(data.display_name || "");
-    } catch (err) {
-      console.error("Reverse geocode error:", err);
-    }
+    try 
+        {
+          const res = await fetch(`http://127.0.0.1:8000/geocode/reverse?lat=${lat}&lon=${lng}`);
+        
+          const data = await res.json();
+          setAddress(data.display_name || "");
+        } 
+    catch (err) 
+        {
+          console.error("Reverse geocode error:", err);
+        }
   };
 
   const getCurrentLocation = () => {
-  if (!navigator.geolocation) {
-    alert("Geolocation not supported by your browser");
-    return;
-  }
+  if (!navigator.geolocation) {alert("Geolocation not supported by your browser");return;}
 
   navigator.geolocation.getCurrentPosition(
     (position) => {
@@ -59,73 +57,67 @@ export default function MapPickerModal({ open, onClose, onConfirm }) {
   // -----------------------------------
   // Auto Suggestions via Backend
   // -----------------------------------
-  useEffect(() => {
-    if (search.length < 3) {
-      setSuggestions([]);
-      return;
-    }
+  useEffect(() => 
+    {
+    if (search.length < 3) { setSuggestions([]); return;}
 
-    const timeout = setTimeout(async () => {
-      try {
-        const res = await fetch(
-          `http://127.0.0.1:8000/geocode/search?q=${encodeURIComponent(search)}`
-        );
+    const timeout = setTimeout(async () => 
+      {
+      try 
+          {
+            const res = await fetch(`http://127.0.0.1:8000/geocode/search?q=${encodeURIComponent(search)}`);
+          
+            const data = await res.json();
+            setSuggestions(data);
+          } 
+      catch (err) 
+          {
+            console.error("Search error:", err);
+          }
+      }, 500);
 
-        const data = await res.json();
-        setSuggestions(data);
-      } catch (err) {
-        console.error("Search error:", err);
-      }
-    }, 500);
-
-    return () => clearTimeout(timeout);
-  }, [search]);
+      return () => clearTimeout(timeout);
+    }, [search]);
 
   // -----------------------------------
   // Fly To Location
   // -----------------------------------
-  const FlyToLocation = ({ position }) => {
+  const FlyToLocation = ({ position }) => 
+    {
     const map = useMap();
 
-    useEffect(() => {
-      if (position) {
-        map.flyTo([position.lat, position.lng], 16, {
-          duration: 1.2,
-        });
-      }
-    }, [position]);
+    useEffect(() => 
+      {
+        if (position) {map.flyTo([position.lat, position.lng], 16, {duration: 1.2,});}
+      }, [position]);
 
-    return null;
-  };
+      return null;
+    };
 
   // -----------------------------------
   // Resize Map on Expand
   // -----------------------------------
-  const ResizeMap = ({ expanded }) => {
+  const ResizeMap = ({ expanded }) => 
+    {
     const map = useMap();
 
-    useEffect(() => {
-      setTimeout(() => {
-        map.invalidateSize();
-      }, 200);
-    }, [expanded]);
+    useEffect(() => 
+      {
+        setTimeout(() => {map.invalidateSize();}, 200);
+      }, [expanded]);
 
     return null;
-  };
+    };
 
   // -----------------------------------
   // Click To Select Location
   // -----------------------------------
-  const LocationMarker = () => {
-    useMapEvents({
-      click(e) {
-        setPosition(e.latlng);
-        fetchAddress(e.latlng.lat, e.latlng.lng);
-      },
-    });
+  const LocationMarker = () => 
+    {
+    useMapEvents({ click(e) {setPosition(e.latlng);fetchAddress(e.latlng.lat, e.latlng.lng);},});
 
     return position ? <Marker position={position} /> : null;
-  };
+    };
 
   return (
     <div

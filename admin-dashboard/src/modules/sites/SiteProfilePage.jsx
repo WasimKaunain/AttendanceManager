@@ -1,7 +1,6 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
-import api from "@/core/api/axios";
+import { useSiteProfile } from "./hooks";
 import DashboardLayout from "@/layout/DashboardLayout";
 import { ArrowLeft, Trash2, Pencil } from "lucide-react";
 import SiteFormDialog from "./components/SiteFormDialog";
@@ -15,7 +14,6 @@ import {LineChart,Line,XAxis,YAxis,Tooltip,CartesianGrid,ResponsiveContainer,} f
 export default function SiteProfilePage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
 
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [tab, setTab] = useState("overview");
@@ -26,54 +24,35 @@ export default function SiteProfilePage() {
   const [endDate, setEndDate] = useState("");
 
   // -----------------------------
-  // Fetch Site
-  // -----------------------------
-  const { data: site } = useQuery({
-    queryKey: ["site", id],
-    queryFn: async () => (await api.get(`/sites/${id}`)).data,
-  });
+// Site Profile Hook
+// -----------------------------
+const {
+  siteQuery,
+  workersQuery,
+  attendanceQuery,
+  archiveMutation,
+  toggleMutation,
+  updateMutation
+} = useSiteProfile(id, {
+  tab,
+  worker_id: selectedWorker || undefined,
+  start_date: startDate || undefined,
+  end_date: endDate || undefined,
+});
 
-  // -----------------------------
-  // Fetch Workers
-  // -----------------------------
-  const { data: workers = [] } = useQuery({
-    queryKey: ["workers"],
-    queryFn: async () => (await api.get("/workers/")).data,
-  });
+// Extract Data
+const site = siteQuery.data;
+const workers = workersQuery.data || [];
+const attendance = attendanceQuery.data || [];
+const isLoading = attendanceQuery.isLoading;
 
-  const siteWorkers = workers.filter((w) => w.site_id === id);
-
-  // -----------------------------
-  // Fetch Attendance (Filtered)
-  // -----------------------------
-  const {
-    data: attendance = [], isLoading} = useQuery({
-    queryKey: [
-      "site-attendance",
-      id,
-      selectedWorker,
-      startDate,
-      endDate,
-    ],
-    queryFn: async () => {
-      const res = await api.get("/attendance", {
-        params: {
-          site_id: id,
-          worker_id: selectedWorker || undefined,
-          start_date: startDate || undefined,
-          end_date: endDate || undefined,
-        },
-      });
-      return res.data;
-    },
-    enabled: tab === "attendance",
-  });
+// Filter workers of this site
+const siteWorkers = workers.filter((w) => w.site_id === id);
 
   // -----------------------------
   // Analytics Aggregation
   // -----------------------------
-  const analyticsData = useMemo(() => {
-    const map = {};
+  const analyticsData = useMemo(() => {const map = {};
 
     attendance.forEach((a) => {
       if (!map[a.date]) {
@@ -88,30 +67,6 @@ export default function SiteProfilePage() {
     }));
   }, [attendance]);
 
-  // -----------------------------
-  // Archive
-  // -----------------------------
-  const archiveMutation = useMutation({
-    mutationFn: async (payload) =>
-      api.patch(`/sites/${id}/archive`, payload),
-    onSuccess: () => {
-      queryClient.invalidateQueries(["site", id]);
-      queryClient.invalidateQueries(["sites"]);
-      navigate("/sites");
-    },
-  });
-
-  // -----------------------------
-  // Toggle Status (Worker Style)
-  // -----------------------------
-  const toggleMutation = useMutation({
-    mutationFn: async () =>
-      api.patch(`/sites/${id}`, {
-        status: site.status === "active" ? "inactive" : "active",
-      }),
-    onSuccess: () =>
-      queryClient.invalidateQueries(["site", id]),
-  });
 
   if (!site) return <DashboardLayout>Loading...</DashboardLayout>;
 
@@ -386,12 +341,7 @@ export default function SiteProfilePage() {
         initialData={site}
         onClose={() => setEditOpen(false)}
         projects={[]}
-        onSubmit={(data) => {
-          api.patch(`/sites/${id}`, data).then(() => {
-            queryClient.invalidateQueries(["site", id]);
-            setEditOpen(false);
-          });
-        }}
+        onSubmit={(data) => { updateMutation.mutate( { id, data },{onSuccess: () => {setEditOpen(false);},} ); }}
       />
 
       <DangerousDialog
