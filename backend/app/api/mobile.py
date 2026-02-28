@@ -128,7 +128,7 @@ def verify_geofence(data: LocationRequest,user=Depends(require_site_manager),db:
     print(f"Site longitude : {site.longitude}")
     print(f"Site latitude : {site.latitude}")
     print(f"User longitude : {data.longitude}")
-    print(f"User longitude : {data.longitude}")
+    print(f"User latitude : {data.latitude}")
 
     if distance <= site.geofence_radius:
         return GeofenceResponse(inside=True,site_id=site.id,site_name=site.name)
