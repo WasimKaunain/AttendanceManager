@@ -77,7 +77,7 @@ def get_workers(
     user=Depends(require_site_manager),
     db: Session = Depends(get_db)
 ):
-    query = db.query(Worker)
+    query = db.query(Worker).filter(Worker.status == 'active')
 
     if search:
         query = query.filter(
