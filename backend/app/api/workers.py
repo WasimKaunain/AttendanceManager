@@ -9,6 +9,7 @@ from app.models.attendance import AttendanceRecord
 from app.schemas.worker import WorkerCreate, WorkerResponse, WorkerUpdate, ActionResponse, ForceDeleteRequest, ArchiveRequest
 from app.core.dependencies import require_admin
 from app.services.audit_service import log_action
+from app.services.r2 import generate_presigned_download_url
 
 router = APIRouter(prefix="/workers", tags=["Workers"])
 
@@ -95,7 +96,9 @@ def delete_worker(worker_id: str, db: Session = Depends(get_db)):
 # --------------------------------------------------
 # LIST WORKERS
 # --------------------------------------------------
-@router.get("/", dependencies=[Depends(require_admin)])
+
+
+@router.get("/", response_model=list[WorkerResponse], dependencies=[Depends(require_admin)])
 def list_workers(
     include_deleted: bool = False,
     project_id: str | None = None,
@@ -113,7 +116,15 @@ def list_workers(
     if site_id:
         query = query.filter(Worker.site_id == site_id)
 
-    return query.all()
+    workers = query.all()
+
+    for w in workers:
+        if w.photo_url:
+            w.photo_signed_url = generate_presigned_download_url(w.photo_url)
+        else:
+            w.photo_signed_url = None
+
+    return workers
 
 
 # --------------------------------------------------
@@ -265,3 +276,14 @@ def force_delete_worker(worker_id: str,payload: ForceDeleteRequest,db: Session =
     )
 
     return {"message": "Worker permanently deleted"}
+
+@router.get("/{worker_id}/photo")
+def get_worker_photo(worker_id: str, db: Session = Depends(get_db)):
+    worker = db.query(Worker).filter(Worker.id == worker_id).first()
+
+    if not worker or not worker.photo_url:
+        raise HTTPException(404, "Photo not found")
+
+    url = generate_presigned_download_url(worker.photo_url)
+
+    return {"url": url}

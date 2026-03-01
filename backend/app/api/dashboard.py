@@ -28,6 +28,7 @@ def get_db():
 # ------------------------------
 # Dashboard Stats
 # ------------------------------
+
 @router.get("/stats")
 def get_dashboard_stats(db: Session = Depends(get_db)):
     active_projects = db.query(Project).filter(Project.status == 'active').count()
@@ -36,49 +37,62 @@ def get_dashboard_stats(db: Session = Depends(get_db)):
 
     today = date.today()
 
-    # Present today
-    present_today = (
-        db.query(AttendanceRecord)
-        .filter(
+    # GLOBAL PRESENT (for top number)
+    present_today = (db.query(AttendanceRecord).filter(AttendanceRecord.date == today,AttendanceRecord.check_in_time.isnot(None)).count())
+
+    # ---------------------------
+    # SITE-WISE STATUS
+    # ---------------------------
+    site_status_list = []
+
+    active_sites_list = db.query(Site).filter(Site.status == "active").all()
+
+    for site in active_sites_list:
+
+        # Total active workers in that site
+        site_workers = db.query(Worker).filter(
+            Worker.site_id == site.id,
+            Worker.status == "active"
+        ).count()
+
+        # Present
+        present = db.query(AttendanceRecord).filter(
             AttendanceRecord.date == today,
+            AttendanceRecord.check_in_site_id == site.id,
             AttendanceRecord.check_in_time.isnot(None)
-        )
-        .count()
-    )
+        ).count()
 
-    # Late today
-    late_count = (
-        db.query(AttendanceRecord)
-        .filter(
+        # Late
+        late = db.query(AttendanceRecord).filter(
             AttendanceRecord.date == today,
+            AttendanceRecord.check_in_site_id == site.id,
             AttendanceRecord.is_late == True
-        )
-        .count()
-    )
+        ).count()
 
-    # Leave today (assuming status == "leave")
-    leave_count = (
-        db.query(AttendanceRecord)
-        .filter(
+        # Leave
+        leave = db.query(AttendanceRecord).filter(
             AttendanceRecord.date == today,
+            AttendanceRecord.check_in_site_id == site.id,
             AttendanceRecord.status == "leave"
-        )
-        .count()
-    )
+        ).count()
 
-    absent_count = total_workers - present_today - leave_count
+        absent = max(site_workers - present - leave, 0)
+
+        site_status_list.append({
+            "site_id": str(site.id),
+            "site_name": site.name,
+            "present": present,
+            "absent": absent,
+            "late": late,
+            "leave": leave
+        })
 
     return {
         "activeProjects": active_projects,
         "activeSites": active_sites,
         "totalWorkers": total_workers,
         "presentToday": present_today,
-        "todayStatus": {
-            "present": present_today,
-            "absent": max(absent_count, 0),
-            "late": late_count,
-            "leave": leave_count
-        }
+        "todayStatus": site_status_list
     }
 
 

@@ -51,48 +51,51 @@ export default function AttendancePage() {
 
 const filtered = useMemo(() => {
   return (attendanceQuery.data || []).filter((r) => {
-      if (filters.start_date && filters.end_date) {
-        const start = new Date(filters.start_date);
-        const end = new Date(filters.end_date);
-        
-      // If invalid range, return empty result safely
-      if (end < start) {return false;}
-        }
 
+    // DATE FILTER
     if (filters.start_date) {
-      if (new Date(r.date) < new Date(filters.start_date)) {
-        return false;
-      }
+      const recordDate = new Date(r.date + "T00:00:00");
+      const startDate = new Date(filters.start_date + "T00:00:00");
+      if (recordDate < startDate) return false;
     }
 
     if (filters.end_date) {
-      if (new Date(r.date) > new Date(filters.end_date)) {
-        return false;
-      }
+      const recordDate = new Date(r.date + "T00:00:00");
+      const endDate = new Date(filters.end_date + "T23:59:59");
+      if (recordDate > endDate) return false;
     }
 
-    if (filters.site_id &&r.check_in_site_id !== filters.site_id &&r.check_out_site_id !== filters.site_id) 
-      {
+    // SITE FILTER
+    if (
+      filters.site_id &&
+      r.check_in_site_id !== filters.site_id &&
+      r.check_out_site_id !== filters.site_id
+    ) {
       return false;
     }
 
+    // PROJECT FILTER
     if (filters.project_id) {
-      const site =
-        sites.find((s) => s.id === r.check_in_site_id) ||
-        sites.find((s) => s.id === r.check_out_site_id);
-    
-      if (site?.project_id !== filters.project_id) {
+      const site = sites.find(
+        (s) =>
+          s.id === r.check_in_site_id ||
+          s.id === r.check_out_site_id
+      );
+
+      if (!site || site.project_id !== filters.project_id) {
         return false;
       }
     }
 
+    // SEARCH FILTER
     if (
       filters.search &&
       !workerMap[r.worker_id]
         ?.toLowerCase()
         .includes(filters.search.toLowerCase())
-    )
+    ) {
       return false;
+    }
 
     return true;
   });
@@ -270,81 +273,97 @@ const filtered = useMemo(() => {
           ))}
         </div>
 
-        {selectedRecord && (
-          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-            <div className="bg-white w-[600px] rounded-3xl p-8 shadow-2xl relative">
-                
-              <button
-                onClick={() => setSelectedRecord(null)}
-                className="absolute top-4 right-4 text-slate-500"
-              >
-                ✕
-              </button>
-                
-              <h2 className="text-xl font-bold mb-6">
-                Attendance Details
-              </h2>
-                
-              <div className="space-y-3 text-sm">
-                
-                <p><strong>Worker:</strong> {workerMap[selectedRecord.worker_id]}</p>
-                
-                <p><strong>Date:</strong> {format(new Date(selectedRecord.date), "PPP")}</p>
-                
-                <p><strong>Status:</strong> {selectedRecord.status}</p>
-                
-                <p><strong>Check-in Time:</strong> {
-                  selectedRecord.check_in_time
-                    ? format(new Date(selectedRecord.check_in_time), "HH:mm")
-                    : "—"
-                }</p>
-        
-                <p><strong>Check-out Time:</strong> {
-                  selectedRecord.check_out_time
-                    ? format(new Date(selectedRecord.check_out_time), "HH:mm")
-                    : "—"
-                }</p>
-        
-                <p><strong>Check-in Location:</strong> {
-                  selectedRecord.check_in_lat
-                }, {selectedRecord.check_in_lng}</p>
-        
-                <p><strong>Check-out Location:</strong> {
-                  selectedRecord.check_out_lat || "—"
-                }, {selectedRecord.check_out_lng || "—"}</p>
-        
-                <p><strong>Total Hours:</strong> {selectedRecord.total_hours || 0}</p>
-              
-                <p><strong>Overtime:</strong> {selectedRecord.overtime_hours || 0}</p>
-              
-                <p><strong>Geofence Valid:</strong> {
-                  selectedRecord.geofence_valid ? "Yes" : "No"
-                }</p>
-        
-                {selectedRecord.check_in_selfie_url && (
-                  <div>
-                    <p className="font-semibold mt-4">Check-in Selfie</p>
-                    <img
-                      src={selectedRecord.check_in_selfie_url}
-                      className="rounded-xl mt-2"
-                    />
-                  </div>
-                )}
-        
-                {selectedRecord.check_out_selfie_url && (
-                  <div>
-                    <p className="font-semibold mt-4">Check-out Selfie</p>
-                    <img
-                      src={selectedRecord.check_out_selfie_url}
-                      className="rounded-xl mt-2"
-                    />
-                  </div>
-                )}
-        
-              </div>
-            </div>
-          </div>
-        )}
+{selectedRecord && (
+  <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center z-[1000]">
+
+    {/* 3D CARD */}
+    <div className="relative w-[720px] max-h-[90vh] overflow-y-auto 
+                    rounded-3xl bg-white/70 backdrop-blur-2xl 
+                    border border-white/40 shadow-[0_25px_60px_rgba(0,0,0,0.25)]
+                    p-8 animate-[fadeIn_.25s_ease]">
+
+      {/* CLOSE BUTTON */}
+      <button
+        onClick={() => setSelectedRecord(null)}
+        className="absolute top-5 right-5 w-10 h-10 rounded-full 
+                   bg-gradient-to-br from-red-400 to-red-600 
+                   text-white font-bold shadow-lg 
+                   hover:scale-110 hover:rotate-90 
+                   transition-all duration-300"
+      >
+        ✕
+      </button>
+
+      {/* HEADER */}
+      <div className="mb-6">
+        <h2 className="text-2xl font-bold text-slate-800">
+          Attendance Details
+        </h2>
+        <p className="text-sm text-slate-500">
+          Complete record overview
+        </p>
+      </div>
+
+      {/* GROUP 1 — WORKER INFO */}
+      <div className="bg-white/60 rounded-2xl p-5 shadow-inner border mb-6">
+        <h3 className="font-semibold text-slate-700 mb-3">
+          Worker Information
+        </h3>
+        <div className="grid grid-cols-2 gap-3 text-sm">
+          <p><strong>Name:</strong> {workerMap[selectedRecord.worker_id]}</p>
+          <p><strong>Status:</strong> {selectedRecord.status}</p>
+          <p><strong>Date:</strong> {format(new Date(selectedRecord.date), "PPP")}</p>
+          <p><strong>Geofence:</strong> {selectedRecord.geofence_valid ? "Valid" : "Outside"}</p>
+        </div>
+      </div>
+
+      {/* GROUP 2 — TIME DETAILS */}
+      <div className="bg-white/60 rounded-2xl p-5 shadow-inner border mb-6">
+        <h3 className="font-semibold text-slate-700 mb-3">
+          Time Details
+        </h3>
+        <div className="grid grid-cols-2 gap-3 text-sm">
+          <p>
+            <strong>Check-in:</strong>{" "}
+            {selectedRecord.check_in_time
+              ? format(new Date(selectedRecord.check_in_time), "HH:mm")
+              : "—"}
+          </p>
+
+          <p>
+            <strong>Check-out:</strong>{" "}
+            {selectedRecord.check_out_time
+              ? format(new Date(selectedRecord.check_out_time), "HH:mm")
+              : "—"}
+          </p>
+
+          <p><strong>Total Hours:</strong> {selectedRecord.total_hours || 0}</p>
+          <p><strong>Overtime:</strong> {selectedRecord.overtime_hours || 0}</p>
+          <p><strong>Is Late: </strong>{selectedRecord.is_late || "false"}</p>
+        </div>
+      </div>
+
+      {/* GROUP 3 — LOCATION DETAILS */}
+      <div className="bg-white/60 rounded-2xl p-5 shadow-inner border mb-6">
+        <h3 className="font-semibold text-slate-700 mb-3">
+          Location Details
+        </h3>
+        <div className="grid grid-cols-2 gap-3 text-sm">
+          <p>
+            <strong>Check-in Site:</strong><br/>
+            {siteMap[selectedRecord.check_in_site_id] || "-"}
+          </p>
+
+          <p>
+            <strong>Check-out Site:</strong><br/>
+            {siteMap[selectedRecord.check_out_site_id] || "-"}
+          </p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+)}
     </div>
     </DashboardLayout>
   );

@@ -24,6 +24,17 @@ export default function WorkerProfilePage() {
     queryFn: async () => (await api.get(`/workers/${id}`)).data,
   });
 
+  // ------------------
+  // FETCH WORKET PHOTO
+  //-------------------
+
+  const { data: photoData } = useQuery({
+  queryKey: ["worker-photo", id],
+  queryFn: async () =>
+    (await api.get(`/workers/${id}/photo`)).data,
+  enabled: !!worker?.photo_url,
+    });
+
   // -------------------------
   // Fetch Projects & Sites (for name mapping)
   // -------------------------
@@ -136,7 +147,7 @@ const toggleMutation = useMutation({
                 ${worker.status === "active" ? "active-glow" : ""}`}>
                 {worker.photo_url ? (
                   <img
-                    src={`${import.meta.env.VITE_API_BASE_URL}/uploads/${worker.photo_url}`}
+                    src={photoData?.url}
                     alt="profile"
                     className="w-40 h-40 rounded-full object-cover border-[5px] border-white shadow-2xl ring-4 ring-pink-400/40"
                   />

@@ -126,23 +126,6 @@ export default function WorkersPage() {
         </span>
       ),
     },
-
-    {
-      key: "photo",
-      label: "Face",
-      render: (r) =>
-        r.photo_url ? (
-          <img
-            src={`/uploads/${r.photo_url}`}
-            alt="Face"
-            className="w-10 h-10 rounded-full object-cover"
-          />
-        ) : (
-          <span className="text-xs text-slate-400">
-            Not Enrolled
-          </span>
-        ),
-    },
     ];
 
   // -------------------------
@@ -226,18 +209,7 @@ export default function WorkersPage() {
                   <div className="flex justify-between items-center">
               
                     {/* LEFT SIDE */}
-                    <div className="flex items-center gap-4">
-              
-                      {w.photo_url ? (
-                        <img
-                          src={`/uploads/${w.photo_url}`}
-                          className="w-14 h-14 rounded-full object-cover border"
-                        />
-                      ) : (
-                        <div className="w-14 h-14 rounded-full bg-slate-200 flex items-center justify-center text-xs text-slate-500">
-                          No Face
-                        </div>
-                      )}
+                    <div>
             
                       <div>
                         <h2 className="text-lg font-bold text-slate-800">

@@ -58,7 +58,7 @@ export default function DashboardPage() {
             icon={MapPin}
           />
           <StatCard
-            title="Total Workers"
+            title="Active Workers"
             value={stats.totalWorkers}
             icon={Users}
           />

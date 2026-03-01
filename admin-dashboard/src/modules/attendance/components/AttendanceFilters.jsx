@@ -8,7 +8,7 @@ export default function AttendanceFilters({
 
   return (
     <div className="bg-white p-5 rounded-xl shadow-sm border mb-6">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end ">
         
         {/* Date */}
         <div className="grid md:grid-cols-2 gap-4">
@@ -36,31 +36,6 @@ export default function AttendanceFilters({
               className="w-full mt-1 border rounded-lg px-3 py-2"
             />
           </div>
-        </div>
-
-        {/* Project */}
-        <div>
-          <label className="text-xs text-slate-500 block mb-1">
-            Project
-          </label>
-          <select
-            value={filters.project_id || ""}
-            onChange={(e) =>
-              setFilters({
-                ...filters,
-                project_id: e.target.value,
-                site_id: "",
-              })
-            }
-            className="w-full border rounded p-2"
-          >
-            <option value="">All Projects</option>
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
         </div>
 
         {/* Site */}

@@ -71,12 +71,12 @@ class WorkerResponse(ORMBase, WorkerBase):
     id: str
     joining_date: date
     photo_url: Optional[str] = None
+    photo_signed_url: Optional[str] = None  # 👈 ADD THIS
 
-    #Soft delete schema fields
+    # Soft delete schema fields
     is_deleted: bool
     deleted_at: Optional[datetime] = None
     deleted_by: Optional[str] = None
-
 
 class ArchiveRequest(BaseModel):
     reason: str = Field(..., min_length=5)
