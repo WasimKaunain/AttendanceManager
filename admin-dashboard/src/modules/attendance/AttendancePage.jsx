@@ -15,7 +15,7 @@ import api from "@/core/api/axios";
 
 export default function AttendancePage() {
   const navigate = useNavigate();
-
+  const [selectedRecord, setSelectedRecord] = useState(null);
   const [filters, setFilters] = useState({
   start_date: "",
   end_date: "",
@@ -71,18 +71,20 @@ const filtered = useMemo(() => {
       }
     }
 
-    if (
-      filters.site_id &&
-      r.site_id !== filters.site_id
-    )
+    if (filters.site_id &&r.check_in_site_id !== filters.site_id &&r.check_out_site_id !== filters.site_id) 
+      {
       return false;
+    }
 
-    if (
-      filters.project_id &&
-      sites.find((s) => s.id === r.site_id)
-        ?.project_id !== filters.project_id
-    )
-      return false;
+    if (filters.project_id) {
+      const site =
+        sites.find((s) => s.id === r.check_in_site_id) ||
+        sites.find((s) => s.id === r.check_out_site_id);
+    
+      if (site?.project_id !== filters.project_id) {
+        return false;
+      }
+    }
 
     if (
       filters.search &&
@@ -191,6 +193,7 @@ const filtered = useMemo(() => {
           {filtered.map((r) => (
             <div
               key={r.id}
+              onClick={() => setSelectedRecord(r)}
               className="cursor-pointer backdrop-blur-xl bg-white/60 
                          border border-white/40 
                          shadow-xl rounded-3xl p-6 
@@ -222,7 +225,7 @@ const filtered = useMemo(() => {
                   </div>
                       
                   <p className="text-sm text-slate-500">
-                    {siteMap[r.site_id] || "—"}
+                    {siteMap[r.check_out_site_id || r.check_in_site_id] || "—"}
                   </p>
                       
                   <p className="text-sm text-slate-500">
@@ -266,6 +269,82 @@ const filtered = useMemo(() => {
             </div>
           ))}
         </div>
+
+        {selectedRecord && (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+            <div className="bg-white w-[600px] rounded-3xl p-8 shadow-2xl relative">
+                
+              <button
+                onClick={() => setSelectedRecord(null)}
+                className="absolute top-4 right-4 text-slate-500"
+              >
+                ✕
+              </button>
+                
+              <h2 className="text-xl font-bold mb-6">
+                Attendance Details
+              </h2>
+                
+              <div className="space-y-3 text-sm">
+                
+                <p><strong>Worker:</strong> {workerMap[selectedRecord.worker_id]}</p>
+                
+                <p><strong>Date:</strong> {format(new Date(selectedRecord.date), "PPP")}</p>
+                
+                <p><strong>Status:</strong> {selectedRecord.status}</p>
+                
+                <p><strong>Check-in Time:</strong> {
+                  selectedRecord.check_in_time
+                    ? format(new Date(selectedRecord.check_in_time), "HH:mm")
+                    : "—"
+                }</p>
+        
+                <p><strong>Check-out Time:</strong> {
+                  selectedRecord.check_out_time
+                    ? format(new Date(selectedRecord.check_out_time), "HH:mm")
+                    : "—"
+                }</p>
+        
+                <p><strong>Check-in Location:</strong> {
+                  selectedRecord.check_in_lat
+                }, {selectedRecord.check_in_lng}</p>
+        
+                <p><strong>Check-out Location:</strong> {
+                  selectedRecord.check_out_lat || "—"
+                }, {selectedRecord.check_out_lng || "—"}</p>
+        
+                <p><strong>Total Hours:</strong> {selectedRecord.total_hours || 0}</p>
+              
+                <p><strong>Overtime:</strong> {selectedRecord.overtime_hours || 0}</p>
+              
+                <p><strong>Geofence Valid:</strong> {
+                  selectedRecord.geofence_valid ? "Yes" : "No"
+                }</p>
+        
+                {selectedRecord.check_in_selfie_url && (
+                  <div>
+                    <p className="font-semibold mt-4">Check-in Selfie</p>
+                    <img
+                      src={selectedRecord.check_in_selfie_url}
+                      className="rounded-xl mt-2"
+                    />
+                  </div>
+                )}
+        
+                {selectedRecord.check_out_selfie_url && (
+                  <div>
+                    <p className="font-semibold mt-4">Check-out Selfie</p>
+                    <img
+                      src={selectedRecord.check_out_selfie_url}
+                      className="rounded-xl mt-2"
+                    />
+                  </div>
+                )}
+        
+              </div>
+            </div>
+          </div>
+        )}
     </div>
     </DashboardLayout>
   );
