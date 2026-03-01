@@ -246,78 +246,107 @@ def check_out(
     worker_id: str = Form(...),
     latitude: float = Form(...),
     longitude: float = Form(...),
-    embedding: str = Form(...),  # JSON string
+    embedding: str = Form(...),
     photo: UploadFile = File(...),
     user=Depends(require_site_manager),
     db: Session = Depends(get_db)
 ):
-    today = date.today()
+    print("---- CHECKOUT DEBUG START ----")
+    print("Worker ID:", worker_id)
+    print("Latitude:", latitude, "Longitude:", longitude)
 
-    # 1️⃣ Get site from logged-in manager
+    today = date.today()
+    print("Today:", today)
+
     site_id = user.get("site_id")
+    print("Manager site_id:", site_id)
+
     if not site_id:
+        print("FAIL: Site not assigned")
         raise HTTPException(403, "Site not assigned")
 
     site = db.query(Site).filter(Site.id == site_id).first()
     if not site:
+        print("FAIL: Invalid site")
         raise HTTPException(400, "Invalid site")
 
-    # 2️⃣ Fetch attendance record
-    record = db.query(AttendanceRecord).filter(AttendanceRecord.worker_id == worker_id,AttendanceRecord.date == today).first()
+    print("Site Name:", site.name)
+
+    record = db.query(AttendanceRecord).filter(
+        AttendanceRecord.worker_id == worker_id,
+        AttendanceRecord.date == today
+    ).first()
+
+    print("Attendance record found:", bool(record))
 
     if not record or not record.check_in_time:
+        print("FAIL: No check-in found")
         raise HTTPException(400, "No check-in found")
 
     if record.check_out_time:
+        print("FAIL: Already checked out")
         raise HTTPException(400, "Already checked out")
 
-    # 3️⃣ Validate worker & face enrollment
     worker = db.query(Worker).filter(Worker.id == worker_id).first()
-    if not worker or not worker.face_embedding:
+    if not worker:
+        print("FAIL: Worker not found")
+        raise HTTPException(400, "Worker not found")
+
+    if not worker.face_embedding:
+        print("FAIL: Face not enrolled")
         raise HTTPException(400, "Worker face not enrolled")
 
-    # 4️⃣ Save temporarily
+    print("Worker face embedding exists")
+
     temp_path = f"/tmp/{uuid.uuid4()}.jpg"
     with open(temp_path, "wb") as buffer:
         shutil.copyfileobj(photo.file, buffer)
 
-    # 5️⃣ Extract face embedding
     try:
         embedding_list = json.loads(embedding)
         payload = EmbeddingPayload(embedding=embedding_list)
-    except:
+    except Exception as e:
+        print("FAIL: Invalid embedding format", e)
         raise HTTPException(400, "Invalid embedding format")
 
     if not payload.embedding:
         os.remove(temp_path)
+        print("FAIL: No face detected in payload")
         raise HTTPException(400, "No face detected")
+
+    similarity = cosine_similarity(payload.embedding, worker.face_embedding)
+    print("Similarity score:", similarity)
 
     if not is_same_person(payload.embedding, worker.face_embedding):
         os.remove(temp_path)
+        print("FAIL: Face verification failed")
         raise HTTPException(403, "Face verification failed")
-    
-    # 6️⃣ Geofence validation
-    if not is_within_geofence(
+
+    inside = is_within_geofence(
         latitude,
         longitude,
         site.latitude,
         site.longitude,
         site.geofence_radius
-    ):
+    )
+
+    print("Geofence result:", inside)
+
+    if not inside:
         os.remove(temp_path)
+        print("FAIL: Outside geofence")
         raise HTTPException(403, "Outside geofence")
 
-    # 4️⃣ Save compressed to structured folder
+    print("PASS: Face + Geofence valid")
+
     permanent_path = save_compressed_attendance_image(
         temp_path=temp_path,
         worker_name=worker.id,
         mode="Checkout"
     )
-    
-    # delete temp
+
     os.remove(temp_path)
-    
-    # 5️⃣ Update attendance record
+
     record.check_out_site_id = site.id
     record.check_out_time = datetime.utcnow()
     record.check_out_lat = latitude
@@ -329,12 +358,7 @@ def check_out(
     db.commit()
     db.refresh(record)
 
-    log_action(
-        db=db,
-        action="check_out",
-        entity_type="attendance",
-        entity_id=str(record.id),
-        details=f"Worker {worker_id} checked out (mobile)"
-    )
+    print("Checkout successful")
+    print("---- CHECKOUT DEBUG END ----")
 
     return record
