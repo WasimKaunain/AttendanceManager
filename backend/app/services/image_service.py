@@ -1,41 +1,43 @@
-# app/services/image_service.py
-
-import os
-from io import BytesIO
 from datetime import datetime
 from PIL import Image
+from io import BytesIO
 from app.services.r2 import upload_file_to_r2
-BASE_ATTENDANCE_DIR = "daily_attendance_images"
+import re
 
+def save_compressed_attendance_image(temp_path: str,site_name: str,worker_id: str,mode: str) -> str: # "Checkin" or "Checkout"
 
-# def sanitize_folder_name(name: str) -> str:
-#     return "".join(c for c in name if c.isalnum() or c in (" ", "_")).rstrip()
-
-
-def save_compressed_attendance_image(temp_path: str,worker_name: str,mode: str) -> str: # "Checkin" or "Checkout") 
-
-    # 1️⃣ Generate timestamp filename
+    # 1️⃣ Generate timestamp
     timestamp = datetime.utcnow().strftime("%Y-%m-%d_%H-%M-%S")
 
-    object_key = (
-        f"Attendance Images/"
-        f"{worker_name}/"
-        f"{mode}/"
-        f"{timestamp}.jpg"
-    )
+    # 2️⃣ Create new structured key
+    object_key = (f"{site_name}/"f"{worker_id}/"f"Attendance Images/"f"{mode}/"f"{timestamp}.jpg")
 
-    # 2️⃣ Open and compress image
+    # 3️⃣ Open and compress image
     img = Image.open(temp_path)
     img = img.convert("RGB")
     img.thumbnail((640, 640))
 
-    # 3️⃣ Save to memory buffer instead of disk
     buffer = BytesIO()
-    img.save(buffer,format="JPEG",quality=60,optimize=True)
-
+    img.save(buffer, format="JPEG", quality=60, optimize=True)
     buffer.seek(0)
 
-    # 4️⃣ Upload compressed image to R2
-    upload_file_to_r2(file_bytes=buffer.getvalue(),object_key=object_key,content_type="image/jpeg")
+    # 4️⃣ Upload to R2
+    upload_file_to_r2(
+        file_bytes=buffer.getvalue(),
+        object_key=object_key,
+        content_type="image/jpeg"
+    )
 
     return object_key
+
+def format_site_folder(site_name: str) -> str:
+    # Remove leading/trailing spaces
+    name = site_name.strip()
+
+    # Replace spaces with underscore
+    name = name.replace(" ", "_")
+
+    # Remove special characters except underscore and dash
+    name = re.sub(r"[^a-zA-Z0-9_-]", "", name)
+
+    return name

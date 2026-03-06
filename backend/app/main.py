@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from app.api import auth, projects, sites, workers, attendance, shifts, dashboard, audit_logs, geocode, users, mobile, reports
+from app.api import auth, projects, sites, workers, attendance, shifts, dashboard, audit_logs, geocode, users, mobile, reports, media_repository
 from fastapi.middleware.cors import CORSMiddleware
 app = FastAPI(title="Attendance Manager API")
 
@@ -28,6 +28,7 @@ app.include_router(geocode.router)
 app.include_router(users.router)  
 app.include_router(mobile.router)
 app.include_router(reports.router)
+app.include_router(media_repository.router)
 
 @app.get("/")
 def health():

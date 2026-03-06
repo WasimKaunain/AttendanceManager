@@ -14,6 +14,7 @@ import Reports from "../modules/reports/ReportsPage";
 import Users from "../modules/users/UsersPage";
 import AdministrationPage from "../modules/administration/AdministrationPage";
 import DataManagementPage from "../modules/data_management/DataManagementPage";
+import MediaRepositoryPage from "../modules/media_repository/MediaRepositoryPage";
 import ProtectedRoute from "../core/auth/ProtectedRoute";
 
 export default function App() {
@@ -145,6 +146,15 @@ export default function App() {
           element={
             <ProtectedRoute roles={["admin"]}>
               <DataManagementPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/media-repository"
+          element={
+            <ProtectedRoute roles={["admin"]}>
+              <MediaRepositoryPage />
             </ProtectedRoute>
           }
         />

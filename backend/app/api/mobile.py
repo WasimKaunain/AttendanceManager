@@ -12,7 +12,7 @@ from app.models.site import Site
 from app.models.attendance import AttendanceRecord
 from app.core.dependencies import require_site_manager
 from app.schemas.mobile import (MobileWorkerResponse,LocationRequest,GeofenceResponse,FaceEnrollResponse,MobileAttendanceResponse,EmbeddingPayload)
-from app.services.image_service import save_compressed_attendance_image
+from app.services.image_service import save_compressed_attendance_image, format_site_folder
 from app.services.r2 import  upload_file_to_r2
 
 router = APIRouter(prefix="/mobile", tags=["Mobile"])
@@ -47,10 +47,13 @@ def enroll_face(
 
     if not worker:
         raise HTTPException(status_code=404, detail="Worker not found")
+    
+    site = db.query(Site).filter(Site.id == worker.site_id).first()
+    site_folder = format_site_folder(site.name)
 
     # Save enrolled image
     file_bytes = photo.file.read()
-    object_key = f"Enrolled Faces/{worker.id}.jpg"
+    object_key = f"{site_folder}/{worker.id}/Assets/profile.jpg"
 
     upload_file_to_r2(file_bytes=file_bytes,object_key=object_key,content_type="image/jpeg")
     
@@ -125,10 +128,10 @@ def verify_geofence(data: LocationRequest,user=Depends(require_site_manager),db:
         return GeofenceResponse(inside=False,site_id=None,site_name=None)
 
     distance = calculate_distance(data.latitude,data.longitude,site.latitude,site.longitude)
-    print(f"Site longitude : {site.longitude}")
-    print(f"Site latitude : {site.latitude}")
-    print(f"User longitude : {data.longitude}")
-    print(f"User latitude : {data.latitude}")
+    # print(f"Site longitude : {site.longitude}")
+    # print(f"Site latitude : {site.latitude}")
+    # print(f"User longitude : {data.longitude}")
+    # print(f"User latitude : {data.latitude}")
 
     if distance <= site.geofence_radius:
         return GeofenceResponse(inside=True,site_id=site.id,site_name=site.name)
@@ -190,22 +193,15 @@ def check_in(
 
 
     # 3️⃣ Geofence validation
-    if not is_within_geofence(
-        latitude,
-        longitude,
-        site.latitude,
-        site.longitude,
-        site.geofence_radius
-    ):
+    if not is_within_geofence(latitude,longitude,site.latitude,site.longitude,site.geofence_radius):
         os.remove(temp_path)
         raise HTTPException(403, "Outside geofence")
+    
+    site = db.query(Site).filter(Site.id == worker.site_id).first()
+    site_folder = format_site_folder(site.name) 
 
     # 4️⃣ Save compressed to structured folder
-    permanent_path = save_compressed_attendance_image(
-        temp_path=temp_path,
-        worker_name=worker.id,
-        mode="Checkin"
-    )
+    permanent_path = save_compressed_attendance_image(temp_path=temp_path,site_name=site_folder,worker_id=worker.id,mode="Checkin")
 
     # delete temp
     os.remove(temp_path)
@@ -339,11 +335,11 @@ def check_out(
 
     print("PASS: Face + Geofence valid")
 
-    permanent_path = save_compressed_attendance_image(
-        temp_path=temp_path,
-        worker_name=worker.id,
-        mode="Checkout"
-    )
+
+    site = db.query(Site).filter(Site.id == worker.site_id).first()
+    site_folder = format_site_folder(site.name) 
+
+    permanent_path = save_compressed_attendance_image(temp_path=temp_path,site_name=site_folder,worker_id=worker.id,mode="Checkout")
 
     os.remove(temp_path)
 

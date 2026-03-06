@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import DashboardLayout from "@/layout/DashboardLayout";
 import PageHeader from "@/shared/components/PageHeader";
-import { Users, Database, FileText } from "lucide-react";
+import { Users, Database, FileText, FolderOpen } from "lucide-react";
 import { useState } from "react";
 
 export default function AdministrationPage() {
@@ -41,7 +41,7 @@ export default function AdministrationPage() {
           subtitle="System control and privileged operations"
         />
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8">
 
           <AdminCard
             title="User Management"
@@ -62,6 +62,13 @@ export default function AdministrationPage() {
             description="View system activity and security logs"
             icon={FileText}
             onClick={() => navigate("/audit-logs")}
+          />
+
+          <AdminCard
+            title="Media Repository"
+            description="Browse attendance images and worker assets"
+            icon={FolderOpen}
+            onClick={() => navigate("/media-repository")}
           />
 
         </div>
