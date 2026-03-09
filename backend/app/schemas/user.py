@@ -8,6 +8,7 @@ from app.schemas.base import ORMBase
 # Base Schema
 # =========================
 class UserBase(BaseModel):
+    employee_name: Optional[str] = None  # Human-readable name; username stores the employee ID
     username: str
     role: str
     site_id: Optional[UUID] = None
@@ -25,6 +26,7 @@ class UserCreate(UserBase):
 # Update User
 # =========================
 class UserUpdate(BaseModel):
+    employee_name: Optional[str] = None
     username: Optional[str] = None
     role: Optional[str] = None
     site_id: Optional[UUID] = None

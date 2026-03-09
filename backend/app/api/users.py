@@ -35,6 +35,7 @@ def create_user(data: UserCreate,db: Session = Depends(get_db),_: dict = Depends
         raise HTTPException(status_code=400, detail="Username already exists")
 
     new_user = User(
+        employee_name=data.employee_name,
         username=data.username,
         password_hash=hash_password(data.password),
         role=data.role.lower(),
@@ -63,6 +64,9 @@ def update_user(user_id: UUID,data: UserUpdate,db: Session = Depends(get_db),_: 
 
     if data.username:
         user.username = data.username
+
+    if data.employee_name is not None:
+        user.employee_name = data.employee_name
 
     if data.role:
         user.role = data.role.lower()
