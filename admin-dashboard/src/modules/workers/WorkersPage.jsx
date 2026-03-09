@@ -258,17 +258,12 @@ export default function WorkersPage() {
         }}
         projects={projects}
         sites={sites}
-        onSubmit={(data) => {
-          if (editingWorker) {
-            updateMutation.mutate({
-              id: editingWorker.id,
-              data,
-            });
-          } else {
-            createMutation.mutate(data);
+        onSubmit={async (data) => {
+          try {
+            await createMutation.mutateAsync(data);
+          } catch (err) {
+            throw err; // re-throw so WorkerFormDialog's catch block receives it
           }
-          setDialogOpen(false);
-          setEditingWorker(null);
         }}
       />
     </div>

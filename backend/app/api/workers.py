@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import datetime, date
@@ -28,11 +29,10 @@ def get_db():
 # --------------------------------------------------
 # CREATE WORKER
 # --------------------------------------------------
+
 @router.post("/", response_model=WorkerResponse, dependencies=[Depends(require_admin)])
-def create_worker(
-    data: WorkerCreate,
-    db: Session = Depends(get_db)
-):
+def create_worker(data: WorkerCreate,db: Session = Depends(get_db)):
+
     payload = data.dict()
 
     # Generate Custom Worker ID
@@ -40,7 +40,7 @@ def create_worker(
     last4_id = payload["id_number"][-4:]
     worker_id = f"EMP{last4_mobile}{last4_id}"
 
-    # Prevent ID conflict
+    # Prevent Worker ID conflict
     existing = db.query(Worker).filter(Worker.id == worker_id).first()
     if existing:
         raise HTTPException(
@@ -48,15 +48,42 @@ def create_worker(
             detail="Worker ID conflict. Mobile + ID combination must be unique."
         )
 
-    worker = Worker(
-        id=worker_id,
-        joining_date=date.today(),
-        **payload
-    )
+    # Check duplicate mobile
+    mobile_exists = db.query(Worker).filter(Worker.mobile == payload["mobile"]).first()
+    if mobile_exists:
+        raise HTTPException(
+            status_code=400,
+            detail="This mobile number is already registered."
+        )
 
-    db.add(worker)
-    db.commit()
-    db.refresh(worker)
+    # Check duplicate ID number
+    id_exists = db.query(Worker).filter(Worker.id_number == payload["id_number"]).first()
+    if id_exists:
+        raise HTTPException(
+            status_code=400,
+            detail="This ID number is already registered."
+        )
+
+    try:
+
+        worker = Worker(
+            id=worker_id,
+            joining_date=date.today(),
+            **payload
+        )
+
+        db.add(worker)
+        db.commit()
+        db.refresh(worker)
+
+    except IntegrityError:
+
+        db.rollback()
+
+        raise HTTPException(
+            status_code=400,
+            detail="Database error while creating worker."
+        )
 
     log_action(
         db=db,
@@ -67,7 +94,6 @@ def create_worker(
     )
 
     return worker
-
 
 # --------------------------------------------------
 # DELETE WORKER

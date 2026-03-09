@@ -9,9 +9,9 @@ export const useSites = () =>
 
     const projectsQuery = useQuery({queryKey: ["projects"],queryFn: getProjects,});
 
-    const createMutation = useMutation( {mutationFn: createSite,onSuccess: () =>queryClient.invalidateQueries({ queryKey: ["sites"] }),} );
+    const createMutation = useMutation( {mutationFn: createSite, onSuccess: () => queryClient.invalidateQueries({ queryKey: ["sites"] }), onError: () => {}, } );
 
-    const updateMutation = useMutation( {mutationFn: updateSite,onSuccess: () =>queryClient.invalidateQueries({ queryKey: ["sites"] }),} );
+    const updateMutation = useMutation( {mutationFn: updateSite, onSuccess: () => queryClient.invalidateQueries({ queryKey: ["sites"] }), onError: () => {}, } );
 
     const deleteMutation = useMutation( {mutationFn: deleteSite,onSuccess: () =>queryClient.invalidateQueries({ queryKey: ["sites"] }),} );
 
@@ -32,7 +32,7 @@ export const useSiteProfile = (id, filters) =>
 
     const toggleMutation = useMutation({mutationFn: () => toggleSiteStatus({id,status:siteQuery.data?.status === "active" ? "inactive": "active",}),onSuccess: () =>queryClient.invalidateQueries(["site", id]),});
 
-    const updateMutation = useMutation({mutationFn: updateSite,onSuccess: () => {queryClient.invalidateQueries({ queryKey: ["site", id] });queryClient.invalidateQueries({ queryKey: ["sites"] });},});
+    const updateMutation = useMutation({mutationFn: updateSite, onSuccess: () => {queryClient.invalidateQueries({ queryKey: ["site", id] });queryClient.invalidateQueries({ queryKey: ["sites"] });}, onError: () => {},});
     
     return { siteQuery,workersQuery,attendanceQuery,archiveMutation,toggleMutation,updateMutation,};
   };

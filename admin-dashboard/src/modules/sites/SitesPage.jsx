@@ -35,8 +35,8 @@ export default function SitesPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["sites"] });
-      setDialogOpen(false);
     },
+    onError: () => {}, // ensures mutateAsync re-throws errors to the caller
   });
 
   const statusColors = {
@@ -109,7 +109,13 @@ export default function SitesPage() {
       <SiteFormDialog
         open={dialogOpen}
         onClose={() => setDialogOpen(false)}
-        onSubmit={(form) => createMutation.mutate(form)}
+        onSubmit={async (form) => {
+          try {
+            await createMutation.mutateAsync(form);
+          } catch (err) {
+            throw err;
+          }
+        }}
         projects={projects}
         isSubmitting={createMutation.isPending}
       />

@@ -15,11 +15,14 @@ def search_location(q: str = Query(..., min_length=3)):
         "format": "json",
         "q": q,
         "addressdetails": 1,
-        "limit": 5,
+        "limit": 10,          # more results so remote areas aren't cut off
+        "dedupe": 0,          # include near-duplicate results (helps with villages)
+        "accept-language": "en",  # force English names
     }
 
     headers = {
-        "User-Agent": "attendance-manager-app"
+        "User-Agent": "attendance-manager-app",
+        "Accept-Language": "en",  # English names in response
     }
 
     response = requests.get(url, params=params, headers=headers)
@@ -41,10 +44,12 @@ def reverse_location(lat: float, lon: float):
         "format": "json",
         "lat": lat,
         "lon": lon,
+        "accept-language": "en",  # force English address names
     }
 
     headers = {
-        "User-Agent": "attendance-manager-app"
+        "User-Agent": "attendance-manager-app",
+        "Accept-Language": "en",
     }
 
     response = requests.get(url, params=params, headers=headers)

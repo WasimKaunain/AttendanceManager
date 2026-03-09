@@ -81,6 +81,7 @@ def get_dashboard_stats(db: Session = Depends(get_db)):
         site_status_list.append({
             "site_id": str(site.id),
             "site_name": site.name,
+            "total_workers": site_workers,
             "present": present,
             "absent": absent,
             "late": late,
@@ -104,24 +105,45 @@ def weekly_attendance(db: Session = Depends(get_db)):
     today = date.today()
     week_start = today - timedelta(days=6)
 
-    results = (
+    # Count present (checked-in) per day
+    present_results = (
         db.query(
             AttendanceRecord.date,
             func.count(AttendanceRecord.id)
         )
-        .filter(AttendanceRecord.date >= week_start)
+        .filter(
+            AttendanceRecord.date >= week_start,
+            AttendanceRecord.check_in_time.isnot(None)
+        )
         .group_by(AttendanceRecord.date)
         .all()
     )
 
-    attendance_map = {r[0]: r[1] for r in results}
+    # Count absent per day (status = 'absent')
+    absent_results = (
+        db.query(
+            AttendanceRecord.date,
+            func.count(AttendanceRecord.id)
+        )
+        .filter(
+            AttendanceRecord.date >= week_start,
+            AttendanceRecord.status == "absent"
+        )
+        .group_by(AttendanceRecord.date)
+        .all()
+    )
+
+    present_map = {r[0]: r[1] for r in present_results}
+    absent_map = {r[0]: r[1] for r in absent_results}
 
     response = []
     for i in range(7):
         d = week_start + timedelta(days=i)
         response.append({
-            "date": d.strftime("%a"),
-            "count": attendance_map.get(d, 0)
+            "day": d.strftime("%a"),
+            "date": d.strftime("%d %b"),
+            "present": present_map.get(d, 0),
+            "absent": absent_map.get(d, 0),
         })
 
     return response
@@ -139,15 +161,23 @@ def recent_activity(db: Session = Depends(get_db)):
         .all()
     )
 
-    return [
-        {
-            "workerId": str(r.worker_id),
-           # "siteId": str(r.site_id),
-            "projectId": str(r.project_id),
+    result = []
+    for r in recent:
+        worker = db.query(Worker).filter(Worker.id == r.worker_id).first()
+        site = db.query(Site).filter(Site.id == r.check_in_site_id).first()
+        checkout_site = db.query(Site).filter(Site.id == r.check_out_site_id).first() if r.check_out_site_id else None
+
+        result.append({
+            "worker_name": worker.full_name if worker else "Unknown Worker",
+            "worker_id": str(r.worker_id),
+            "site_name": site.name if site else "Unknown Site",
+            "checkout_site_name": checkout_site.name if checkout_site else None,
             "date": str(r.date),
-            "checkInTime": r.check_in_time.strftime("%H:%M") if r.check_in_time else None,
-            "checkOutTime": r.check_out_time.strftime("%H:%M") if r.check_out_time else None,
-            "status": r.status
-        }
-        for r in recent
-    ]
+            "check_in_time": r.check_in_time.strftime("%I:%M %p") if r.check_in_time else None,
+            "check_out_time": r.check_out_time.strftime("%I:%M %p") if r.check_out_time else None,
+            "status": r.status,
+            "is_late": r.is_late,
+            "total_hours": round(r.total_hours, 1) if r.total_hours else None,
+        })
+
+    return result

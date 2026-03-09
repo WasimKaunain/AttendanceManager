@@ -22,4 +22,8 @@ def get_db():
 def list_attendance(
     db: Session = Depends(get_db)
 ):
-    return db.query(AttendanceRecord).filter(AttendanceRecord.status == "checked_out").order_by(AttendanceRecord.date.desc()).all()
+    return (
+        db.query(AttendanceRecord)
+        .order_by(AttendanceRecord.date.desc(), AttendanceRecord.check_in_time.desc())
+        .all()
+    )

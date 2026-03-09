@@ -23,10 +23,31 @@ def get_db():
 
 @router.post("/", response_model=SiteResponse, dependencies=[Depends(require_admin)])
 def create_site(data: SiteCreate, db: Session = Depends(get_db)):
-    site = Site(**data.dict())
-    db.add(site)
-    db.commit()
-    db.refresh(site)
+    from sqlalchemy.exc import IntegrityError
+
+    # Check duplicate site name within the same project
+    existing = db.query(Site).filter(
+        Site.name == data.name,
+        Site.project_id == data.project_id,
+        Site.is_deleted == False
+    ).first()
+    if existing:
+        raise HTTPException(
+            status_code=400,
+            detail="A site with this name already exists in the selected project."
+        )
+
+    try:
+        site = Site(**data.dict())
+        db.add(site)
+        db.commit()
+        db.refresh(site)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=400,
+            detail="Database error while creating site."
+        )
 
     #audit logging
     log_action(

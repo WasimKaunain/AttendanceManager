@@ -1,6 +1,8 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useSiteProfile } from "./hooks";
+import api from "@/core/api/axios";
 import DashboardLayout from "@/layout/DashboardLayout";
 import { ArrowLeft, Trash2, Pencil } from "lucide-react";
 import SiteFormDialog from "./components/SiteFormDialog";
@@ -45,6 +47,12 @@ const site = siteQuery.data;
 const workers = workersQuery.data || [];
 const attendance = attendanceQuery.data || [];
 const isLoading = attendanceQuery.isLoading;
+
+// Fetch projects for the edit dialog dropdown
+const { data: projects = [] } = useQuery({
+  queryKey: ["projects"],
+  queryFn: async () => (await api.get("/projects/")).data,
+});
 
 // Filter workers of this site
 const siteWorkers = workers.filter((w) => w.site_id === id);
@@ -340,8 +348,14 @@ const siteWorkers = workers.filter((w) => w.site_id === id);
         open={editOpen}
         initialData={site}
         onClose={() => setEditOpen(false)}
-        projects={[]}
-        onSubmit={(data) => { updateMutation.mutate( { id, data },{onSuccess: () => {setEditOpen(false);},} ); }}
+        projects={projects}
+        onSubmit={async (data) => {
+          try {
+            await updateMutation.mutateAsync({ id, data });
+          } catch (err) {
+            throw err;
+          }
+        }}
       />
 
       <DangerousDialog

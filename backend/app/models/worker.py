@@ -10,7 +10,7 @@ class Worker(Base):
     id = Column(String, primary_key=True)  # Custom EMP ID
 
     full_name = Column(String, nullable=False)
-    mobile = Column(String, nullable=False)
+    mobile = Column(String, unique=True,nullable=False)
     id_number = Column(String, unique=True, nullable=False)
 
     joining_date = Column(Date, default=date.today)

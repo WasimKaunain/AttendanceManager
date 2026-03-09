@@ -84,7 +84,14 @@ export default function WorkerProfilePage() {
       navigate("/workers");
     },
   });
-  const updateMutation = useMutation({mutationFn: async ({ id, data }) =>api.patch(`/workers/${id}`, data),});
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }) => api.patch(`/workers/${id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries(["worker", id]);
+      queryClient.invalidateQueries(["workers"]);
+    },
+    onError: () => {}, // ensures mutateAsync re-throws errors to the caller
+  });
 
 
   // -------------------------
@@ -416,16 +423,12 @@ const toggleMutation = useMutation({
       onClose={() => setEditOpen(false)}
       projects={projects}
       sites={sites}
-      onSubmit={(data) => {
-        updateMutation.mutate(
-          { id: worker.id, data },
-          {
-            onSuccess: () => {
-              queryClient.invalidateQueries(["worker", id]);
-              setEditOpen(false);
-            },
-          }
-        );
+      onSubmit={async (data) => {
+        try {
+          await updateMutation.mutateAsync({ id: worker.id, data });
+        } catch (err) {
+          throw err; // re-throw so WorkerFormDialog's catch block receives it
+        }
       }}
     />
 

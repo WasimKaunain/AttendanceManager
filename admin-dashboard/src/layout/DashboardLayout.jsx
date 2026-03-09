@@ -7,10 +7,10 @@ export default function DashboardLayout({ children, theme = "operational" }) {
   const backgroundClass = pageThemes[theme][mode];
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex h-screen overflow-hidden">
       <Sidebar />
       <div
-        className={`flex-1 p-6 transition-all duration-500 ${backgroundClass}`}
+        className={`flex-1 overflow-y-auto transition-all duration-500 ${backgroundClass}`}
       >
         {children}
       </div>

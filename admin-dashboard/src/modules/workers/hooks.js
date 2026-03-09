@@ -3,7 +3,6 @@ import {
   getWorkers,
   createWorker,
   deleteWorker,
-  enrollFace,
 } from "./services";
 
 export const useWorkers = () => {
@@ -18,6 +17,7 @@ export const useWorkers = () => {
     mutationFn: createWorker,
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: ["workers"] }),
+    onError: () => {}, // ensures mutateAsync re-throws the error to the caller
   });
 
   const deleteMutation = useMutation({
@@ -26,14 +26,9 @@ export const useWorkers = () => {
       queryClient.invalidateQueries({ queryKey: ["workers"] }),
   });
 
-  const enrollMutation = useMutation({
-    mutationFn: enrollFace,
-  });
-
   return {
     workersQuery,
     createMutation,
     deleteMutation,
-    enrollMutation,
   };
 };

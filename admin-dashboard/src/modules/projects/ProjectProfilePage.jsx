@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import api from "@/core/api/axios";
 import DashboardLayout from "@/layout/DashboardLayout";
 import DangerousDialog from "@/modules/data_management/components/DangerousActionModal";
+import ProjectFormDialog from "./components/ProjectFormDialog";
 
 export default function ProjectProfilePage() {
 
@@ -65,14 +66,12 @@ export default function ProjectProfilePage() {
 
   // ---------------- PROJECT UPDATE ----------------
   const updateProjectMutation = useMutation({
-    mutationFn: async () => {
-      return await api.put(`/projects/${id}`, form);
-    },
+    mutationFn: async (data) => api.put(`/projects/${id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["project-summary", id] });
       queryClient.invalidateQueries({ queryKey: ["projects"] });
-      setEditOpen(false);
     },
+    onError: () => {},
   });
 
   // ---------------- DELETE PROJECT ----------------
@@ -209,52 +208,18 @@ export default function ProjectProfilePage() {
       </div>
 
       {/* ---------------- EDIT MODAL ---------------- */}
-      {editOpen && form && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl p-6 w-[500px] space-y-4">
-            <h2 className="text-lg font-semibold">Edit Project</h2>
-
-            <input
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              className="w-full border rounded p-2"
-              placeholder="Project Name"
-            />
-
-            <input
-              value={form.code}
-              onChange={(e) => setForm({ ...form, code: e.target.value })}
-              className="w-full border rounded p-2"
-              placeholder="Project Code"
-            />
-
-            <input
-              value={form.client_name || ""}
-              onChange={(e) => setForm({ ...form, client_name: e.target.value })}
-              className="w-full border rounded p-2"
-              placeholder="Client Name"
-            />
-
-            <textarea
-              value={form.description || ""}
-              onChange={(e) => setForm({ ...form, description: e.target.value })}
-              className="w-full border rounded p-2"
-              placeholder="Description"
-            />
-
-            <div className="flex justify-end gap-3">
-              <button onClick={() => setEditOpen(false)}>Cancel</button>
-
-              <button
-                onClick={() => updateProjectMutation.mutate()}
-                className="bg-black text-white px-4 py-2 rounded"
-              >
-                {updateProjectMutation.isPending ? "Saving..." : "Save"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ProjectFormDialog
+        open={editOpen}
+        initialData={form}
+        onClose={() => setEditOpen(false)}
+        onSubmit={async (data) => {
+          try {
+            await updateProjectMutation.mutateAsync(data);
+          } catch (err) {
+            throw err;
+          }
+        }}
+      />
 
       <DangerousDialog
         open={deleteOpen}
