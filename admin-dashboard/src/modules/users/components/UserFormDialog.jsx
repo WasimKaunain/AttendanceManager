@@ -147,17 +147,17 @@ export default function UserFormDialog({ open, onClose, onSubmit, initialData })
 
           {/* ── Employee Name ── */}
           <div>
-            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
+            <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">
               Employee Name
             </label>
             <div className="relative">
               <button
                 type="button"
                 onClick={() => setWorkerDropdownOpen(!workerDropdownOpen)}
-                className="w-full flex items-center gap-2 border p-3 rounded-xl text-left bg-white hover:border-slate-400 transition focus:outline-none focus:ring-2 focus:ring-black"
+                className="w-full flex items-center gap-2 border dark:border-slate-600 p-3 rounded-xl text-left bg-white dark:bg-slate-700 hover:border-slate-400 dark:hover:border-slate-500 transition focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-slate-400"
               >
                 <Search className="w-4 h-4 text-slate-400 shrink-0" />
-                <span className={`flex-1 text-sm truncate ${selectedWorker ? "text-slate-800" : "text-slate-400"}`}>
+                <span className={`flex-1 text-sm truncate ${selectedWorker ? "text-slate-800 dark:text-slate-100" : "text-slate-400 dark:text-slate-500"}`}>
                   {selectedWorker
                     ? `${selectedWorker.full_name} (${selectedWorker.id})`
                     : "Select employee…"}
