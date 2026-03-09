@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { ArrowLeft, FileSpreadsheet, FileText } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { FileSpreadsheet, FileText } from "lucide-react";
 import DashboardLayout from "@/layout/DashboardLayout";
 import ReportTabs from "./components/ReportTabs";
 import FilterPanel from "./components/FilterPanel";
@@ -11,7 +10,6 @@ export default function ReportsPage() {
   const [activeTab, setActiveTab] = useState("projects");
   const [filters, setFilters] = useState({});
   const [format, setFormat] = useState("excel");
-  const navigate = useNavigate();
   const { downloadReport, loading } = useReports();
   const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -81,15 +79,6 @@ const handleGenerate = () => {
   return (
     <DashboardLayout theme="reports">
       <div className="p-8 min-h-screen space-y-8 ">
-
-        {/* Back */}
-        <button
-          onClick={() => navigate(-1)}
-          className="flex items-center gap-2 text-sm text-slate-600 hover:text-black"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back
-        </button>
 
         {/* Header */}
         <PageHeader

@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import DashboardLayout from "@/layout/DashboardLayout";
 import PageHeader from "@/shared/components/PageHeader";
 import FolderCard from "./components/FolderCard";
@@ -9,14 +10,15 @@ import { useMedia } from "./hooks";
 import { deleteMedia } from "./services";
 import { useQuery } from "@tanstack/react-query";
 import api from "@/core/api/axios";
-import { Search, ChevronDown, X } from "lucide-react";
+import { Search, ChevronDown, X, ArrowLeft } from "lucide-react";
 
 export default function MediaRepositoryPage() {
   const [prefix, setPrefix] = useState("");
-  const [search, setSearch] = useState("");          // actual search sent to API (worker ID)
-  const [workerSearch, setWorkerSearch] = useState(""); // dropdown filter input
+  const [search, setSearch] = useState("");
+  const [workerSearch, setWorkerSearch] = useState("");
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
+  const navigate = useNavigate();
 
   const { data, loading, loadMore, reload } = useMedia(prefix, search);
 
@@ -58,6 +60,15 @@ export default function MediaRepositoryPage() {
   return (
     <DashboardLayout theme="administration">
       <div className="p-6 space-y-5">
+
+        {/* Back */}
+        <button
+          onClick={() => navigate(-1)}
+          className="flex items-center gap-2 text-sm text-slate-500 hover:text-black"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back
+        </button>
 
         <PageHeader
           title="Media Repository"

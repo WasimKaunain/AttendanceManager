@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
 import DashboardLayout from "@/layout/DashboardLayout";
 import PageHeader from "@/shared/components/PageHeader";
 import DangerousActionModal from "./components/DangerousActionModal";
@@ -17,7 +19,7 @@ export default function DataManagementPage() {
   const [activeTab, setActiveTab] = useState("projects");
   const [selectedItem, setSelectedItem] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
-
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   const { data: archived = [], isLoading } = useQuery({
@@ -44,6 +46,15 @@ export default function DataManagementPage() {
   return (
     <DashboardLayout>
       <div className="p-8 min-h-screen bg-gradient-to-br from-slate-100 via-white to-slate-200 space-y-8">
+
+        {/* Back */}
+        <button
+          onClick={() => navigate(-1)}
+          className="flex items-center gap-2 text-sm text-slate-500 hover:text-black"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back
+        </button>
 
         <PageHeader
           title="Data Management"

@@ -1,12 +1,11 @@
 import { useState, useMemo } from "react";
 import { format } from "date-fns";
-import { Clock, Camera, CheckCircle2, XCircle, ArrowLeft } from "lucide-react";
+import { Clock, Camera, CheckCircle2, XCircle } from "lucide-react";
 
 import DashboardLayout from "@/layout/DashboardLayout";
 import PageHeader from "@/shared/components/PageHeader";
 import { Card, CardContent } from "@/shared/components/Card";
 import DataTable from "@/shared/components/DataTable";
-import { useNavigate } from "react-router-dom";
 import { useAttendance } from "./hooks";
 import AttendanceFilters from "./components/AttendanceFilters";
 import AttendanceSummaryCards from "./components/AttendanceSummaryCards";
@@ -14,7 +13,6 @@ import { useQuery } from "@tanstack/react-query";
 import api from "@/core/api/axios";
 
 export default function AttendancePage() {
-  const navigate = useNavigate();
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [filters, setFilters] = useState({
   start_date: "",
@@ -165,15 +163,6 @@ const filtered = useMemo(() => {
   return (
     <DashboardLayout>
       <div className="p-6 space-y-5">
-
-        {/* Back */}
-        <button
-          onClick={() => navigate(-1)}
-          className="flex items-center gap-2 text-sm text-slate-600 hover:text-black"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back
-        </button>
 
       <PageHeader
         title="Attendance"
