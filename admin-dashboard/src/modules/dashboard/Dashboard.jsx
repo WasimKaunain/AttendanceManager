@@ -22,9 +22,9 @@ function ActivityRow({ item, index }) {
   const hasCheckout = !!item.check_out_time;
 
   return (
-    <div className="flex items-start gap-4 p-4 rounded-2xl bg-white/60 hover:bg-white/80 border border-white/40 transition-all duration-200">
+    <div className="flex items-start gap-4 p-4 rounded-2xl bg-white/60 dark:bg-slate-700/50 hover:bg-white/80 dark:hover:bg-slate-700/70 border border-white/40 dark:border-slate-600/40 transition-all duration-200">
       {/* Index badge */}
-      <div className="w-7 h-7 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
+      <div className="w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-600 text-slate-500 dark:text-slate-300 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
         {index + 1}
       </div>
 
@@ -32,7 +32,7 @@ function ActivityRow({ item, index }) {
       <div className="flex-1 min-w-0">
         {/* Worker name + status badge */}
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="font-semibold text-slate-800 text-sm">{item.worker_name}</span>
+          <span className="font-semibold text-slate-800 dark:text-slate-100 text-sm">{item.worker_name}</span>
           <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${cfg.bg} ${cfg.text}`}>
             {cfg.label}
           </span>
@@ -44,31 +44,31 @@ function ActivityRow({ item, index }) {
         </div>
 
         {/* Site + date */}
-        <p className="text-xs text-slate-500 mt-0.5">
+        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
           📍 {item.site_name}
           {item.checkout_site_name && item.checkout_site_name !== item.site_name && (
-            <span className="text-slate-400"> → {item.checkout_site_name}</span>
+            <span className="text-slate-400 dark:text-slate-500"> → {item.checkout_site_name}</span>
           )}
-          <span className="mx-1.5 text-slate-300">·</span>
+          <span className="mx-1.5 text-slate-300 dark:text-slate-600">·</span>
           {item.date}
         </p>
 
         {/* Check-in / Check-out times */}
         <div className="flex items-center gap-4 mt-1.5 text-xs">
-          <span className="flex items-center gap-1 text-green-600">
+          <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
             <LogIn className="w-3 h-3" />
             {item.check_in_time ?? "—"}
           </span>
           <span className="flex items-center gap-1 text-slate-400">
             <LogOut className="w-3 h-3" />
             {hasCheckout ? (
-              <span className="text-red-500">{item.check_out_time}</span>
+              <span className="text-red-500 dark:text-red-400">{item.check_out_time}</span>
             ) : (
-              <span className="text-slate-400 italic">Not checked out</span>
+              <span className="text-slate-400 dark:text-slate-500 italic">Not checked out</span>
             )}
           </span>
           {item.total_hours != null && (
-            <span className="flex items-center gap-1 text-slate-500">
+            <span className="flex items-center gap-1 text-slate-500 dark:text-slate-400">
               <Clock className="w-3 h-3" />
               {item.total_hours}h
             </span>
@@ -77,7 +77,7 @@ function ActivityRow({ item, index }) {
       </div>
 
       {/* Worker ID chip */}
-      <span className="text-xs text-slate-400 font-mono shrink-0 mt-0.5">{item.worker_id}</span>
+      <span className="text-xs text-slate-400 dark:text-slate-500 font-mono shrink-0 mt-0.5">{item.worker_id}</span>
     </div>
   );
 }
@@ -128,22 +128,22 @@ export default function DashboardPage() {
           <StatCard title="Present Today"   value={stats.presentToday}   icon={UserCheck}    />
         </div>
 
-        {/* MIDDLE SECTION — fixed height so it doesn't push bottom section off screen */}
+        {/* MIDDLE SECTION */}
         <div className="grid grid-cols-3 gap-5 shrink-0">
-          <div className="col-span-2 backdrop-blur-xl bg-white/60 border border-white/40 shadow-xl rounded-3xl p-6">
+          <div className="col-span-2 backdrop-blur-xl bg-white/60 dark:bg-slate-800/60 border border-white/40 dark:border-slate-700/40 shadow-xl rounded-3xl p-6">
             <WeeklyChart data={weeklyData} />
           </div>
-          <div className="backdrop-blur-xl bg-white/60 border border-white/40 shadow-xl rounded-3xl p-6 overflow-hidden">
+          <div className="backdrop-blur-xl bg-white/60 dark:bg-slate-800/60 border border-white/40 dark:border-slate-700/40 shadow-xl rounded-3xl p-6 overflow-hidden">
             <TodayStatus data={stats.todayStatus} />
           </div>
         </div>
 
-        {/* BOTTOM SECTION — flex-1 fills remaining space, list scrolls internally */}
-        <div className="flex-1 min-h-0 backdrop-blur-xl bg-white/60 border border-white/40 shadow-xl rounded-3xl p-6 flex flex-col">
+        {/* BOTTOM SECTION */}
+        <div className="flex-1 min-h-0 backdrop-blur-xl bg-white/60 dark:bg-slate-800/60 border border-white/40 dark:border-slate-700/40 shadow-xl rounded-3xl p-6 flex flex-col">
           <div className="flex justify-between items-center mb-4 shrink-0">
             <div>
-              <h2 className="text-lg font-semibold text-slate-800">Recent Attendance Activity</h2>
-              <p className="text-xs text-slate-400 mt-0.5">Latest 5 check-in/out records across all sites</p>
+              <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Recent Attendance Activity</h2>
+              <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Latest 5 check-in/out records across all sites</p>
             </div>
           </div>
 

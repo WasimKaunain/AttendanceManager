@@ -138,8 +138,8 @@ export default function UserFormDialog({ open, onClose, onSubmit, initialData })
 
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="bg-white p-8 rounded-3xl w-[460px] shadow-2xl max-h-[90vh] overflow-y-auto">
-        <h2 className="text-2xl font-bold mb-6 text-gray-800">
+      <div className="bg-white dark:bg-slate-800 p-8 rounded-3xl w-[460px] shadow-2xl max-h-[90vh] overflow-y-auto">
+        <h2 className="text-2xl font-bold mb-6 text-gray-800 dark:text-slate-100">
           {initialData ? "Edit User" : "Create User"}
         </h2>
 

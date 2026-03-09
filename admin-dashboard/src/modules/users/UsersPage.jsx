@@ -14,13 +14,15 @@ function Toast({ toasts, onDismiss }) {
         <div
           key={t.id}
           className={`flex items-center gap-3 px-4 py-3 rounded-2xl shadow-xl text-sm font-medium pointer-events-auto transition-all duration-300
-            ${t.type === "success" ? "bg-green-50 border border-green-200 text-green-800" : "bg-red-50 border border-red-200 text-red-800"}`}
+            ${t.type === "success"
+              ? "bg-green-50 dark:bg-green-900/80 border border-green-200 dark:border-green-700 text-green-800 dark:text-green-200"
+              : "bg-red-50 dark:bg-red-900/80 border border-red-200 dark:border-red-700 text-red-800 dark:text-red-200"}`}
         >
           {t.type === "success"
             ? <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0" />
             : <XCircle className="w-5 h-5 text-red-500 shrink-0" />}
           <span>{t.message}</span>
-          <button onClick={() => onDismiss(t.id)} className="ml-2 text-slate-400 hover:text-slate-600">
+          <button onClick={() => onDismiss(t.id)} className="ml-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -34,18 +36,18 @@ function DeleteConfirmDialog({ open, onConfirm, onCancel }) {
   if (!open) return null;
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="bg-white rounded-3xl p-8 w-[380px] shadow-2xl text-center">
+      <div className="bg-white dark:bg-slate-800 rounded-3xl p-8 w-[380px] shadow-2xl text-center">
         <div className="flex justify-center mb-4">
-          <div className="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center">
+          <div className="w-14 h-14 bg-red-100 dark:bg-red-900/40 rounded-full flex items-center justify-center">
             <AlertTriangle className="w-7 h-7 text-red-500" />
           </div>
         </div>
-        <h3 className="text-lg font-bold text-gray-800 mb-2">Delete User?</h3>
-        <p className="text-sm text-slate-500 mb-6">This action cannot be undone. The user will be permanently removed.</p>
+        <h3 className="text-lg font-bold text-gray-800 dark:text-slate-100 mb-2">Delete User?</h3>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">This action cannot be undone. The user will be permanently removed.</p>
         <div className="flex gap-3 justify-center">
           <button
             onClick={onCancel}
-            className="px-5 py-2 bg-gray-100 rounded-xl hover:bg-gray-200 transition text-sm font-medium"
+            className="px-5 py-2 bg-gray-100 dark:bg-slate-700 dark:text-slate-200 rounded-xl hover:bg-gray-200 dark:hover:bg-slate-600 transition text-sm font-medium"
           >
             Cancel
           </button>
@@ -120,7 +122,7 @@ export default function UsersPage() {
       {/* Back */}
       <button
         onClick={() => navigate(-1)}
-        className="flex items-center gap-2 text-sm text-slate-500 hover:text-black mb-4"
+        className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 hover:text-black dark:hover:text-white mb-4"
       >
         <ArrowLeft className="w-4 h-4" />
         Back
@@ -142,48 +144,50 @@ export default function UsersPage() {
 
       {/* Content */}
       {loading ? (
-        <p className="text-slate-500">Loading users...</p>
+        <p className="text-slate-500 dark:text-slate-400">Loading users...</p>
       ) : users.length === 0 ? (
-        <p className="text-slate-400 text-center mt-20">No users found.</p>
+        <p className="text-slate-400 dark:text-slate-500 text-center mt-20">No users found.</p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {users.map((user) => (
             <div
               key={user.id}
-              className="bg-white rounded-2xl p-6 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 hover:scale-[1.02]"
+              className="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 hover:scale-[1.02]"
             >
               {/* Employee Name */}
               {user.employee_name && (
-                <p className="text-xs text-slate-400 font-medium mb-0.5 uppercase tracking-wide">
+                <p className="text-xs text-slate-400 dark:text-slate-500 font-medium mb-0.5 uppercase tracking-wide">
                   {user.employee_name}
                 </p>
               )}
               {/* Username */}
-              <h2 className="text-xl font-semibold text-gray-800 mb-2">{user.username}</h2>
+              <h2 className="text-xl font-semibold text-gray-800 dark:text-slate-100 mb-2">{user.username}</h2>
 
               {/* Role Badge */}
               <span className={`inline-block px-3 py-1 text-xs font-medium rounded-full mb-3 ${
-                user.role === "admin" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
+                user.role === "admin"
+                  ? "bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300"
+                  : "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300"
               }`}>
                 {user.role === "admin" ? "Admin" : "Site In-Charge"}
               </span>
 
               {/* Site */}
-              <p className="text-sm text-gray-500 mb-2">
+              <p className="text-sm text-gray-500 dark:text-slate-400 mb-2">
                 <strong>Site:</strong>{" "}
                 {user.site_id ? (sitesMap[user.site_id] || user.site_id) : "Not Assigned"}
               </p>
 
               {/* Status */}
-              <p className="text-sm mb-4">
+              <p className="text-sm dark:text-slate-300 mb-4">
                 <strong>Status:</strong>{" "}
-                <span className={`font-medium ${user.status === "active" ? "text-green-600" : "text-red-500"}`}>
+                <span className={`font-medium ${user.status === "active" ? "text-green-600 dark:text-green-400" : "text-red-500 dark:text-red-400"}`}>
                   {user.status}
                 </span>
               </p>
 
               {/* Actions */}
-              <div className="flex justify-end gap-4 pt-4 border-t">
+              <div className="flex justify-end gap-4 pt-4 border-t dark:border-slate-700">
                 <button
                   onClick={() => { setSelectedUser(user); setOpen(true); }}
                   className="text-blue-600 hover:text-blue-800 transition"
