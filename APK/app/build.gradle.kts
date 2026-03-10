@@ -20,11 +20,16 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // Enable R8 minification + resource shrinking → biggest APK size reduction
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+        }
+        debug {
+            isMinifyEnabled = false
         }
     }
     compileOptions {
@@ -36,6 +41,15 @@ android {
     }
     buildFeatures {
         compose = true
+    }
+
+    // Exclude duplicate META-INF files that cause build conflicts with OkHttp
+    packaging {
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            excludes += "META-INF/INDEX.LIST"
+            excludes += "META-INF/io.netty.versions.properties"
+        }
     }
 }
 
@@ -49,7 +63,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
-    implementation("io.coil-kt:coil-compose:2.6.0")
+    // coil-compose removed — no remote image loading in use yet
     implementation("androidx.navigation:navigation-compose:2.7.7")
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
     implementation("com.squareup.retrofit2:converter-gson:2.9.0")
@@ -61,7 +75,7 @@ dependencies {
     implementation("androidx.camera:camera-view:1.3.4")
     implementation("androidx.compose.material:material-icons-extended")
     implementation("org.tensorflow:tensorflow-lite:2.14.0")
-    implementation("org.tensorflow:tensorflow-lite-support:0.4.4")
+    // tensorflow-lite-support removed — not used in code (~4 MB saving)
     implementation("com.google.mlkit:face-detection:16.1.5")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
 
@@ -72,5 +86,5 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
-
 }
+
