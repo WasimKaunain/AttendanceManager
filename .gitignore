@@ -51,3 +51,36 @@ __pycache__/
 *.pyo
 *.pyd
 structures.txt
+
+# Android
+APK/.gradle/
+APK/local.properties
+APK/.idea/
+APK/build/
+APK/app/build/
+
+# Generated files
+*.apk
+*.aab
+*.ap_
+
+# Gradle
+.gradle
+build/
+
+# Android Studio
+.idea/
+*.iml
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Keystore files
+*.jks
+*.keystore
+
+*local.properties
