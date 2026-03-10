@@ -27,9 +27,16 @@ def require_admin(user=Depends(get_current_user)):
     return user
 
 def require_site_manager(user=Depends(get_current_user)):
-    if user.get("role") != "site_manager":
+    role = user.get("role")
+    if role not in ("site_manager", "admin"):
         raise HTTPException(
-            status_code=403,
+            status_code=status.HTTP_403_FORBIDDEN,
             detail="Site manager access required"
+        )
+    # site_manager must have a site_id assigned
+    if role == "site_manager" and not user.get("site_id"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No site assigned to this account. Contact admin."
         )
     return user

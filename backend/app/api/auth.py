@@ -29,6 +29,12 @@ def login(data: LoginRequest, db: Session = Depends(get_db)):
         "role": user.role,
     }
 
+    # Include display name if available
+    if hasattr(user, "employee_name") and user.employee_name:
+        token_data["name"] = user.employee_name
+    elif hasattr(user, "username"):
+        token_data["name"] = user.username
+
     # Only add site_id if exists
     if hasattr(user, "site_id") and user.site_id:
         token_data["site_id"] = str(user.site_id)
@@ -38,7 +44,7 @@ def login(data: LoginRequest, db: Session = Depends(get_db)):
     return {
         "access_token": token,
         "role": user.role,
-        "site_id": token_data.get("site_id")
+        "site_id": token_data.get("site_id"),
     }
 
 

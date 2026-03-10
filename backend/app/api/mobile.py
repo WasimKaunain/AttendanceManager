@@ -172,7 +172,7 @@ def get_site_recent_activity(
 
 
 # --------------------------------------------------
-# SITE WORKERS (all, with today's attendance status)
+# WORKERS LIST (all workers across all sites, with today's attendance status)
 # --------------------------------------------------
 @router.get("/site-workers")
 def get_site_workers(
@@ -181,14 +181,10 @@ def get_site_workers(
     user=Depends(require_site_manager),
     db: Session = Depends(get_db)
 ):
-    site_id = user.get("site_id")
-    if not site_id:
-        raise HTTPException(403, "Site not assigned")
-
     today = date.today()
 
+    # List ALL workers regardless of site — site incharge can work with any worker
     query = db.query(Worker).filter(
-        Worker.site_id == site_id,
         Worker.is_deleted == False
     )
 
@@ -319,13 +315,18 @@ def enroll_face(
         payload = EmbeddingPayload(embedding=embedding_list)
     except:
         raise HTTPException(400, "Invalid embedding format")
-    
+
+    manager_site_id = user.get("site_id")
+
     worker = db.query(Worker).filter(Worker.id == worker_id).first()
 
     if not worker:
         raise HTTPException(status_code=404, detail="Worker not found")
-    
+
+    # Site incharge can enroll any worker regardless of which site they belong to
     site = db.query(Site).filter(Site.id == worker.site_id).first()
+    if not site:
+        raise HTTPException(status_code=404, detail="Site not found")
     site_folder = format_site_folder(site.name)
 
     # Save enrolled image
@@ -353,10 +354,10 @@ def enroll_face(
 @router.get("/workers", response_model=list[MobileWorkerResponse])
 def get_workers(
     search: str | None = Query(None),
-    site_id: str | None = Query(None),
     user=Depends(require_site_manager),
     db: Session = Depends(get_db)
 ):
+    # List ALL workers across all sites — site incharge can work with any worker
     query = db.query(Worker).filter(Worker.status == 'active')
 
     if search:
@@ -367,9 +368,6 @@ def get_workers(
                 Worker.id.ilike(f"%{search}%")
             )
         )
-
-    if site_id:
-        query = query.filter(Worker.site_id == site_id)
 
     return query.all()
 
@@ -445,7 +443,12 @@ def check_in(
         raise HTTPException(400, "Already checked in today")
 
     worker = db.query(Worker).filter(Worker.id == worker_id).first()
-    if not worker or not worker.face_embedding:
+    if not worker:
+        raise HTTPException(404, "Worker not found")
+
+    # No site ownership check — site incharge can check in any worker regardless of their assigned site
+
+    if not worker.face_embedding:
         raise HTTPException(400, "Worker face not enrolled")
 
     # 1️⃣ Save temporarily
@@ -474,9 +477,9 @@ def check_in(
     if not is_within_geofence(latitude,longitude,site.latitude,site.longitude,site.geofence_radius):
         os.remove(temp_path)
         raise HTTPException(403, "Outside geofence")
-    
-    site = db.query(Site).filter(Site.id == worker.site_id).first()
-    site_folder = format_site_folder(site.name) 
+
+    # Image stored under the check-in site's folder (manager's current site)
+    site_folder = format_site_folder(site.name)
 
     # 4️⃣ Save compressed to structured folder
     permanent_path = save_compressed_attendance_image(temp_path=temp_path,site_name=site_folder,worker_id=worker.id,mode="Checkin")
@@ -566,6 +569,8 @@ def check_out(
         print("FAIL: Worker not found")
         raise HTTPException(400, "Worker not found")
 
+    # No site ownership check — a worker can check out at a different site than where they checked in
+
     if not worker.face_embedding:
         print("FAIL: Face not enrolled")
         raise HTTPException(400, "Worker face not enrolled")
@@ -613,15 +618,14 @@ def check_out(
 
     print("PASS: Face + Geofence valid")
 
-
-    site = db.query(Site).filter(Site.id == worker.site_id).first()
-    site_folder = format_site_folder(site.name) 
+    # Image stored under the check-out site's folder (manager's current site)
+    site_folder = format_site_folder(site.name)
 
     permanent_path = save_compressed_attendance_image(temp_path=temp_path,site_name=site_folder,worker_id=worker.id,mode="Checkout")
 
     os.remove(temp_path)
 
-    record.check_out_site_id = site.id
+    record.check_out_site_id = site.id   # manager's current site — may differ from check-in site
     record.check_out_time = datetime.utcnow()
     record.check_out_lat = latitude
     record.check_out_lng = longitude

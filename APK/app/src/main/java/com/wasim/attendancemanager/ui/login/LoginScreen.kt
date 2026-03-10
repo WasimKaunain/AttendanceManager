@@ -10,11 +10,28 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
+import android.util.Base64
 import android.widget.Toast
 import androidx.compose.ui.platform.LocalContext
 import com.wasim.attendancemanager.data.api.RetrofitInstance
 import com.wasim.attendancemanager.data.model.LoginRequest
 import com.wasim.attendancemanager.data.local.TokenManager
+import org.json.JSONObject
+
+/** Decodes the JWT payload (middle part) and returns it as a JSONObject. */
+private fun decodeJwtPayload(token: String): JSONObject? {
+    return try {
+        val parts = token.split(".")
+        if (parts.size < 2) return null
+        val payloadBytes = Base64.decode(
+            parts[1].replace('-', '+').replace('_', '/'),
+            Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP
+        )
+        JSONObject(String(payloadBytes, Charsets.UTF_8))
+    } catch (e: Exception) {
+        null
+    }
+}
 
 @Composable
 fun LoginScreen(navController: NavController) {
@@ -35,7 +52,7 @@ fun LoginScreen(navController: NavController) {
     ) {
 
         Text(
-            text = "Site Manager Login",
+            text = "Site In-charge Login",
             style = MaterialTheme.typography.headlineMedium
         )
 
@@ -77,14 +94,21 @@ fun LoginScreen(navController: NavController) {
                         if (response.isSuccessful && response.body() != null) {
 
                             val token = response.body()!!.access_token
-                            val role = response.body()!!.role
-                            val siteId = response.body()!!.site_id
 
-                            // Only allow site managers to log in
-                            if (role != "site_manager") {
+                            // Decode role and site_id from JWT payload
+                            val payload = decodeJwtPayload(token)
+                            val role = payload?.optString("role", "") ?: ""
+                            val siteId = payload?.optString("site_id", null)
+
+                            // Debug: log the decoded role
+                            android.util.Log.d("LoginScreen", "JWT payload: $payload")
+                            android.util.Log.d("LoginScreen", "Decoded role: '$role', site_id: '$siteId'")
+
+                            // Only allow site in-charges to log in
+                            if (role != "site_incharge") {
                                 Toast.makeText(
                                     context,
-                                    "Access denied. Only Site Managers can use this app.",
+                                    "Access denied. Role received: '$role'",
                                     Toast.LENGTH_LONG
                                 ).show()
                                 isLoading = false

@@ -57,7 +57,7 @@ class MobileAttendanceResponse(ORMBase):
     check_in_site_id: Optional[UUID] = None
     check_out_site_id: Optional[UUID] = None
 
-    project_id: UUID
+    project_id: Optional[UUID] = None
     date: date
 
     check_in_time: Optional[datetime] = None
