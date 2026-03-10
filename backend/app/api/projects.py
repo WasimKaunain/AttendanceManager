@@ -115,7 +115,7 @@ def project_summary(project_id: str, db: Session = Depends(get_db)):
 
 from datetime import date
 
-@router.put("/{project_id}/status")
+@router.put("/{project_id}/status", dependencies=[Depends(require_admin)])
 def update_project_status(
     project_id: str,
     status: str,
@@ -254,11 +254,6 @@ def archive_project(project_id: str, db: Session = Depends(get_db)):
         Site.project_id == project_id
     ).update({"status": "inactive"})
 
-    # Deactivate all workers
-    db.query(Worker).filter(Worker.project_id == project_id).update({"status": "inactive"})
-
-     # Deactivate all sites
-    db.query(Site).filter(Site.project_id == project_id).update({"status": "inactive"})
 
     # Deactivate all workers
     db.query(Worker).filter(Worker.project_id == project_id).update({"status": "inactive"})

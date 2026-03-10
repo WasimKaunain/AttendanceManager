@@ -46,8 +46,7 @@ interface ApiService {
     /** Used by camera flow (enroll / check-in / check-out) — active workers only */
     @GET("mobile/workers")
     suspend fun getWorkers(
-        @Query("search") search: String? = null,
-        @Query("site_id") siteId: String? = null
+        @Query("search") search: String? = null
     ): Response<List<WorkerResponse>>
 
     /** Full worker list for the Workers tab */

@@ -26,17 +26,34 @@ def require_admin(user=Depends(get_current_user)):
         )
     return user
 
-def require_site_manager(user=Depends(get_current_user)):
+def require_site_incharge(user=Depends(get_current_user)):
+    """Allow only site_incharge role. Admin is intentionally blocked from mobile APIs."""
     role = user.get("role")
-    if role not in ("site_manager", "admin"):
+    if role != "site_incharge":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Site manager access required"
+            detail="Site incharge access required"
         )
-    # site_manager must have a site_id assigned
-    if role == "site_manager" and not user.get("site_id"):
+    # site_incharge must always have a site_id assigned
+    if not user.get("site_id"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="No site assigned to this account. Contact admin."
         )
     return user
+
+
+def get_site_id_or_raise(user: dict) -> str:
+    """Extract site_id from JWT payload; raise 403 if missing.
+    Should never happen for site_incharge (enforced in require_site_incharge),
+    but kept as a safety net.
+    """
+    site_id = user.get("site_id")
+    if not site_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No site assigned to this account."
+        )
+    return site_id
+
+

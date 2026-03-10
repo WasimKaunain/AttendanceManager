@@ -1,33 +1,8 @@
 from uuid import UUID
 from typing import Optional
 from datetime import datetime, date
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from app.schemas.base import ORMBase
-
-
-# -----------------------------
-# Base Location Schema
-# -----------------------------
-class LocationBase(BaseModel):
-    worker_id: str   # if worker ID is custom string (EMPxxxx)
-    site_id: UUID
-
-    latitude: float = Field(..., ge=-90, le=90)
-    longitude: float = Field(..., ge=-180, le=180)
-
-
-# -----------------------------
-# Check In Request
-# -----------------------------
-class CheckInRequest(LocationBase):
-    pass
-
-
-# -----------------------------
-# Check Out Request
-# -----------------------------
-class CheckOutRequest(LocationBase):
-    pass
 
 
 # -----------------------------
@@ -55,3 +30,4 @@ class AttendanceResponse(ORMBase):
     status: str
     is_late: Optional[bool] = None
     geofence_valid: Optional[bool] = None
+

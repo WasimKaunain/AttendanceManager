@@ -115,8 +115,11 @@ def force_delete_site(site_id: UUID,payload: ForceDeleteRequest, db: Session = D
     if payload.confirmation != site.name:
         raise HTTPException(400, "Confirmation text mismatch")
 
-    # Delete attendance linked to site
-    db.query(AttendanceRecord).filter(AttendanceRecord.site_id == site_id).delete()
+    # Delete attendance linked to site (check-in or check-out at this site)
+    db.query(AttendanceRecord).filter(
+        (AttendanceRecord.check_in_site_id == site_id) |
+        (AttendanceRecord.check_out_site_id == site_id)
+    ).delete(synchronize_session=False)
 
     # Delete workers
     db.query(Worker).filter(Worker.site_id == site_id).delete()

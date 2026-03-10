@@ -5,12 +5,12 @@ from app.db.session import SessionLocal
 from app.services.audit_service import log_action
 from app.services.geofence import is_within_geofence
 from app.services.face_service import is_same_person, cosine_similarity
-import uuid, shutil, math, os, json
+import uuid, shutil, os, json
 from datetime import datetime, date, timedelta
 from app.models.worker import Worker
 from app.models.site import Site
 from app.models.attendance import AttendanceRecord
-from app.core.dependencies import require_site_manager
+from app.core.dependencies import require_site_incharge, get_site_id_or_raise
 from app.schemas.mobile import (MobileWorkerResponse,LocationRequest,GeofenceResponse,FaceEnrollResponse,MobileAttendanceResponse,EmbeddingPayload)
 from app.services.image_service import save_compressed_attendance_image, format_site_folder
 from app.services.r2 import upload_file_to_r2
@@ -30,12 +30,10 @@ def get_db():
 # --------------------------------------------------
 @router.get("/dashboard/stats")
 def get_site_dashboard_stats(
-    user=Depends(require_site_manager),
+    user=Depends(require_site_incharge),
     db: Session = Depends(get_db)
 ):
-    site_id = user.get("site_id")
-    if not site_id:
-        raise HTTPException(403, "Site not assigned")
+    site_id = get_site_id_or_raise(user)
 
     today = date.today()
 
@@ -91,12 +89,10 @@ def get_site_dashboard_stats(
 # --------------------------------------------------
 @router.get("/dashboard/weekly")
 def get_site_weekly_attendance(
-    user=Depends(require_site_manager),
+    user=Depends(require_site_incharge),
     db: Session = Depends(get_db)
 ):
-    site_id = user.get("site_id")
-    if not site_id:
-        raise HTTPException(403, "Site not assigned")
+    site_id = get_site_id_or_raise(user)
 
     today = date.today()
     week_start = today - timedelta(days=6)
@@ -140,15 +136,14 @@ def get_site_weekly_attendance(
 # --------------------------------------------------
 @router.get("/dashboard/recent-activity")
 def get_site_recent_activity(
-    user=Depends(require_site_manager),
+    user=Depends(require_site_incharge),
     db: Session = Depends(get_db)
 ):
-    site_id = user.get("site_id")
-    if not site_id:
-        raise HTTPException(403, "Site not assigned")
+    site_id = get_site_id_or_raise(user)
 
     records = (
-        db.query(AttendanceRecord)
+        db.query(AttendanceRecord, Worker)
+        .join(Worker, Worker.id == AttendanceRecord.worker_id)
         .filter(AttendanceRecord.check_in_site_id == site_id)
         .order_by(AttendanceRecord.check_in_time.desc())
         .limit(8)
@@ -156,8 +151,7 @@ def get_site_recent_activity(
     )
 
     result = []
-    for r in records:
-        worker = db.query(Worker).filter(Worker.id == r.worker_id).first()
+    for r, worker in records:
         result.append({
             "worker_id":       r.worker_id,
             "worker_name":     worker.full_name if worker else "Unknown",
@@ -178,7 +172,7 @@ def get_site_recent_activity(
 def get_site_workers(
     search: str | None = Query(None),
     status: str | None = Query(None),   # "active" | "inactive"
-    user=Depends(require_site_manager),
+    user=Depends(require_site_incharge),
     db: Session = Depends(get_db)
 ):
     today = date.today()
@@ -202,12 +196,19 @@ def get_site_workers(
 
     workers = query.order_by(Worker.full_name).all()
 
+    # Batch-fetch today's attendance for all returned workers — avoids N+1 queries
+    worker_ids = [w.id for w in workers]
+    today_attendances = {}
+    if worker_ids:
+        att_rows = db.query(AttendanceRecord).filter(
+            AttendanceRecord.worker_id.in_(worker_ids),
+            AttendanceRecord.date == today
+        ).all()
+        today_attendances = {a.worker_id: a for a in att_rows}
+
     result = []
     for w in workers:
-        attendance = db.query(AttendanceRecord).filter(
-            AttendanceRecord.worker_id == w.id,
-            AttendanceRecord.date == today
-        ).first()
+        attendance = today_attendances.get(w.id)
 
         if attendance and attendance.check_in_time:
             today_status = "checked_out" if attendance.check_out_time else "present"
@@ -242,16 +243,20 @@ def get_site_attendance(
     date_from: str | None = Query(None),   # YYYY-MM-DD
     date_to: str | None = Query(None),     # YYYY-MM-DD
     sort_order: str = Query("desc"),       # "asc" | "desc"
-    user=Depends(require_site_manager),
+    user=Depends(require_site_incharge),
     db: Session = Depends(get_db)
 ):
-    site_id = user.get("site_id")
-    if not site_id:
-        raise HTTPException(403, "Site not assigned")
+    site_id = get_site_id_or_raise(user)
 
-    query = db.query(AttendanceRecord).filter(
-        AttendanceRecord.check_in_site_id == site_id
+    # Join with Worker to allow SQL-level name filtering and avoid N+1 queries
+    query = (
+        db.query(AttendanceRecord, Worker)
+        .join(Worker, Worker.id == AttendanceRecord.worker_id)
+        .filter(AttendanceRecord.check_in_site_id == site_id)
     )
+
+    if worker_name:
+        query = query.filter(Worker.full_name.ilike(f"%{worker_name}%"))
 
     if date_from:
         try:
@@ -270,21 +275,14 @@ def get_site_attendance(
     else:
         query = query.order_by(AttendanceRecord.date.desc(), AttendanceRecord.check_in_time.desc())
 
-    records = query.all()
+    rows = query.all()
 
     result = []
-    for r in records:
-        worker = db.query(Worker).filter(Worker.id == r.worker_id).first()
-        worker_name_val = worker.full_name if worker else "Unknown"
-
-        # Apply worker name filter (done in Python to support partial match across join)
-        if worker_name and worker_name.lower() not in worker_name_val.lower():
-            continue
-
+    for r, w in rows:
         result.append({
             "id": str(r.id),
             "worker_id": r.worker_id,
-            "worker_name": worker_name_val,
+            "worker_name": w.full_name if w else "Unknown",
             "date": str(r.date),
             "check_in_time": r.check_in_time.strftime("%I:%M %p") if r.check_in_time else None,
             "check_out_time": r.check_out_time.strftime("%I:%M %p") if r.check_out_time else None,
@@ -307,7 +305,7 @@ def enroll_face(
     worker_id: str,
     embedding: str = Form(...),  # JSON string
     photo: UploadFile = File(...),
-    user=Depends(require_site_manager),
+    user=Depends(require_site_incharge),
     db: Session = Depends(get_db)
 ):
     try:
@@ -316,7 +314,6 @@ def enroll_face(
     except:
         raise HTTPException(400, "Invalid embedding format")
 
-    manager_site_id = user.get("site_id")
 
     worker = db.query(Worker).filter(Worker.id == worker_id).first()
 
@@ -354,7 +351,7 @@ def enroll_face(
 @router.get("/workers", response_model=list[MobileWorkerResponse])
 def get_workers(
     search: str | None = Query(None),
-    user=Depends(require_site_manager),
+    user=Depends(require_site_incharge),
     db: Session = Depends(get_db)
 ):
     # List ALL workers across all sites — site incharge can work with any worker
@@ -372,47 +369,22 @@ def get_workers(
     return query.all()
 
 
-def calculate_distance(lat1, lon1, lat2, lon2):
-    R = 6371000
-    phi1 = math.radians(lat1)
-    phi2 = math.radians(lat2)
-
-    dphi = math.radians(lat2 - lat1)
-    dlambda = math.radians(lon2 - lon1)
-
-    a = math.sin(dphi/2)**2 + \
-        math.cos(phi1)*math.cos(phi2)*math.sin(dlambda/2)**2
-
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
-
-    return R * c
-
-
 @router.post("/verify-geofence", response_model=GeofenceResponse)
-def verify_geofence(data: LocationRequest,user=Depends(require_site_manager),db: Session = Depends(get_db)):
-
+def verify_geofence(data: LocationRequest, user=Depends(require_site_incharge), db: Session = Depends(get_db)):
     site_id = user.get("site_id")
 
     if not site_id:
-        return GeofenceResponse(inside=False,site_id=None,site_name=None)
+        return GeofenceResponse(inside=False, site_id=None, site_name=None)
 
     site = db.query(Site).filter(Site.id == site_id).first()
-    print(f"Site name : {site.name}")
-
     if not site:
-        return GeofenceResponse(inside=False,site_id=None,site_name=None)
+        return GeofenceResponse(inside=False, site_id=None, site_name=None)
 
-    distance = calculate_distance(data.latitude,data.longitude,site.latitude,site.longitude)
-    # print(f"Site longitude : {site.longitude}")
-    # print(f"Site latitude : {site.latitude}")
-    # print(f"User longitude : {data.longitude}")
-    # print(f"User latitude : {data.latitude}")
-    print("Distance from site:", distance, "meters")
-    print("Site radius:", site.geofence_radius)
-    if distance <= site.geofence_radius:
-        return GeofenceResponse(inside=True,site_id=site.id,site_name=site.name)
+    print(f"Site name: {site.name}")
+    inside = is_within_geofence(data.latitude, data.longitude, site.latitude, site.longitude, site.geofence_radius)
+    print(f"Geofence check — inside: {inside}")
 
-    return GeofenceResponse(inside=False,site_id=site.id,site_name=site.name)
+    return GeofenceResponse(inside=inside, site_id=site.id, site_name=site.name)
 
 # ===================== CHECK-IN =====================
 
@@ -423,14 +395,12 @@ def check_in(
     longitude: float = Form(...),
     embedding: str = Form(...),  # JSON string
     photo: UploadFile = File(...),
-    user=Depends(require_site_manager),
+    user=Depends(require_site_incharge),
     db: Session = Depends(get_db)
 ):
     today = date.today()
 
-    site_id = user.get("site_id")
-    if not site_id:
-        raise HTTPException(403, "Site not assigned")
+    site_id = get_site_id_or_raise(user)
 
     site = db.query(Site).filter(Site.id == site_id).first()
     if not site:
@@ -525,7 +495,7 @@ def check_out(
     longitude: float = Form(...),
     embedding: str = Form(...),
     photo: UploadFile = File(...),
-    user=Depends(require_site_manager),
+    user=Depends(require_site_incharge),
     db: Session = Depends(get_db)
 ):
     print("---- CHECKOUT DEBUG START ----")
@@ -535,12 +505,9 @@ def check_out(
     today = date.today()
     print("Today:", today)
 
-    site_id = user.get("site_id")
+    site_id = get_site_id_or_raise(user)
     print("Manager site_id:", site_id)
 
-    if not site_id:
-        print("FAIL: Site not assigned")
-        raise HTTPException(403, "Site not assigned")
 
     site = db.query(Site).filter(Site.id == site_id).first()
     if not site:

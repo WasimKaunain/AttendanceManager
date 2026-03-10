@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.db.session import SessionLocal
 from app.models.attendance import AttendanceRecord
 from app.schemas.attendance import AttendanceResponse
-
+from app.core.dependencies import require_admin
 
 
 router = APIRouter(prefix="/attendance", tags=["Attendance"])
@@ -18,7 +18,7 @@ def get_db():
         db.close()
 
 
-@router.get("/", response_model=list[AttendanceResponse])
+@router.get("/", response_model=list[AttendanceResponse], dependencies=[Depends(require_admin)])
 def list_attendance(
     db: Session = Depends(get_db)
 ):

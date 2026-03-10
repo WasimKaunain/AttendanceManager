@@ -32,8 +32,8 @@ def login(data: LoginRequest, db: Session = Depends(get_db)):
     # Include display name if available
     if hasattr(user, "employee_name") and user.employee_name:
         token_data["name"] = user.employee_name
-    elif hasattr(user, "username"):
-        token_data["name"] = user.username
+    else:
+        token_data["name"] = getattr(user, "username", str(user.id))
 
     # Only add site_id if exists
     if hasattr(user, "site_id") and user.site_id:
