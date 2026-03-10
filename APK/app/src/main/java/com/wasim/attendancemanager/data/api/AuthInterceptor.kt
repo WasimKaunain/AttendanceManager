@@ -18,6 +18,14 @@ class AuthInterceptor(private val context: Context) : Interceptor {
             requestBuilder.addHeader("Authorization", "Bearer $it")
         }
 
-        return chain.proceed(requestBuilder.build())
+        val response = chain.proceed(requestBuilder.build())
+
+        // If the server says the token is invalid/expired, wipe it locally
+        // so that isLoggedIn() returns false and the user is sent back to login
+        if (response.code == 401) {
+            tokenManager.clearAll()
+        }
+
+        return response
     }
 }

@@ -153,6 +153,7 @@ fun CameraScreen(
                         isLoading = false
                         if (success) {
                             showSuccessDialog = true
+                            // isProcessing stays true until dialog is dismissed
                         } else {
                             Toast.makeText(context, "Operation Failed", Toast.LENGTH_LONG).show()
                             isProcessing = false
@@ -231,6 +232,7 @@ fun CameraScreen(
                 Button(
                     onClick = {
                         showSuccessDialog = false
+                        isProcessing = false   // allow the camera to be used again
                         navController.popBackStack()
                     }
                 ) {
@@ -320,35 +322,40 @@ suspend fun uploadImage(
 
     return suspendCancellableCoroutine { continuation ->
 
-        locationHelper.getCurrentLocation { lat, lon ->
+        locationHelper.getCurrentLocation(
+            onResult = { lat, lon ->
 
-            CoroutineScope(Dispatchers.IO).launch {
+                CoroutineScope(Dispatchers.IO).launch {
 
-                try {
+                    try {
 
-                    val latBody =
-                        lat.toString().toRequestBody("text/plain".toMediaTypeOrNull())
+                        val latBody =
+                            lat.toString().toRequestBody("text/plain".toMediaTypeOrNull())
 
-                    val lonBody =
-                        lon.toString().toRequestBody("text/plain".toMediaTypeOrNull())
+                        val lonBody =
+                            lon.toString().toRequestBody("text/plain".toMediaTypeOrNull())
 
-                    val response = when (mode) {
-                        "enroll" ->
-                            api.enrollFace(workerId, embeddingBody, body)
+                        val response = when (mode) {
+                            "enroll" ->
+                                api.enrollFace(workerId, embeddingBody, body)
 
-                        "checkin" ->
-                            api.checkIn(workerIdBody, latBody, lonBody, embeddingBody, body)
+                            "checkin" ->
+                                api.checkIn(workerIdBody, latBody, lonBody, embeddingBody, body)
 
-                        else ->
-                            api.checkOut(workerIdBody, latBody, lonBody, embeddingBody, body)
+                            else ->
+                                api.checkOut(workerIdBody, latBody, lonBody, embeddingBody, body)
+                        }
+
+                        continuation.resume(response.isSuccessful, null)
+
+                    } catch (e: Exception) {
+                        continuation.resume(false, null)
                     }
-
-                    continuation.resume(response.isSuccessful, null)
-
-                } catch (e: Exception) {
-                    continuation.resume(false, null)
                 }
+            },
+            onFailure = {
+                continuation.resume(false, null)
             }
-        }
+        )
     }
 }

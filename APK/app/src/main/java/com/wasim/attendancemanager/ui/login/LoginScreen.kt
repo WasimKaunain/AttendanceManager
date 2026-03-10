@@ -78,10 +78,23 @@ fun LoginScreen(navController: NavController) {
 
                             val token = response.body()!!.access_token
                             val role = response.body()!!.role
+                            val siteId = response.body()!!.site_id
+
+                            // Only allow site managers to log in
+                            if (role != "site_manager") {
+                                Toast.makeText(
+                                    context,
+                                    "Access denied. Only Site Managers can use this app.",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                                isLoading = false
+                                return@launch
+                            }
 
                             val tokenManager = TokenManager(context)
                             tokenManager.saveToken(token)
-
+                            tokenManager.saveRole(role)
+                            siteId?.let { tokenManager.saveSiteId(it) }
 
                             Toast.makeText(context, "Login Successful", Toast.LENGTH_SHORT).show()
 

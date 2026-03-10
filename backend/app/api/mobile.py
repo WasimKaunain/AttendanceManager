@@ -1,19 +1,19 @@
 from fastapi import APIRouter, Depends, Query, UploadFile, File, HTTPException, Form
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 from app.db.session import SessionLocal
 from app.services.audit_service import log_action
 from app.services.geofence import is_within_geofence
 from app.services.face_service import is_same_person, cosine_similarity
 import uuid, shutil, math, os, json
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from app.models.worker import Worker
 from app.models.site import Site
 from app.models.attendance import AttendanceRecord
 from app.core.dependencies import require_site_manager
 from app.schemas.mobile import (MobileWorkerResponse,LocationRequest,GeofenceResponse,FaceEnrollResponse,MobileAttendanceResponse,EmbeddingPayload)
 from app.services.image_service import save_compressed_attendance_image, format_site_folder
-from app.services.r2 import  upload_file_to_r2
+from app.services.r2 import upload_file_to_r2
 
 router = APIRouter(prefix="/mobile", tags=["Mobile"])
 
@@ -24,6 +24,283 @@ def get_db():
         yield db
     finally:
         db.close()
+
+# --------------------------------------------------
+# SITE DASHBOARD STATS
+# --------------------------------------------------
+@router.get("/dashboard/stats")
+def get_site_dashboard_stats(
+    user=Depends(require_site_manager),
+    db: Session = Depends(get_db)
+):
+    site_id = user.get("site_id")
+    if not site_id:
+        raise HTTPException(403, "Site not assigned")
+
+    today = date.today()
+
+    total_workers = db.query(Worker).filter(
+        Worker.site_id == site_id,
+        Worker.is_deleted == False
+    ).count()
+
+    active_workers = db.query(Worker).filter(
+        Worker.site_id == site_id,
+        Worker.status == "active",
+        Worker.is_deleted == False
+    ).count()
+
+    present_today = db.query(AttendanceRecord).filter(
+        AttendanceRecord.check_in_site_id == site_id,
+        AttendanceRecord.date == today,
+        AttendanceRecord.check_in_time.isnot(None)
+    ).count()
+
+    absent_today = max(active_workers - present_today, 0)
+
+    checked_out_today = db.query(AttendanceRecord).filter(
+        AttendanceRecord.check_in_site_id == site_id,
+        AttendanceRecord.date == today,
+        AttendanceRecord.check_out_time.isnot(None)
+    ).count()
+
+    # Workers with no face enrolled yet
+    unenrolled_count = db.query(Worker).filter(
+        Worker.site_id == site_id,
+        Worker.status == "active",
+        Worker.is_deleted == False,
+        Worker.face_embedding == None
+    ).count()
+
+    site = db.query(Site).filter(Site.id == site_id).first()
+    site_name = site.name if site else "Unknown Site"
+
+    return {
+        "site_name": site_name,
+        "total_workers": total_workers,
+        "active_workers": active_workers,
+        "present_today": present_today,
+        "absent_today": absent_today,
+        "checked_out_today": checked_out_today,
+        "unenrolled_count": unenrolled_count,
+    }
+
+
+# --------------------------------------------------
+# SITE WEEKLY ATTENDANCE CHART
+# --------------------------------------------------
+@router.get("/dashboard/weekly")
+def get_site_weekly_attendance(
+    user=Depends(require_site_manager),
+    db: Session = Depends(get_db)
+):
+    site_id = user.get("site_id")
+    if not site_id:
+        raise HTTPException(403, "Site not assigned")
+
+    today = date.today()
+    week_start = today - timedelta(days=6)
+
+    present_results = (
+        db.query(AttendanceRecord.date, func.count(AttendanceRecord.id))
+        .filter(
+            AttendanceRecord.check_in_site_id == site_id,
+            AttendanceRecord.date >= week_start,
+            AttendanceRecord.check_in_time.isnot(None)
+        )
+        .group_by(AttendanceRecord.date)
+        .all()
+    )
+
+    present_map = {r[0]: r[1] for r in present_results}
+
+    # active workers count for absent calculation
+    active_workers = db.query(Worker).filter(
+        Worker.site_id == site_id,
+        Worker.status == "active",
+        Worker.is_deleted == False
+    ).count()
+
+    response = []
+    for i in range(7):
+        d = week_start + timedelta(days=i)
+        present = present_map.get(d, 0)
+        response.append({
+            "day": d.strftime("%a"),
+            "date": d.strftime("%d %b"),
+            "present": present,
+            "absent": max(active_workers - present, 0),
+        })
+
+    return response
+
+
+# --------------------------------------------------
+# RECENT ACTIVITY (last 8 events for this site)
+# --------------------------------------------------
+@router.get("/dashboard/recent-activity")
+def get_site_recent_activity(
+    user=Depends(require_site_manager),
+    db: Session = Depends(get_db)
+):
+    site_id = user.get("site_id")
+    if not site_id:
+        raise HTTPException(403, "Site not assigned")
+
+    records = (
+        db.query(AttendanceRecord)
+        .filter(AttendanceRecord.check_in_site_id == site_id)
+        .order_by(AttendanceRecord.check_in_time.desc())
+        .limit(8)
+        .all()
+    )
+
+    result = []
+    for r in records:
+        worker = db.query(Worker).filter(Worker.id == r.worker_id).first()
+        result.append({
+            "worker_id":       r.worker_id,
+            "worker_name":     worker.full_name if worker else "Unknown",
+            "date":            str(r.date),
+            "check_in_time":   r.check_in_time.strftime("%I:%M %p")  if r.check_in_time  else None,
+            "check_out_time":  r.check_out_time.strftime("%I:%M %p") if r.check_out_time else None,
+            "status":          r.status,
+            "is_late":         r.is_late,
+            "total_hours":     round(r.total_hours, 1) if r.total_hours else None,
+        })
+    return result
+
+
+# --------------------------------------------------
+# SITE WORKERS (all, with today's attendance status)
+# --------------------------------------------------
+@router.get("/site-workers")
+def get_site_workers(
+    search: str | None = Query(None),
+    status: str | None = Query(None),   # "active" | "inactive"
+    user=Depends(require_site_manager),
+    db: Session = Depends(get_db)
+):
+    site_id = user.get("site_id")
+    if not site_id:
+        raise HTTPException(403, "Site not assigned")
+
+    today = date.today()
+
+    query = db.query(Worker).filter(
+        Worker.site_id == site_id,
+        Worker.is_deleted == False
+    )
+
+    if search:
+        query = query.filter(
+            or_(
+                Worker.full_name.ilike(f"%{search}%"),
+                Worker.mobile.ilike(f"%{search}%"),
+                Worker.id.ilike(f"%{search}%")
+            )
+        )
+
+    if status:
+        query = query.filter(Worker.status == status)
+
+    workers = query.order_by(Worker.full_name).all()
+
+    result = []
+    for w in workers:
+        attendance = db.query(AttendanceRecord).filter(
+            AttendanceRecord.worker_id == w.id,
+            AttendanceRecord.date == today
+        ).first()
+
+        if attendance and attendance.check_in_time:
+            today_status = "checked_out" if attendance.check_out_time else "present"
+        else:
+            today_status = "absent"
+
+        result.append({
+            "id": w.id,
+            "full_name": w.full_name,
+            "mobile": w.mobile,
+            "role": w.role,
+            "type": w.type,
+            "status": w.status,
+            "joining_date": str(w.joining_date) if w.joining_date else None,
+            "photo_url": w.photo_url,
+            "today_status": today_status,
+            "shift_id": str(w.shift_id) if w.shift_id else None,
+            "daily_rate": w.daily_rate,
+            "hourly_rate": w.hourly_rate,
+            "monthly_salary": w.monthly_salary,
+        })
+
+    return result
+
+
+# --------------------------------------------------
+# SITE ATTENDANCE LIST (with filters)
+# --------------------------------------------------
+@router.get("/site-attendance")
+def get_site_attendance(
+    worker_name: str | None = Query(None),
+    date_from: str | None = Query(None),   # YYYY-MM-DD
+    date_to: str | None = Query(None),     # YYYY-MM-DD
+    sort_order: str = Query("desc"),       # "asc" | "desc"
+    user=Depends(require_site_manager),
+    db: Session = Depends(get_db)
+):
+    site_id = user.get("site_id")
+    if not site_id:
+        raise HTTPException(403, "Site not assigned")
+
+    query = db.query(AttendanceRecord).filter(
+        AttendanceRecord.check_in_site_id == site_id
+    )
+
+    if date_from:
+        try:
+            query = query.filter(AttendanceRecord.date >= date.fromisoformat(date_from))
+        except ValueError:
+            pass
+
+    if date_to:
+        try:
+            query = query.filter(AttendanceRecord.date <= date.fromisoformat(date_to))
+        except ValueError:
+            pass
+
+    if sort_order == "asc":
+        query = query.order_by(AttendanceRecord.date.asc(), AttendanceRecord.check_in_time.asc())
+    else:
+        query = query.order_by(AttendanceRecord.date.desc(), AttendanceRecord.check_in_time.desc())
+
+    records = query.all()
+
+    result = []
+    for r in records:
+        worker = db.query(Worker).filter(Worker.id == r.worker_id).first()
+        worker_name_val = worker.full_name if worker else "Unknown"
+
+        # Apply worker name filter (done in Python to support partial match across join)
+        if worker_name and worker_name.lower() not in worker_name_val.lower():
+            continue
+
+        result.append({
+            "id": str(r.id),
+            "worker_id": r.worker_id,
+            "worker_name": worker_name_val,
+            "date": str(r.date),
+            "check_in_time": r.check_in_time.strftime("%I:%M %p") if r.check_in_time else None,
+            "check_out_time": r.check_out_time.strftime("%I:%M %p") if r.check_out_time else None,
+            "status": r.status,
+            "is_late": r.is_late,
+            "total_hours": round(r.total_hours, 1) if r.total_hours else None,
+            "geofence_valid": r.geofence_valid,
+        })
+
+    return result
+
+
 
 # --------------------------------------------------
 # ENROLL FACE
