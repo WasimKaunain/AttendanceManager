@@ -1,4 +1,5 @@
 import math
+import json
 from typing import Optional, List, Any
 
 
@@ -64,20 +65,31 @@ def is_within_geofence(
     radius_m: float,
     boundary_type: Optional[str] = "circle",
     polygon_coords: Optional[List[Any]] = None,
-) -> bool:
+) -> tuple[bool, float, int]:
     """
-    Returns True if the worker's location (lat1, lon1) is inside the site boundary.
+    Returns (inside: bool, distance_m: float, polygon_points: int).
 
     - boundary_type="circle"  → Haversine distance <= radius_m
     - boundary_type="polygon" → Ray-casting point-in-polygon check
     Falls back to circle check if polygon_coords is missing or invalid.
     """
-    if boundary_type == "polygon" and polygon_coords and len(polygon_coords) >= 3:
-        result = _point_in_polygon(lat1, lon1, polygon_coords)
-        print(f"[GEOFENCE DEBUG] ── polygon check → inside={result}")
-        return result
+    if boundary_type == "polygon" and polygon_coords:
+        # Safely parse if stored as a JSON string instead of a list
+        if isinstance(polygon_coords, str):
+            try:
+                polygon_coords = json.loads(polygon_coords)
+            except Exception:
+                polygon_coords = []
+
+        if isinstance(polygon_coords, list) and len(polygon_coords) >= 3:
+            result = _point_in_polygon(lat1, lon1, polygon_coords)
+            distance = _haversine_distance(lat1, lon1, lat2, lon2)
+            print(f"[GEOFENCE DEBUG] ── polygon check ({len(polygon_coords)} pts) → inside={result}, haversine_dist={distance:.2f}m")
+            return result, distance, len(polygon_coords)
+        else:
+            print(f"[GEOFENCE DEBUG] ── polygon_coords invalid or < 3 points, falling back to circle")
 
     # Default: circle
     distance = _haversine_distance(lat1, lon1, lat2, lon2)
     print(f"[GEOFENCE DEBUG] ── haversine distance={distance:.2f}m, radius={radius_m}m → inside={distance <= radius_m}")
-    return distance <= radius_m
+    return distance <= radius_m, distance, 0

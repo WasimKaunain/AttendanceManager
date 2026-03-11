@@ -5,6 +5,7 @@ from app.db.session import SessionLocal
 from app.services.audit_service import log_action
 from app.services.geofence import is_within_geofence
 from app.services.face_service import is_same_person, cosine_similarity
+from app.services.debug_logger import log_face, log_geofence
 import uuid, shutil, os, json
 from datetime import datetime, date, timedelta
 from app.models.worker import Worker
@@ -383,14 +384,33 @@ def verify_geofence(data: LocationRequest, user=Depends(require_site_incharge), 
     print(f"[GEOFENCE DEBUG] ── Site: {site.name}")
     print(f"[GEOFENCE DEBUG] ── Site lat={site.latitude}, lng={site.longitude}")
     print(f"[GEOFENCE DEBUG] ── Site radius={site.geofence_radius}m, boundary_type={site.boundary_type}")
+    print(f"[GEOFENCE DEBUG] ── polygon_coords raw={site.polygon_coords}")
     print(f"[GEOFENCE DEBUG] ── Worker sent lat={data.latitude}, lng={data.longitude}")
 
-    inside = is_within_geofence(
+    inside, distance_m, poly_pts = is_within_geofence(
         data.latitude, data.longitude,
         site.latitude, site.longitude,
         site.geofence_radius,
         boundary_type=getattr(site, "boundary_type", "circle"),
         polygon_coords=getattr(site, "polygon_coords", None),
+    )
+
+    log_geofence(
+        event_type="verify_geofence",
+        worker_id="N/A",
+        worker_name="N/A",
+        site_id=str(site.id),
+        site_name=site.name,
+        boundary_type=site.boundary_type,
+        site_lat=site.latitude,
+        site_lng=site.longitude,
+        worker_lat=data.latitude,
+        worker_lng=data.longitude,
+        distance_m=distance_m,
+        radius_m=site.geofence_radius,
+        polygon_points=poly_pts,
+        result=inside,
+        notes="pre-checkin geofence test",
     )
 
     print(f"[GEOFENCE DEBUG] ── Result: inside={inside}")
@@ -447,20 +467,62 @@ def check_in(
         raise HTTPException(400, "No face detected")
 
     if not is_same_person(payload.embedding, worker.face_embedding):
+        similarity = cosine_similarity(payload.embedding, worker.face_embedding)
+        log_face(
+            event_type="check_in",
+            worker_id=str(worker.id),
+            worker_name=worker.full_name,
+            site_id=str(site.id),
+            site_name=site.name,
+            similarity_score=similarity,
+            threshold=float(os.getenv("THRESHOLD", 0.75)),
+            result=False,
+            embedding_length=len(payload.embedding),
+            notes="face verification failed",
+        )
         os.remove(temp_path)
         raise HTTPException(403, "Face verification failed")
+
     similarity = cosine_similarity(payload.embedding, worker.face_embedding)
+    log_face(
+        event_type="check_in",
+        worker_id=str(worker.id),
+        worker_name=worker.full_name,
+        site_id=str(site.id),
+        site_name=site.name,
+        similarity_score=similarity,
+        threshold=float(os.getenv("THRESHOLD", 0.75)),
+        result=True,
+        embedding_length=len(payload.embedding),
+        notes="face verification passed",
+    )
     print("Similarity:", similarity)
 
-
     # 3️⃣ Geofence validation
-    if not is_within_geofence(
+    inside, distance_m, poly_pts = is_within_geofence(
         latitude, longitude,
         site.latitude, site.longitude,
         site.geofence_radius,
         boundary_type=getattr(site, "boundary_type", "circle"),
         polygon_coords=getattr(site, "polygon_coords", None),
-    ):
+    )
+    log_geofence(
+        event_type="check_in",
+        worker_id=str(worker.id),
+        worker_name=worker.full_name,
+        site_id=str(site.id),
+        site_name=site.name,
+        boundary_type=site.boundary_type,
+        site_lat=site.latitude,
+        site_lng=site.longitude,
+        worker_lat=latitude,
+        worker_lng=longitude,
+        distance_m=distance_m,
+        radius_m=site.geofence_radius,
+        polygon_points=poly_pts,
+        result=inside,
+    )
+    if not inside:
         os.remove(temp_path)
         raise HTTPException(403, "Outside geofence")
 
@@ -580,11 +642,36 @@ def check_out(
     print("Similarity score:", similarity)
 
     if not is_same_person(payload.embedding, worker.face_embedding):
+        log_face(
+            event_type="check_out",
+            worker_id=str(worker.id),
+            worker_name=worker.full_name,
+            site_id=str(site.id),
+            site_name=site.name,
+            similarity_score=similarity,
+            threshold=float(os.getenv("THRESHOLD", 0.75)),
+            result=False,
+            embedding_length=len(payload.embedding),
+            notes="face verification failed",
+        )
         os.remove(temp_path)
         print("FAIL: Face verification failed")
         raise HTTPException(403, "Face verification failed")
 
-    inside = is_within_geofence(
+    log_face(
+        event_type="check_out",
+        worker_id=str(worker.id),
+        worker_name=worker.full_name,
+        site_id=str(site.id),
+        site_name=site.name,
+        similarity_score=similarity,
+        threshold=float(os.getenv("THRESHOLD", 0.75)),
+        result=True,
+        embedding_length=len(payload.embedding),
+        notes="face verification passed",
+    )
+
+    inside, distance_m, poly_pts = is_within_geofence(
         latitude,
         longitude,
         site.latitude,
@@ -593,7 +680,22 @@ def check_out(
         boundary_type=getattr(site, "boundary_type", "circle"),
         polygon_coords=getattr(site, "polygon_coords", None),
     )
-
+    log_geofence(
+        event_type="check_out",
+        worker_id=str(worker.id),
+        worker_name=worker.full_name,
+        site_id=str(site.id),
+        site_name=site.name,
+        boundary_type=site.boundary_type,
+        site_lat=site.latitude,
+        site_lng=site.longitude,
+        worker_lat=latitude,
+        worker_lng=longitude,
+        distance_m=distance_m,
+        radius_m=site.geofence_radius,
+        polygon_points=poly_pts,
+        result=inside,
+    )
     print("Geofence result:", inside)
 
     if not inside:
