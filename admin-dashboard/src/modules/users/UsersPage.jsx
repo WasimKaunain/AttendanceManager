@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { useUsers } from "./hooks";
 import UserFormDialog from "./components/UserFormDialog";
-import { Pencil, Trash2, ArrowLeft, CheckCircle2, XCircle, X, AlertTriangle } from "lucide-react";
+import { Pencil, Trash2, ArrowLeft, CheckCircle2, XCircle, X, AlertTriangle, Eye, EyeOff } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import DashboardLayout from "@/layout/DashboardLayout";
 import PageHeader from "@/shared/components/PageHeader";
+import { useAuth } from "@/core/auth/AuthContext";
 
 // ── Toast ──────────────────────────────────────────────
 function Toast({ toasts, onDismiss }) {
@@ -66,11 +67,22 @@ function DeleteConfirmDialog({ open, onConfirm, onCancel }) {
 // ── Main Page ──────────────────────────────────────────
 export default function UsersPage() {
   const { users, sitesMap, loading, addUser, editUser, removeUser } = useUsers();
+  const { user: currentUser } = useAuth();   // logged-in admin's own profile
   const [open, setOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [deleteTargetId, setDeleteTargetId] = useState(null);
   const [toasts, setToasts] = useState([]);
+  const [revealedPasswords, setRevealedPasswords] = useState({});
   const navigate = useNavigate();
+
+  // For a card that is an admin: only show Edit if it's the logged-in admin themselves
+  const canEdit = (cardUser) => {
+    if (cardUser.role !== "admin") return true;          // site incharges — always editable
+    return cardUser.id === currentUser?.id;              // admin — only own card
+  };
+
+  const toggleReveal = (id) =>
+    setRevealedPasswords((prev) => ({ ...prev, [id]: !prev[id] }));
 
   const showToast = (message, type = "success") => {
     const id = Date.now();
@@ -179,29 +191,68 @@ export default function UsersPage() {
               </p>
 
               {/* Status */}
-              <p className="text-sm dark:text-slate-300 mb-4">
+              <p className="text-sm dark:text-slate-300 mb-2">
                 <strong>Status:</strong>{" "}
                 <span className={`font-medium ${user.status === "active" ? "text-green-600 dark:text-green-400" : "text-red-500 dark:text-red-400"}`}>
                   {user.status}
                 </span>
               </p>
 
+              {/* Password — site_incharge only */}
+              {user.role !== "admin" && (
+                <div className="flex items-center gap-2 text-sm dark:text-slate-300 mb-4">
+                  <strong>Password:</strong>
+                  {user.plain_password ? (
+                    <>
+                      <span className="font-mono tracking-widest text-gray-700 dark:text-slate-200 select-all">
+                        {revealedPasswords[user.id] ? user.plain_password : "••••••••"}
+                      </span>
+                      <button
+                        onClick={() => toggleReveal(user.id)}
+                        className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition ml-1"
+                        title={revealedPasswords[user.id] ? "Hide password" : "Reveal password"}
+                      >
+                        {revealedPasswords[user.id]
+                          ? <EyeOff className="w-4 h-4" />
+                          : <Eye className="w-4 h-4" />}
+                      </button>
+                    </>
+                  ) : (
+                    <span className="text-xs text-amber-500 dark:text-amber-400 italic">
+                      Reset password to record it here
+                    </span>
+                  )}
+                </div>
+              )}
+
               {/* Actions */}
               <div className="flex justify-end gap-4 pt-4 border-t dark:border-slate-700">
-                <button
-                  onClick={() => { setSelectedUser(user); setOpen(true); }}
-                  className="text-blue-600 hover:text-blue-800 transition"
-                  title="Edit"
-                >
-                  <Pencil size={18} />
-                </button>
-                <button
-                  onClick={() => setDeleteTargetId(user.id)}
-                  className="text-red-600 hover:text-red-800 transition"
-                  title="Delete"
-                >
-                  <Trash2 size={18} />
-                </button>
+                {/* Edit — admins can only edit their own profile */}
+                {canEdit(user) ? (
+                  <button
+                    onClick={() => { setSelectedUser(user); setOpen(true); }}
+                    className="text-blue-600 hover:text-blue-800 transition"
+                    title="Edit"
+                  >
+                    <Pencil size={18} />
+                  </button>
+                ) : (
+                  <Pencil
+                    size={18}
+                    className="text-slate-300 dark:text-slate-600 cursor-not-allowed"
+                    title="You cannot edit another admin's profile"
+                  />
+                )}
+                {/* Delete is disabled for admin users */}
+                {user.role !== "admin" && (
+                  <button
+                    onClick={() => setDeleteTargetId(user.id)}
+                    className="text-red-600 hover:text-red-800 transition"
+                    title="Delete"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                )}
               </div>
             </div>
           ))}

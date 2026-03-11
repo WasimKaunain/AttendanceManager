@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import LoginPage from "../modules/auth/LoginPage";
+import ForgotPasswordPage from "../modules/auth/ForgotPasswordPage";
 import Dashboard from "../modules/dashboard/Dashboard";
 import Projects from "../modules/projects/ProjectsPage";
 import ProjectProfilePage from "@/modules/projects/ProjectProfilePage";
@@ -22,6 +23,7 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
         <Route
           path="/"

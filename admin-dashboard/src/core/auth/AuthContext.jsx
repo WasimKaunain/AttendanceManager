@@ -21,6 +21,8 @@ export const AuthProvider = ({ children }) => {
             setUser({
               id: decoded.sub,
               role: decoded.role,
+              name: decoded.name || decoded.sub,
+              site_id: decoded.site_id || null,
             });
           }
         } catch {
@@ -45,6 +47,8 @@ export const AuthProvider = ({ children }) => {
     setUser({
       id: decoded.sub,
       role: decoded.role,
+      name: decoded.name || decoded.sub,
+      site_id: decoded.site_id || null,
     });
   };
 

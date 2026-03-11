@@ -29,17 +29,30 @@ def get_users(
 
 
 @router.post("", response_model=UserResponse)
-def create_user(data: UserCreate,db: Session = Depends(get_db),_: dict = Depends(require_admin)):
+def create_user(data: UserCreate, db: Session = Depends(get_db), _: dict = Depends(require_admin)):
+    # Username uniqueness
     existing = db.query(User).filter(User.username == data.username).first()
     if existing:
         raise HTTPException(status_code=400, detail="Username already exists")
 
+    # Admin must have an email
+    if data.role.lower() == "admin" and not data.email:
+        raise HTTPException(status_code=400, detail="Email is required for admin users")
+
+    # Email uniqueness (if provided)
+    if data.email:
+        email_exists = db.query(User).filter(User.email == data.email).first()
+        if email_exists:
+            raise HTTPException(status_code=400, detail="Email already in use")
+
     new_user = User(
         employee_name=data.employee_name,
         username=data.username,
+        email=data.email,
         password_hash=hash_password(data.password),
+        plain_password=data.password if data.role.lower() != "admin" else None,
         role=data.role.lower(),
-        site_id=data.site_id,
+        site_id=data.site_id if data.role.lower() != "admin" else None,
         status=data.status
     )
 
@@ -57,16 +70,31 @@ def create_user(data: UserCreate,db: Session = Depends(get_db),_: dict = Depends
 
 
 @router.patch("/{user_id}", response_model=UserResponse)
-def update_user(user_id: UUID,data: UserUpdate,db: Session = Depends(get_db),_: dict = Depends(require_admin)):
+def update_user(user_id: UUID, data: UserUpdate, db: Session = Depends(get_db), current_admin: dict = Depends(require_admin)):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+
+    # An admin can only edit another admin's profile if it is their own
+    if user.role == "admin" and str(user.id) != current_admin.get("sub"):
+        raise HTTPException(
+            status_code=403,
+            detail="You cannot edit another admin's profile"
+        )
 
     if data.username:
         user.username = data.username
 
     if data.employee_name is not None:
         user.employee_name = data.employee_name
+
+    if data.email is not None:
+        # Check uniqueness (ignore own email)
+        if data.email:
+            clash = db.query(User).filter(User.email == data.email, User.id != user_id).first()
+            if clash:
+                raise HTTPException(status_code=400, detail="Email already in use")
+        user.email = data.email or None
 
     if data.role:
         user.role = data.role.lower()
@@ -79,6 +107,9 @@ def update_user(user_id: UUID,data: UserUpdate,db: Session = Depends(get_db),_: 
 
     if data.password:
         user.password_hash = hash_password(data.password)
+        # Keep plain_password in sync for site_incharge
+        if user.role != "admin":
+            user.plain_password = data.password
 
     db.commit()
     db.refresh(user)
@@ -101,9 +132,10 @@ def delete_user(
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    
-    if user.username == "env-admin":
-        raise HTTPException(status_code=400, detail="Cannot delete system admin")
+
+    # Admin users can never be deleted
+    if user.role == "admin":
+        raise HTTPException(status_code=403, detail="Admin users cannot be deleted")
 
     db.delete(user)
     db.commit()
