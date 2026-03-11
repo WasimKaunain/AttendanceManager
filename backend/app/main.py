@@ -1,3 +1,6 @@
+from dotenv import load_dotenv
+load_dotenv()
+
 from fastapi import FastAPI
 from app.api import auth, projects, sites, workers, attendance, shifts, dashboard, audit_logs, geocode, users, mobile, reports, media_repository
 from fastapi.middleware.cors import CORSMiddleware

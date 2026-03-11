@@ -381,7 +381,13 @@ def verify_geofence(data: LocationRequest, user=Depends(require_site_incharge), 
         return GeofenceResponse(inside=False, site_id=None, site_name=None)
 
     print(f"Site name: {site.name}")
-    inside = is_within_geofence(data.latitude, data.longitude, site.latitude, site.longitude, site.geofence_radius)
+    inside = is_within_geofence(
+        data.latitude, data.longitude,
+        site.latitude, site.longitude,
+        site.geofence_radius,
+        boundary_type=getattr(site, "boundary_type", "circle"),
+        polygon_coords=getattr(site, "polygon_coords", None),
+    )
     print(f"Geofence check — inside: {inside}")
 
     return GeofenceResponse(inside=inside, site_id=site.id, site_name=site.name)
@@ -444,7 +450,13 @@ def check_in(
 
 
     # 3️⃣ Geofence validation
-    if not is_within_geofence(latitude,longitude,site.latitude,site.longitude,site.geofence_radius):
+    if not is_within_geofence(
+        latitude, longitude,
+        site.latitude, site.longitude,
+        site.geofence_radius,
+        boundary_type=getattr(site, "boundary_type", "circle"),
+        polygon_coords=getattr(site, "polygon_coords", None),
+    ):
         os.remove(temp_path)
         raise HTTPException(403, "Outside geofence")
 
@@ -573,7 +585,9 @@ def check_out(
         longitude,
         site.latitude,
         site.longitude,
-        site.geofence_radius
+        site.geofence_radius,
+        boundary_type=getattr(site, "boundary_type", "circle"),
+        polygon_coords=getattr(site, "polygon_coords", None),
     )
 
     print("Geofence result:", inside)

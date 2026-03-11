@@ -1,5 +1,5 @@
 from uuid import UUID
-from typing import Optional
+from typing import Optional, List, Any
 from pydantic import BaseModel, Field
 from app.schemas.base import ORMBase
 from datetime import datetime
@@ -14,6 +14,8 @@ class SiteBase(BaseModel):
     latitude: float
     longitude: float
     geofence_radius: float = 200
+    boundary_type: Optional[str] = "circle"   # "circle" | "polygon"
+    polygon_coords: Optional[List[Any]] = None  # [{lat, lng}, ...]
     status: Optional[str] = "active"
 
 
@@ -34,6 +36,8 @@ class SiteUpdate(BaseModel):
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     geofence_radius: Optional[float] = None
+    boundary_type: Optional[str] = None
+    polygon_coords: Optional[List[Any]] = None
     status: Optional[str] = None
 
 

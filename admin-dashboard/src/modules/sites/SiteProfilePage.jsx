@@ -1,17 +1,106 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSiteProfile } from "./hooks";
 import api from "@/core/api/axios";
 import DashboardLayout from "@/layout/DashboardLayout";
-import { ArrowLeft, Trash2, Pencil } from "lucide-react";
+import { ArrowLeft, Trash2, Pencil, CircleDot, Hexagon } from "lucide-react";
 import SiteFormDialog from "./components/SiteFormDialog";
 import DangerousDialog from "@/modules/data_management/components/DangerousActionModal";
-
-import {MapContainer,TileLayer,Circle,} from "react-leaflet";
-import "leaflet/dist/leaflet.css";
+import { APIProvider, Map, useMap, useMapsLibrary } from "@vis.gl/react-google-maps";
+import { Component } from "react";
 
 import {LineChart,Line,XAxis,YAxis,Tooltip,CartesianGrid,ResponsiveContainer,} from "recharts";
+
+const GOOGLE_MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+
+// ── Error boundary so a map crash doesn't white-screen the whole page ──
+class MapErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(e) { return { error: e }; }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="flex items-center justify-center h-full text-slate-400 text-sm">
+          Map preview unavailable
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+// ── Draws a circle or polygon boundary overlay on a Google Map ──
+function BoundaryOverlay({ site }) {
+  const map = useMap();
+  const mapsLib = useMapsLibrary("maps");
+  const overlayRef = useRef(null);
+
+  useEffect(() => {
+    if (!map || !mapsLib || !site) return;
+
+    // Remove previous overlay
+    if (overlayRef.current) {
+      overlayRef.current.setMap(null);
+      overlayRef.current = null;
+    }
+
+    // Normalise — old circle sites may have boundary_type = null
+    const boundaryType = site.boundary_type || "circle";
+    const coords = Array.isArray(site.polygon_coords) ? site.polygon_coords : [];
+    const validPolygon = boundaryType === "polygon" && coords.length >= 3;
+
+    try {
+      if (validPolygon) {
+        const paths = coords.map((p) => ({
+          lat: parseFloat(p.lat),
+          lng: parseFloat(p.lng ?? p.lon),
+        }));
+        const polygon = new mapsLib.Polygon({
+          paths,
+          strokeColor: "#6366f1",
+          strokeOpacity: 0.9,
+          strokeWeight: 2,
+          fillColor: "#6366f1",
+          fillOpacity: 0.2,
+          map,
+        });
+        overlayRef.current = polygon;
+
+        const bounds = new mapsLib.LatLngBounds();
+        paths.forEach((p) => bounds.extend(p));
+        map.fitBounds(bounds, 30);
+      } else {
+        const center = { lat: parseFloat(site.latitude), lng: parseFloat(site.longitude) };
+        if (isNaN(center.lat) || isNaN(center.lng)) return;
+
+        const circle = new mapsLib.Circle({
+          center,
+          radius: parseFloat(site.geofence_radius) || 200,
+          strokeColor: "#6366f1",
+          strokeOpacity: 0.9,
+          strokeWeight: 2,
+          fillColor: "#6366f1",
+          fillOpacity: 0.2,
+          map,
+        });
+        overlayRef.current = circle;
+        map.fitBounds(circle.getBounds(), 30);
+      }
+    } catch (err) {
+      console.warn("BoundaryOverlay render error:", err);
+    }
+
+    return () => {
+      if (overlayRef.current) {
+        overlayRef.current.setMap(null);
+        overlayRef.current = null;
+      }
+    };
+  }, [map, mapsLib, site]);
+
+  return null;
+}
 
 export default function SiteProfilePage() {
   const { id } = useParams();
@@ -108,27 +197,13 @@ const siteWorkers = workers.filter((w) => w.site_id === id);
                 bg-gradient-to-r from-purple-500 via-indigo-500 to-blue-500 
                 opacity-80 blur-[1px]" />
 
-              {/* Circular Map Preview */}
+              {/* Circular Map Preview — Google Maps Static API */}
               <div className="w-40 h-40 rounded-full overflow-hidden border-[5px] border-white shadow-2xl">
-                <MapContainer
-                  center={[site.latitude, site.longitude]}
-                  zoom={15}
-                  dragging={false}
-                  scrollWheelZoom={false}
-                  doubleClickZoom={false}
-                  zoomControl={false}
-                  attributionControl={false}
-                  style={{ height: "100%", width: "100%" }}
-                >
-                  <TileLayer
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                  />
-                  <Circle
-                    center={[site.latitude, site.longitude]}
-                    radius={site.geofence_radius}
-                    pathOptions={{ color: "purple", fillOpacity: 0.2 }}
-                  />
-                </MapContainer>
+                <img
+                  src={`https://maps.googleapis.com/maps/api/staticmap?center=${site.latitude},${site.longitude}&zoom=15&size=160x160&maptype=roadmap&markers=color:purple%7C${site.latitude},${site.longitude}&key=${GOOGLE_MAPS_KEY}`}
+                  alt="Site location"
+                  className="w-full h-full object-cover"
+                />
               </div>
 
               {/* Site Name */}
@@ -230,23 +305,75 @@ const siteWorkers = workers.filter((w) => w.site_id === id);
             {/* Overview */}
             {tab === "overview" && (
               <GlassCard>
-                <div className="grid grid-cols-2 gap-6">
+                {/* Info Grid */}
+                {(() => {
+                  const boundaryType = site.boundary_type || "circle";
+                  const polygonCoords = Array.isArray(site.polygon_coords) ? site.polygon_coords : [];
+                  return (
+                <div className="grid grid-cols-2 gap-6 mb-6">
                   <div>
                     <p className="text-xs text-slate-500">Address</p>
-                    <p>{site.address}</p>
+                    <p className="font-medium text-slate-800">{site.address || "—"}</p>
                   </div>
                   <div>
                     <p className="text-xs text-slate-500">Latitude</p>
-                    <p>{site.latitude}</p>
+                    <p className="font-medium text-slate-800">{site.latitude}</p>
                   </div>
                   <div>
                     <p className="text-xs text-slate-500">Longitude</p>
-                    <p>{site.longitude}</p>
+                    <p className="font-medium text-slate-800">{site.longitude}</p>
                   </div>
+
+                  {/* Boundary Type */}
                   <div>
-                    <p className="text-xs text-slate-500">Radius</p>
-                    <p>{site.geofence_radius} meters</p>
+                    <p className="text-xs text-slate-500">Boundary Type</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      {boundaryType === "polygon" ? (
+                        <>
+                          <Hexagon size={16} className="text-indigo-500" />
+                          <span className="font-semibold text-indigo-600 capitalize">Polygon</span>
+                          <span className="text-xs text-slate-400">
+                            ({polygonCoords.length} points)
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <CircleDot size={16} className="text-purple-500" />
+                          <span className="font-semibold text-purple-600 capitalize">Circle</span>
+                        </>
+                      )}
+                    </div>
                   </div>
+
+                  {/* Radius — only for circle */}
+                  {boundaryType !== "polygon" && (
+                    <div>
+                      <p className="text-xs text-slate-500">Geofence Radius</p>
+                      <p className="font-medium text-slate-800">{site.geofence_radius} meters</p>
+                    </div>
+                  )}
+                </div>
+                  );
+                })()}
+
+                {/* Boundary Map Preview */}
+                <div className="rounded-2xl overflow-hidden border border-white/40 shadow-inner" style={{ height: 280 }}>
+                  <MapErrorBoundary>
+                    <APIProvider apiKey={GOOGLE_MAPS_KEY} language="en" region="US">
+                      <Map
+                        defaultCenter={{ lat: parseFloat(site.latitude) || 20.5937, lng: parseFloat(site.longitude) || 78.9629 }}
+                        defaultZoom={15}
+                        gestureHandling="cooperative"
+                        disableDefaultUI={false}
+                        mapTypeControl={false}
+                        streetViewControl={false}
+                        fullscreenControl={false}
+                        style={{ width: "100%", height: "100%" }}
+                      >
+                        <BoundaryOverlay site={site} />
+                      </Map>
+                    </APIProvider>
+                  </MapErrorBoundary>
                 </div>
               </GlassCard>
             )}
