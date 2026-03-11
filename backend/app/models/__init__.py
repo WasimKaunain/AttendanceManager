@@ -5,3 +5,4 @@ from .shift import Shift
 from .attendance import AttendanceRecord
 from .user import User
 from .audit_log import AuditLog
+from .debug_log import GeofenceLog, FaceLog
