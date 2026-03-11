@@ -380,7 +380,11 @@ def verify_geofence(data: LocationRequest, user=Depends(require_site_incharge), 
     if not site:
         return GeofenceResponse(inside=False, site_id=None, site_name=None)
 
-    print(f"Site name: {site.name}")
+    print(f"[GEOFENCE DEBUG] ── Site: {site.name}")
+    print(f"[GEOFENCE DEBUG] ── Site lat={site.latitude}, lng={site.longitude}")
+    print(f"[GEOFENCE DEBUG] ── Site radius={site.geofence_radius}m, boundary_type={site.boundary_type}")
+    print(f"[GEOFENCE DEBUG] ── Worker sent lat={data.latitude}, lng={data.longitude}")
+
     inside = is_within_geofence(
         data.latitude, data.longitude,
         site.latitude, site.longitude,
@@ -388,8 +392,8 @@ def verify_geofence(data: LocationRequest, user=Depends(require_site_incharge), 
         boundary_type=getattr(site, "boundary_type", "circle"),
         polygon_coords=getattr(site, "polygon_coords", None),
     )
-    print(f"Geofence check — inside: {inside}")
 
+    print(f"[GEOFENCE DEBUG] ── Result: inside={inside}")
     return GeofenceResponse(inside=inside, site_id=site.id, site_name=site.name)
 
 # ===================== CHECK-IN =====================

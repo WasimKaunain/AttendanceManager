@@ -73,7 +73,11 @@ def is_within_geofence(
     Falls back to circle check if polygon_coords is missing or invalid.
     """
     if boundary_type == "polygon" and polygon_coords and len(polygon_coords) >= 3:
-        return _point_in_polygon(lat1, lon1, polygon_coords)
+        result = _point_in_polygon(lat1, lon1, polygon_coords)
+        print(f"[GEOFENCE DEBUG] ── polygon check → inside={result}")
+        return result
 
     # Default: circle
-    return _haversine_distance(lat1, lon1, lat2, lon2) <= radius_m
+    distance = _haversine_distance(lat1, lon1, lat2, lon2)
+    print(f"[GEOFENCE DEBUG] ── haversine distance={distance:.2f}m, radius={radius_m}m → inside={distance <= radius_m}")
+    return distance <= radius_m
