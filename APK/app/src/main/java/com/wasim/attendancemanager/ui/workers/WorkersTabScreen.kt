@@ -22,6 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wasim.attendancemanager.data.api.RetrofitInstance
+import com.wasim.attendancemanager.data.local.AppPreferences
 import com.wasim.attendancemanager.data.model.SiteWorker
 import com.wasim.attendancemanager.ui.components.AppDividerLine
 import com.wasim.attendancemanager.ui.components.SectionHeader
@@ -70,7 +71,7 @@ fun WorkersTabScreen() {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(AppBackground)
+            .background(MaterialTheme.colorScheme.background)   // was AppBackground
     ) {
 
         // ── Header ────────────────────────────────────────────────────────────
@@ -91,9 +92,9 @@ fun WorkersTabScreen() {
 
         // ── Search + Filter ───────────────────────────────────────────────────
         Card(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            shape    = RoundedCornerShape(16.dp),
-            colors   = CardDefaults.cardColors(containerColor = AppSurface),
+            modifier  = Modifier.fillMaxWidth().padding(16.dp),
+            shape     = RoundedCornerShape(16.dp),
+            colors    = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             elevation = CardDefaults.cardElevation(2.dp)
         ) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -102,7 +103,7 @@ fun WorkersTabScreen() {
                     value         = searchQuery,
                     onValueChange = { searchQuery = it },
                     label         = { Text("Search by name, mobile or ID") },
-                    leadingIcon   = { Icon(Icons.Default.Search, null, tint = AppTextSecondary) },
+                    leadingIcon   = { Icon(Icons.Default.Search, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                     modifier      = Modifier.fillMaxWidth(),
                     singleLine    = true,
                     shape         = RoundedCornerShape(12.dp)
@@ -143,9 +144,9 @@ fun WorkersTabScreen() {
         } else if (workers.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Default.PeopleOutline, null, tint = AppTextSecondary, modifier = Modifier.size(48.dp))
+                    Icon(Icons.Default.PeopleOutline, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(48.dp))
                     Spacer(Modifier.height(8.dp))
-                    Text("No workers found", style = MaterialTheme.typography.bodyLarge.copy(color = AppTextSecondary))
+                    Text("No workers found", style = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))
                 }
             }
         } else {
@@ -179,12 +180,12 @@ fun WorkerRow(worker: SiteWorker, onClick: () -> Unit) {
     Card(
         modifier  = Modifier.fillMaxWidth().clickable { onClick() },
         shape     = RoundedCornerShape(14.dp),
-        colors    = CardDefaults.cardColors(containerColor = AppSurface),
+        colors    = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(2.dp)
     ) {
         Row(
-            modifier          = Modifier.fillMaxWidth().padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically,
+            modifier              = Modifier.fillMaxWidth().padding(14.dp),
+            verticalAlignment     = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             // Avatar
@@ -200,8 +201,8 @@ fun WorkerRow(worker: SiteWorker, onClick: () -> Unit) {
 
             // Info
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(worker.full_name, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold, color = AppTextPrimary))
-                Text(worker.id, style = MaterialTheme.typography.bodySmall.copy(color = AppTextSecondary, fontSize = 11.sp))
+                Text(worker.full_name, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface))
+                Text(worker.id,       style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp))
             }
 
             // Badges
@@ -209,10 +210,8 @@ fun WorkerRow(worker: SiteWorker, onClick: () -> Unit) {
                 // Active / Inactive status dot
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     Box(Modifier.size(8.dp).clip(CircleShape).background(activeColor))
-                    Text(
-                        worker.status.replaceFirstChar { it.uppercase() },
-                        style = MaterialTheme.typography.labelSmall.copy(color = activeColor, fontWeight = FontWeight.Medium)
-                    )
+                    Text(worker.status.replaceFirstChar { it.uppercase() },
+                        style = MaterialTheme.typography.labelSmall.copy(color = activeColor, fontWeight = FontWeight.Medium))
                 }
                 // Today attendance badge (only for active)
                 if (worker.status == "active") {
@@ -227,6 +226,10 @@ fun WorkerRow(worker: SiteWorker, onClick: () -> Unit) {
 
 @Composable
 fun WorkerDetailSheet(worker: SiteWorker, onBack: () -> Unit) {
+    val context    = LocalContext.current
+    val prefs      = remember { AppPreferences(context) }
+    val currCode   = prefs.currency
+    fun fmtMoney(amount: Double) = AppPreferences.formatMoney(amount, currCode)
 
     val todayColor = when (worker.today_status) {
         "present"     -> AppPresent
@@ -242,10 +245,9 @@ fun WorkerDetailSheet(worker: SiteWorker, onBack: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(AppBackground)
+            .background(MaterialTheme.colorScheme.background)
             .verticalScroll(rememberScrollState())
     ) {
-
         // ── Header ────────────────────────────────────────────────────────────
         Box(
             modifier = Modifier
@@ -265,11 +267,11 @@ fun WorkerDetailSheet(worker: SiteWorker, onBack: () -> Unit) {
 
         // ── Avatar + Name ─────────────────────────────────────────────────────
         Column(
-            modifier              = Modifier.fillMaxWidth().padding(top = 32.dp),
-            horizontalAlignment   = Alignment.CenterHorizontally
+            modifier            = Modifier.fillMaxWidth().padding(top = 32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Box(
-                modifier         = Modifier
+                modifier = Modifier
                     .size(88.dp)
                     .shadow(8.dp, CircleShape, ambientColor = AppPrimary.copy(alpha = 0.2f))
                     .clip(CircleShape)
@@ -284,20 +286,15 @@ fun WorkerDetailSheet(worker: SiteWorker, onBack: () -> Unit) {
 
             Spacer(Modifier.height(12.dp))
 
-            Text(worker.full_name, style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold, color = AppTextPrimary))
+            Text(worker.full_name, style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground))
             Spacer(Modifier.height(4.dp))
-            Text(worker.id, style = MaterialTheme.typography.bodyMedium.copy(color = AppTextSecondary))
+            Text(worker.id, style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))
 
             Spacer(Modifier.height(12.dp))
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                StatusBadge(
-                    label = worker.status.replaceFirstChar { it.uppercase() },
-                    color = if (worker.status == "active") AppPresent else AppInactive
-                )
-                if (worker.status == "active") {
-                    StatusBadge(label = todayLabel, color = todayColor)
-                }
+                StatusBadge(label = worker.status.replaceFirstChar { it.uppercase() }, color = if (worker.status == "active") AppPresent else AppInactive)
+                if (worker.status == "active") StatusBadge(label = todayLabel, color = todayColor)
             }
         }
 
@@ -307,35 +304,24 @@ fun WorkerDetailSheet(worker: SiteWorker, onBack: () -> Unit) {
         Card(
             modifier  = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
             shape     = RoundedCornerShape(16.dp),
-            colors    = CardDefaults.cardColors(containerColor = AppSurface),
+            colors    = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             elevation = CardDefaults.cardElevation(2.dp)
         ) {
             Column {
-                InfoRow(Icons.Default.Badge,        "Employee ID",   worker.id)
+                InfoRow(Icons.Default.Badge,         "Employee ID",   worker.id)
                 AppDividerLine()
-                InfoRow(Icons.Default.Phone,        "Mobile",        worker.mobile)
+                InfoRow(Icons.Default.Phone,         "Mobile",        worker.mobile)
                 AppDividerLine()
-                InfoRow(Icons.Default.Work,         "Role",          worker.role?.replaceFirstChar { it.uppercase() } ?: "—")
+                InfoRow(Icons.Default.Work,          "Role",          worker.role?.replaceFirstChar { it.uppercase() } ?: "—")
                 AppDividerLine()
-                InfoRow(Icons.Default.Category,     "Type",          worker.type?.replaceFirstChar { it.uppercase() } ?: "—")
+                InfoRow(Icons.Default.Category,      "Type",          worker.type?.replaceFirstChar { it.uppercase() } ?: "—")
                 AppDividerLine()
-                InfoRow(Icons.Default.CalendarMonth,"Joining Date",  worker.joining_date ?: "—")
-
-                worker.daily_rate?.let {
-                    AppDividerLine()
-                    InfoRow(Icons.Default.AttachMoney, "Daily Rate",  "PKR %.0f".format(it))
-                }
-                worker.hourly_rate?.let {
-                    AppDividerLine()
-                    InfoRow(Icons.Default.AttachMoney, "Hourly Rate", "PKR %.0f".format(it))
-                }
-                worker.monthly_salary?.let {
-                    AppDividerLine()
-                    InfoRow(Icons.Default.AttachMoney, "Monthly Salary", "PKR %.0f".format(it))
-                }
+                InfoRow(Icons.Default.CalendarMonth, "Joining Date",  worker.joining_date ?: "—")
+                worker.daily_rate?.let    { AppDividerLine(); InfoRow(Icons.Default.AttachMoney, "Daily Rate",     fmtMoney(it)) }
+                worker.hourly_rate?.let   { AppDividerLine(); InfoRow(Icons.Default.AttachMoney, "Hourly Rate",    fmtMoney(it)) }
+                worker.monthly_salary?.let{ AppDividerLine(); InfoRow(Icons.Default.AttachMoney, "Monthly Salary", fmtMoney(it)) }
             }
         }
-
         Spacer(Modifier.height(100.dp))
     }
 }
@@ -343,15 +329,14 @@ fun WorkerDetailSheet(worker: SiteWorker, onBack: () -> Unit) {
 @Composable
 private fun InfoRow(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, value: String) {
     Row(
-        modifier          = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
+        modifier              = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment     = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Icon(icon, null, tint = AppPrimary, modifier = Modifier.size(20.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(label, style = MaterialTheme.typography.labelSmall.copy(color = AppTextSecondary, fontSize = 11.sp))
-            Text(value, style = MaterialTheme.typography.bodyMedium.copy(color = AppTextPrimary, fontWeight = FontWeight.Medium))
+            Text(label, style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp))
+            Text(value, style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium))
         }
     }
 }
-

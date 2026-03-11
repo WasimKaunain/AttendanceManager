@@ -97,20 +97,16 @@ fun LoginScreen(navController: NavController) {
 
                             // Decode role and site_id from JWT payload
                             val payload = decodeJwtPayload(token)
-                            val role = payload?.optString("role", "") ?: ""
-                            val siteId = payload?.optString("site_id", null)
+                            val role     = payload?.optString("role",      "") ?: ""
+                            val siteId   = payload?.optString("site_id",   null)
+                            val name     = payload?.optString("name",      null)
+                            val siteName = payload?.optString("site_name", null)
 
-                            // Debug: log the decoded role
                             android.util.Log.d("LoginScreen", "JWT payload: $payload")
-                            android.util.Log.d("LoginScreen", "Decoded role: '$role', site_id: '$siteId'")
+                            android.util.Log.d("LoginScreen", "Decoded role: '$role', site_id: '$siteId', name: '$name'")
 
-                            // Only allow site in-charges to log in
                             if (role != "site_incharge") {
-                                Toast.makeText(
-                                    context,
-                                    "Access denied. Role received: '$role'",
-                                    Toast.LENGTH_LONG
-                                ).show()
+                                Toast.makeText(context, "Access denied. Role received: '$role'", Toast.LENGTH_LONG).show()
                                 isLoading = false
                                 return@launch
                             }
@@ -118,7 +114,9 @@ fun LoginScreen(navController: NavController) {
                             val tokenManager = TokenManager(context)
                             tokenManager.saveToken(token)
                             tokenManager.saveRole(role)
-                            siteId?.let { tokenManager.saveSiteId(it) }
+                            siteId?.let   { tokenManager.saveSiteId(it) }
+                            name?.let     { tokenManager.saveUserName(it) }
+                            siteName?.let { tokenManager.saveSiteName(it) }
 
                             Toast.makeText(context, "Login Successful", Toast.LENGTH_SHORT).show()
 

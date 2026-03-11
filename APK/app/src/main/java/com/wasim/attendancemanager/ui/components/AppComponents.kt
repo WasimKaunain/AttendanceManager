@@ -16,7 +16,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wasim.attendancemanager.ui.theme.*
 
-// ── Stat Card ─────────────────────────────────────────────────────────────────
+// ── 3-D Stat Card ─────────────────────────────────────────────────────────────
 
 @Composable
 fun StatCard(
@@ -26,47 +26,36 @@ fun StatCard(
     icon: ImageVector,
     modifier: Modifier = Modifier
 ) {
-    Card(
+    val shape = RoundedCornerShape(18.dp)
+
+    Box(
         modifier = modifier
             .shadow(
-                elevation = 4.dp,
-                shape = RoundedCornerShape(16.dp),
-                ambientColor = accent.copy(alpha = 0.15f),
-                spotColor   = accent.copy(alpha = 0.25f)
-            ),
-        shape  = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = AppSurface)
+                elevation    = 12.dp,
+                shape        = shape,
+                ambientColor = Color.Black.copy(alpha = 0.07f),
+                spotColor    = Color.Black.copy(alpha = 0.16f)
+            )
+            .clip(shape)
+            .background(MaterialTheme.colorScheme.surface)
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(accent.copy(alpha = 0.12f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = accent,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
+            Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(24.dp))
             Text(
                 text  = value,
                 style = MaterialTheme.typography.headlineMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    color      = AppTextPrimary,
-                    fontSize   = 26.sp
+                    fontWeight = FontWeight.ExtraBold,
+                    color      = MaterialTheme.colorScheme.onSurface,
+                    fontSize   = 28.sp
                 )
             )
             Text(
                 text  = label,
                 style = MaterialTheme.typography.bodySmall.copy(
-                    color    = AppTextSecondary,
+                    color    = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 12.sp
                 )
             )
@@ -82,7 +71,7 @@ fun SectionHeader(title: String, modifier: Modifier = Modifier) {
         text     = title,
         style    = MaterialTheme.typography.titleMedium.copy(
             fontWeight = FontWeight.SemiBold,
-            color      = AppTextPrimary
+            color      = MaterialTheme.colorScheme.onBackground
         ),
         modifier = modifier
     )
@@ -113,9 +102,8 @@ fun StatusBadge(label: String, color: Color) {
 @Composable
 fun AppDividerLine() {
     HorizontalDivider(
-        color     = AppDivider,
-        thickness = 1.dp,
+        color     = MaterialTheme.colorScheme.outline,
+        thickness = 0.8.dp,
         modifier  = Modifier.padding(horizontal = 16.dp)
     )
 }
-

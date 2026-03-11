@@ -35,6 +35,14 @@ class TokenManager(context: Context) {
         prefs.edit().remove("access_token").remove("token_expires_at").apply()
     }
 
+    // ── User Name ─────────────────────────────────────────────────────────────
+
+    fun saveUserName(name: String) {
+        prefs.edit().putString("user_name", name).apply()
+    }
+
+    fun getUserName(): String? = prefs.getString("user_name", null)
+
     // ── Role ─────────────────────────────────────────────────────────────────
 
     fun saveRole(role: String) {
@@ -50,6 +58,14 @@ class TokenManager(context: Context) {
     }
 
     fun getSiteId(): String? = prefs.getString("site_id", null)
+
+    // ── Site Name ─────────────────────────────────────────────────────────────
+
+    fun saveSiteName(name: String) {
+        prefs.edit().putString("site_name", name).apply()
+    }
+
+    fun getSiteName(): String? = prefs.getString("site_name", null)
 
     // ── Clear all ─────────────────────────────────────────────────────────────
 
