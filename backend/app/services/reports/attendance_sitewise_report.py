@@ -32,17 +32,7 @@ class AttendanceSitewiseReportBuilder(BaseReportBuilder):
         if not site:
             raise Exception("Site not found")
 
-        # Get all workers assigned to this site (include active + inactive)
-        workers = (
-            self.db.query(Worker)
-            .filter(
-                Worker.site_id == site.id,
-                Worker.is_deleted == False
-            )
-            .all()
-        )
-
-        # Fetch attendance records for this site within range
+        # Fetch all attendance records for this site within the date range
         records = (
             self.db.query(AttendanceRecord)
             .filter(
@@ -53,56 +43,74 @@ class AttendanceSitewiseReportBuilder(BaseReportBuilder):
             .all()
         )
 
-        # Build attendance lookup:
-        # {(worker_id, date): record}
+        # Build attendance lookup: {(worker_id, date): record}
         attendance_map = {
             (record.worker_id, record.date): record
             for record in records
         }
 
-        # Generate date list
-        current_date = self.filters.from_date
-        end_date = self.filters.to_date
+        # Collect unique worker IDs that have records at this site in the range,
+        # PLUS workers currently assigned to this site — union of both
+        worker_ids_from_records = {r.worker_id for r in records}
 
+        assigned_workers = (
+            self.db.query(Worker)
+            .filter(
+                Worker.site_id == site.id,
+                Worker.is_deleted == False
+            )
+            .all()
+        )
+        assigned_worker_ids = {w.id for w in assigned_workers}
+
+        all_worker_ids = worker_ids_from_records | assigned_worker_ids
+
+        # Fetch full Worker objects for all relevant worker IDs
+        if all_worker_ids:
+            workers = (
+                self.db.query(Worker)
+                .filter(
+                    Worker.id.in_(all_worker_ids),
+                    Worker.is_deleted == False
+                )
+                .order_by(Worker.full_name)
+                .all()
+            )
+        else:
+            workers = []
+
+        # Generate date list
         date_list = []
-        while current_date <= end_date:
+        current_date = self.filters.from_date
+        while current_date <= self.filters.to_date:
             date_list.append(current_date)
             current_date += timedelta(days=1)
 
-        # Table headers
-        headers = ["Worker Name"] + [d.day for d in date_list]
+        # Table headers: worker name + day numbers as strings
+        headers = ["Worker Name"] + [str(d.day) for d in date_list]
 
         rows = []
-
         for worker in workers:
-
             row = [worker.full_name]
-
-            for date in date_list:
-
-                record = attendance_map.get((worker.id, date))
-
+            for d in date_list:
+                record = attendance_map.get((worker.id, d))
                 if record and record.status == "Checked_out":
-                    if record.is_late:
-                        row.append("L")
-                    else:
-                        row.append("✔")
+                    row.append("L" if record.is_late else "✔")
                 else:
-                    # No record OR incomplete
                     row.append("✖")
-
             rows.append(row)
 
         return {
             "title": "ATTENDANCE SITEWISE REPORT",
             "metadata": {
-                "Site Name": site.name,
-                "Date Range": f"{self.filters.from_date} to {self.filters.to_date}",
+                "Site Name":     site.name,
+                "Date Range":    f"{self.filters.from_date} to {self.filters.to_date}",
                 "Total Workers": len(workers),
-                "Generated At": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
+                "Total Records": len(records),
+                "Generated At":  datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
             },
             "table": {
                 "headers": headers,
-                "rows": rows
-            }
+                "rows":    rows,
+            },
         }

@@ -10,7 +10,7 @@ def list_media_objects(
     prefix: str = "",
     search: str | None = None,
     continuation_token: str | None = None,
-    limit: int = 50
+    limit: int = 50,
 ):
     params = {
         "Bucket": R2_BUCKET,
@@ -33,11 +33,10 @@ def list_media_objects(
     if "Contents" in response:
         for obj in response["Contents"]:
             key = obj["Key"]
-            if key == prefix:          # skip the "folder" key itself
+            if key == prefix:
                 continue
-            if key.endswith("/"):      # skip virtual directory markers
+            if key.endswith("/"):
                 continue
-            # apply search filter against full key path
             if search and search.lower() not in key.lower():
                 continue
             files.append({

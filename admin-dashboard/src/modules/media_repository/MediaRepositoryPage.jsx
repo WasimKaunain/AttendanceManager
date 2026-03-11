@@ -22,7 +22,7 @@ export default function MediaRepositoryPage() {
 
   const { data, loading, loadMore, reload } = useMedia(prefix, search);
 
-  // Fetch all workers for the dropdown
+  // Fetch workers for the filter dropdown
   const { data: workers = [] } = useQuery({
     queryKey: ["workers"],
     queryFn: async () => (await api.get("/workers/")).data,
@@ -54,7 +54,7 @@ export default function MediaRepositoryPage() {
 
   const handleFolderClick = (folderPrefix) => {
     setPrefix(folderPrefix);
-    setSearch("");              // clear search when navigating into folder
+    setSearch("");
   };
 
   return (
