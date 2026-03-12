@@ -2,6 +2,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/core/auth/AuthContext";
 import { useTheme } from "@/core/theme/ThemeContext";
 import { Moon, Sun } from "lucide-react";
+import aintsolLogo from "@/assets/aintsol-logo.png";
 
 import {LayoutDashboard,FolderKanban,MapPin,Users,ClipboardCheck,Clock,BarChart3,LogOut,UserCog,} from "lucide-react";
 
@@ -33,18 +34,30 @@ export default function Sidebar() {
   return (
     <div className={`relative w-64 ${sidebarBg} flex flex-col h-screen p-5`}>
 
-      <div className="mb-10 flex items-start justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-white">SiteTrack</h1>
-          <p className="text-xs text-gray-400">ATTENDANCE</p>
+      {/* Brand header with logo */}
+      <div className="mb-8">
+        {/* Logo + theme toggle row */}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <img
+              src={aintsolLogo}
+              alt="AINTSOL"
+              className="w-10 h-10 object-contain rounded-xl bg-white p-1 shadow-lg ring-2 ring-white/30"
+            />
+            <div className="leading-tight">
+              <h1 className="text-base font-extrabold text-white tracking-tight">SiteTrack</h1>
+              <p className="text-[10px] text-slate-400 tracking-widest uppercase">Attendance Manager</p>
+            </div>
+          </div>
+          <button
+            onClick={toggleTheme}
+            className="p-2 rounded-lg hover:bg-slate-800 transition flex-shrink-0"
+          >
+            {mode === "light" ? <Moon size={16} /> : <Sun size={16} />}
+          </button>
         </div>
-
-        <button
-          onClick={toggleTheme}
-          className="p-2 rounded-lg hover:bg-gray-800 transition"
-        >
-          {mode === "light" ? <Moon size={18} /> : <Sun size={18} />}
-        </button>
+        {/* Divider */}
+        <div className="h-px bg-slate-700/60" />
       </div>
 
       {/* Menu */}

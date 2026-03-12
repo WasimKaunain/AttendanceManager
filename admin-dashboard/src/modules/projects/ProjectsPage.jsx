@@ -24,16 +24,16 @@ export default function ProjectsPage() {
   });
 
   const statusColors = {
-    active: "bg-green-500/20 text-green-700 border-green-500/40",
-    completed: "bg-blue-500/20 text-blue-700 border-blue-500/40",
-    terminated: "bg-red-500/20 text-red-700 border-red-500/40",
-    inactive: "bg-gray-500/20 text-gray-700 border-gray-500/40",
-    upcoming: "bg-purple-500/20 text-purple-700 border-purple-500/40",
+    active: "bg-green-500/20 text-green-700 border-green-500/40 dark:bg-green-500/10 dark:text-green-400 dark:border-green-500/30",
+    completed: "bg-blue-500/20 text-blue-700 border-blue-500/40 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/30",
+    terminated: "bg-red-500/20 text-red-700 border-red-500/40 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/30",
+    inactive: "bg-gray-500/20 text-gray-600 border-gray-500/40 dark:bg-slate-700/40 dark:text-slate-400 dark:border-slate-600/40",
+    upcoming: "bg-purple-500/20 text-purple-700 border-purple-500/40 dark:bg-purple-500/10 dark:text-purple-400 dark:border-purple-500/30",
   };
 
   return (
     <DashboardLayout>
-      <div className="p-8 min-h-screen space-y-8">
+      <div className="p-6 min-h-screen space-y-6">
         <PageHeader
           title="Projects"
           subtitle="Manage and monitor construction projects"
@@ -41,35 +41,27 @@ export default function ProjectsPage() {
           addLabel="New Project"
         />
 
-        {/* PROJECT LIST */}
         {isLoading ? (
-          <div className="text-slate-500">Loading projects...</div>
+          <div className="text-slate-500 dark:text-slate-400">Loading projects...</div>
         ) : projects.length === 0 ? (
-          <div className="text-slate-400 text-center py-12">No projects found.</div>
+          <div className="text-slate-400 dark:text-slate-500 text-center py-16">No projects found.</div>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-2">
             {projects.map((project) => (
               <div
                 key={project.id}
                 onClick={() => navigate(`/projects/${project.id}`)}
-                className="cursor-pointer
-                           backdrop-blur-xl bg-white/60
-                           border border-white/40
-                           shadow-xl
-                           rounded-3xl p-6
-                           hover:scale-[1.02]
-                           hover:shadow-2xl
-                           transition duration-300"
+                className="glass-row"
               >
-                <div className="flex justify-between items-center">
-                  <div className="space-y-2">
-                    <h2 className="text-xl font-semibold text-slate-800">{project.name}</h2>
-                    <div className="flex items-center gap-4 text-sm text-slate-500">
-                      <span className="font-mono bg-slate-100 px-2 py-1 rounded">{project.code}</span>
-                      <span>Client: {project.client_name || "N/A"}</span>
+                <div className="flex justify-between items-center gap-4">
+                  <div className="min-w-0">
+                    <p className="row-title truncate">{project.name}</p>
+                    <div className="flex items-center gap-3 mt-0.5">
+                      <span className="row-meta font-mono bg-slate-100 dark:bg-slate-700/60 px-1.5 py-0.5 rounded">{project.code}</span>
+                      <span className="row-sub">{project.client_name || "No client"}</span>
                     </div>
                   </div>
-                  <span className={`px-4 py-1 text-sm rounded-full border backdrop-blur-md ${statusColors[project.status]}`}>
+                  <span className={`flex-shrink-0 px-2.5 py-0.5 text-xs rounded-full border backdrop-blur-md ${statusColors[project.status] || statusColors.inactive}`}>
                     {project.status}
                   </span>
                 </div>

@@ -133,7 +133,7 @@ export default function WorkersPage() {
   // -------------------------
   return (
     <DashboardLayout>
-      <div className="p-8 min-h-screen space-y-8">
+      <div className="p-6 min-h-screen space-y-6">
       <PageHeader
         title="Workers"
         subtitle="Manage workforce and face enrollment"
@@ -142,51 +142,34 @@ export default function WorkersPage() {
       />
 
       {/* FILTER BAR */}
-      <div className="flex flex-wrap gap-3 mb-4">
+      <div className="flex flex-wrap gap-2">
         <input
           placeholder="Search worker..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="border rounded px-3 py-2 w-64"
+          className="filter-input w-56"
         />
-
         <select
           value={filterProject}
-          onChange={(e) => {
-            setFilterProject(e.target.value);
-            setFilterSite("");
-          }}
-          className="border rounded px-3 py-2"
+          onChange={(e) => { setFilterProject(e.target.value); setFilterSite(""); }}
+          className="filter-input"
         >
           <option value="">All Projects</option>
-          {projects.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
+          {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
-
         <select
           value={filterSite}
           onChange={(e) => setFilterSite(e.target.value)}
-          className="border rounded px-3 py-2"
+          className="filter-input"
         >
           <option value="">All Sites</option>
-          {sites
-            .filter((s) =>
-              filterProject ? s.project_id === filterProject : true
-            )
-            .map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
+          {sites.filter((s) => filterProject ? s.project_id === filterProject : true)
+            .map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
-
         <select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
-          className="border rounded px-3 py-2"
+          className="filter-input"
         >
           <option value="">All Status</option>
           <option value="active">Active</option>
@@ -194,59 +177,37 @@ export default function WorkersPage() {
         </select>
       </div>
 
-            <div className="space-y-6">
-                      
-              {filteredWorkers.map((w) => (
-                <div
-                  key={w.id}
-                  onClick={() => navigate(`/workers/${w.id}`)}
-                  className="cursor-pointer backdrop-blur-xl bg-white/60 
-                             border border-white/40 
-                             shadow-xl rounded-3xl p-6 
-                             hover:scale-[1.02] hover:shadow-2xl 
-                             transition duration-300"
-                >
-                  <div className="flex justify-between items-center">
-              
-                    {/* LEFT SIDE */}
-                    <div>
-            
-                      <div>
-                        <h2 className="text-lg font-bold text-slate-800">
-                          {w.full_name}
-                        </h2>
-                        <p className="text-sm text-slate-500">
-                          {w.mobile}
-                        </p>
-                      </div>
-                    
-                    </div>
-                    
-                    {/* RIGHT SIDE */}
-                    <div className="text-right">
-                    
-                      <p className="text-sm text-slate-600">
-                        {projectMap[w.project_id] || "-"}
-                      </p>
-                    
-                      <span
-                        className={`mt-2 inline-block px-3 py-1 text-xs rounded-full border backdrop-blur-md
-                          ${
-                            w.status === "active"
-                              ? "bg-green-500/20 text-green-700 border-green-500/40"
-                              : "bg-gray-500/20 text-gray-700 border-gray-500/40"
-                          }`}
-                      >
-                        {w.status}
-                      </span>
-                        
-                    </div>
-                        
-                  </div>
+      <div className="space-y-2">
+        {filteredWorkers.map((w) => (
+          <div
+            key={w.id}
+            onClick={() => navigate(`/workers/${w.id}`)}
+            className="glass-row"
+          >
+            <div className="flex justify-between items-center gap-4">
+              <div className="flex items-center gap-4 min-w-0">
+                <div className="min-w-0">
+                  <p className="row-title truncate">{w.full_name}</p>
+                  <p className="row-sub">{w.mobile}</p>
                 </div>
-              ))}
-            
+              </div>
+              <div className="flex items-center gap-4 flex-shrink-0">
+                <p className="row-sub hidden sm:block">{projectMap[w.project_id] || "—"}</p>
+                <p className="row-sub hidden md:block">{siteMap[w.site_id] || "—"}</p>
+                <span className={`px-2.5 py-0.5 text-xs rounded-full border backdrop-blur-md
+                  ${w.status === "active"
+                    ? "bg-green-500/20 text-green-700 border-green-500/40 dark:bg-green-500/10 dark:text-green-400"
+                    : "bg-gray-500/20 text-gray-600 border-gray-400/40 dark:bg-slate-700/50 dark:text-slate-400"}`}>
+                  {w.status}
+                </span>
+              </div>
             </div>
+          </div>
+        ))}
+        {filteredWorkers.length === 0 && (
+          <div className="text-center py-16 text-slate-400 dark:text-slate-500 text-sm">No workers found.</div>
+        )}
+      </div>
 
 
       <WorkerFormDialog

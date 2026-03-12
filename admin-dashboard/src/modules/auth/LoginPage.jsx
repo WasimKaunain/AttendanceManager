@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { Eye, EyeOff, Loader2, ShieldCheck } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useAuth } from "../../core/auth/AuthContext";
+import aintsolLogo from "../../assets/aintsol-logo.png";
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -39,14 +40,21 @@ export default function LoginPage() {
         {/* Card */}
         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl overflow-hidden">
           {/* Header stripe */}
-          <div className="bg-blue-600 px-8 py-7 flex flex-col items-center gap-2">
-            <div className="bg-white/20 rounded-full p-3">
-              <ShieldCheck className="w-7 h-7 text-white" />
-            </div>
-            <h1 className="text-white text-2xl font-bold tracking-wide">
-              Attendance Manager
+          <div className="bg-gradient-to-br from-slate-800 to-slate-900 px-8 py-8 flex flex-col items-center gap-1">
+            {/* Logo */}
+            <img
+              src={aintsolLogo}
+              alt="AINTSOL Logo"
+              className="w-16 h-16 object-contain rounded-2xl mb-2 shadow-lg"
+            />
+            {/* Brand */}
+            <h1 className="text-white text-3xl font-extrabold tracking-tight leading-none">
+              SiteTrack
             </h1>
-            <p className="text-blue-100 text-sm">Sign in to your account</p>
+            <p className="text-slate-400 text-xs font-medium tracking-widest uppercase">
+              Attendance Manager
+            </p>
+            <p className="text-slate-500 text-xs mt-3">Sign in to your account</p>
           </div>
 
           {/* Form */}
@@ -123,7 +131,7 @@ export default function LoginPage() {
         </div>
 
         <p className="text-center text-xs text-gray-400 dark:text-gray-500 mt-6">
-          © {new Date().getFullYear()} Attendance Manager. All rights reserved.
+          © {new Date().getFullYear()} SiteTrack · Attendance Manager. All rights reserved.
         </p>
       </div>
     </div>

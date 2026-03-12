@@ -40,13 +40,13 @@ export default function SitesPage() {
   });
 
   const statusColors = {
-    active: "bg-green-500/20 text-green-700 border-green-500/40",
-    inactive: "bg-gray-500/20 text-gray-700 border-gray-500/40",
+    active: "bg-green-500/20 text-green-700 border-green-500/40 dark:bg-green-500/10 dark:text-green-400 dark:border-green-500/30",
+    inactive: "bg-gray-500/20 text-gray-600 border-gray-500/40 dark:bg-slate-700/40 dark:text-slate-400 dark:border-slate-600/40",
   };
 
   return (
     <DashboardLayout>
-      <div className="p-8 min-h-screen space-y-8">
+      <div className="p-6 min-h-screen space-y-6">
 
         {/* HEADER */}
         <PageHeader
@@ -58,46 +58,30 @@ export default function SitesPage() {
 
         {/* SITE LIST */}
         {isLoading ? (
-          <div className="text-slate-500">Loading sites...</div>
+          <div className="text-slate-500 dark:text-slate-400">Loading sites...</div>
         ) : sites.length === 0 ? (
-          <div className="text-slate-400 text-center py-12">
+          <div className="text-slate-400 dark:text-slate-500 text-center py-16">
             No sites found.
           </div>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-2">
             {sites.map((site) => (
               <div
                 key={site.id}
                 onClick={() => navigate(`/sites/${site.id}`)}
-                className="cursor-pointer backdrop-blur-xl bg-white/60
-                           border border-white/40 shadow-xl
-                           rounded-3xl p-6 hover:scale-[1.02]
-                           hover:shadow-2xl transition duration-300"
+                className="glass-row"
               >
-                <div className="flex justify-between items-center">
-
-                  {/* LEFT */}
-                  <div className="space-y-2">
-                    <h2 className="text-xl font-semibold text-slate-800">
-                      {site.name}
-                    </h2>
-
-                    <div className="text-sm text-slate-500">
-                      Project: {projectMap[site.project_id] || "—"}
-                    </div>
-
-                    <div className="text-xs text-slate-400">
-                      Radius: {site.geofence_radius} m
+                <div className="flex justify-between items-center gap-4">
+                  <div className="min-w-0">
+                    <p className="row-title truncate">{site.name}</p>
+                    <div className="flex items-center gap-3 mt-0.5">
+                      <span className="row-sub">{projectMap[site.project_id] || "No project"}</span>
+                      <span className="row-meta">· {site.geofence_radius} m radius</span>
                     </div>
                   </div>
-
-                  {/* STATUS */}
-                  <span
-                    className={`px-4 py-1 text-sm rounded-full border backdrop-blur-md ${statusColors[site.status]}`}
-                  >
+                  <span className={`flex-shrink-0 px-2.5 py-0.5 text-xs rounded-full border backdrop-blur-md ${statusColors[site.status] || statusColors.inactive}`}>
                     {site.status}
                   </span>
-
                 </div>
               </div>
             ))}

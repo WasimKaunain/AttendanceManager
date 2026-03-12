@@ -45,12 +45,12 @@ export default function DataManagementPage() {
 
   return (
     <DashboardLayout>
-      <div className="p-8 min-h-screen bg-gradient-to-br from-slate-100 via-white to-slate-200 space-y-8">
+      <div className="p-8 min-h-screen space-y-8">
 
         {/* Back */}
         <button
           onClick={() => navigate(-1)}
-          className="flex items-center gap-2 text-sm text-slate-500 hover:text-black"
+          className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 hover:text-black dark:hover:text-white"
         >
           <ArrowLeft className="w-4 h-4" />
           Back
@@ -62,15 +62,15 @@ export default function DataManagementPage() {
         />
 
         {/* Tabs */}
-        <div className="flex gap-6 border-b pb-2">
+        <div className="flex gap-6 border-b border-slate-200 dark:border-slate-700 pb-2">
           {tabs.map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`capitalize pb-1 ${
+              className={`capitalize pb-1 transition-colors ${
                 activeTab === tab
-                  ? "border-b-2 border-black font-medium"
-                  : "text-slate-500"
+                  ? "border-b-2 border-black dark:border-white font-medium text-slate-900 dark:text-white"
+                  : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
               }`}
             >
               {tab}
@@ -80,31 +80,31 @@ export default function DataManagementPage() {
 
         {/* Table */}
         {isLoading ? (
-          <div>Loading...</div>
+          <div className="text-slate-500 dark:text-slate-400">Loading...</div>
         ) : archived.length === 0 ? (
-          <div className="text-slate-400 py-10 text-center">
+          <div className="text-slate-400 dark:text-slate-500 py-10 text-center">
             No archived records.
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-2">
             {archived.map((item) => (
               <div
                 key={item.id}
-                className="backdrop-blur-xl bg-white/60 border border-white/40 shadow-xl rounded-3xl p-6 flex justify-between items-center"
+                className="glass-row flex justify-between items-center"
               >
                 <div>
-                  <h2 className="font-semibold text-lg">
+                  <p className="row-title">
                     {item.name || item.full_name}
-                  </h2>
-                  <p className="text-xs text-slate-500">
+                  </p>
+                  <p className="row-meta mt-0.5">
                     Deleted at: {item.deleted_at}
                   </p>
                 </div>
 
-                <div className="flex gap-3">
+                <div className="flex gap-2 flex-shrink-0">
                   <button
                     onClick={() => restoreMutation.mutate({ id: item.id })}
-                    className="bg-green-600 text-white px-4 py-2 rounded"
+                    className="bg-green-600 hover:bg-green-700 text-white text-xs font-semibold px-3 py-2 rounded-xl transition"
                   >
                     Restore
                   </button>
@@ -114,7 +114,7 @@ export default function DataManagementPage() {
                       setSelectedItem(item);
                       setModalOpen(true);
                     }}
-                    className="bg-red-600 text-white px-4 py-2 rounded"
+                    className="bg-red-600 hover:bg-red-700 text-white text-xs font-semibold px-3 py-2 rounded-xl transition"
                   >
                     Delete
                   </button>
