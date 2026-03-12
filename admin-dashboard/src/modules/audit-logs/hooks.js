@@ -7,7 +7,7 @@ export function useAuditLogs(filters) {
     queryFn: async () => {
       const cleanedParams = Object.fromEntries(
         Object.entries(filters).filter(
-          ([_, value]) => value !== "" && value !== null
+          ([_, value]) => value !== "" && value !== null && value !== undefined
         )
       );
 

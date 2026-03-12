@@ -24,26 +24,34 @@ def get_db():
         db.close()
 
 
-@router.post("/", response_model=ProjectResponse, dependencies=[Depends(require_admin)])
-def create_project(data: ProjectCreate, db: Session = Depends(get_db)):
+def _audit_user(user: dict) -> dict:
+    return {
+        "performed_by": UUID(user["sub"]) if user.get("sub") else None,
+        "performed_by_name": user.get("name") or user.get("sub", "Unknown"),
+        "performed_by_role": user.get("role", "admin"),
+    }
+
+
+@router.post("/", response_model=ProjectResponse)
+def create_project(data: ProjectCreate, db: Session = Depends(get_db), current_user: dict = Depends(require_admin)):
     try:
         project = Project(**data.dict())
         db.add(project)
         db.commit()
         db.refresh(project)
 
-        #audit logging
         log_action(
-        db=db,
-        action="create",
-        entity_type="project",
-        entity_id=str(project.id),
-        details=f"Project {project.name} created"
+            db=db,
+            action="create",
+            entity_type="project",
+            entity_id=str(project.id),
+            details=f"Project {project.name} created",
+            **_audit_user(current_user),
         )
 
         return project
 
-    except IntegrityError:  
+    except IntegrityError:
         db.rollback()
         raise HTTPException(
             status_code=400,
@@ -60,26 +68,18 @@ def list_projects(include_deleted: bool = False, db: Session = Depends(get_db)):
     return query.all()
 
 
-@router.delete("/{project_id}/force-delete", dependencies=[Depends(require_admin)])
-def force_delete_project(project_id: str, db: Session = Depends(get_db)):
+@router.delete("/{project_id}/force-delete")
+def force_delete_project(project_id: str, db: Session = Depends(get_db), current_user: dict = Depends(require_admin)):
 
     project = db.query(Project).filter(Project.id == project_id).first()
 
     if not project:
         raise HTTPException(404, "Project not found")
 
-    # Delete attendance
     db.query(AttendanceRecord).filter(AttendanceRecord.project_id == project_id).delete()
-
-    # Delete workers
     db.query(Worker).filter(Worker.project_id == project_id).delete()
-
-    # Delete sites
     db.query(Site).filter(Site.project_id == project_id).delete()
-
-    # Delete project
     db.delete(project)
-
     db.commit()
 
     log_action(
@@ -87,7 +87,8 @@ def force_delete_project(project_id: str, db: Session = Depends(get_db)):
         action="force_delete",
         entity_type="project",
         entity_id=str(project_id),
-        details="Project permanently deleted with all linked data"
+        details="Project permanently deleted with all linked data",
+        **_audit_user(current_user),
     )
 
     return {"message": "Project permanently deleted"}
@@ -115,11 +116,12 @@ def project_summary(project_id: str, db: Session = Depends(get_db)):
 
 from datetime import date
 
-@router.put("/{project_id}/status", dependencies=[Depends(require_admin)])
+@router.put("/{project_id}/status")
 def update_project_status(
     project_id: str,
     status: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin),
 ):
 
     project = db.query(Project).filter(Project.id == project_id).first()
@@ -127,7 +129,6 @@ def update_project_status(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    # Allowed transitions
     allowed_transitions = {
         "active": ["inactive", "terminated", "completed"],
         "inactive": ["active", "terminated"],
@@ -138,38 +139,20 @@ def update_project_status(
 
     current_status = project.status
 
-    # Prevent same status update
     if status == current_status:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Project is already in '{current_status}' state"
-        )
+        raise HTTPException(status_code=400, detail=f"Project is already in '{current_status}' state")
 
-    # Validate status exists
     if status not in allowed_transitions:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid status '{status}'"
-        )
+        raise HTTPException(status_code=400, detail=f"Invalid status '{status}'")
 
-    # Validate transition
     if status not in allowed_transitions.get(current_status, []):
-        raise HTTPException(
-            status_code=400,
-            detail=f"Cannot change project from '{current_status}' to '{status}'"
-        )
-
-    # ---------------------------
-    # Apply Business Logic
-    # ---------------------------
+        raise HTTPException(status_code=400, detail=f"Cannot change project from '{current_status}' to '{status}'")
 
     project.status = status
 
-    # If project is completed or terminated → set end_date
     if status in ["completed", "terminated"]:
         project.end_date = date.today()
 
-    # If project becomes active again → clear end_date
     if status == "active":
         project.end_date = None
 
@@ -181,7 +164,8 @@ def update_project_status(
         action="update",
         entity_type="project",
         entity_id=str(project_id),
-        details=f"Project status changed from {current_status} to {status}"
+        details=f"Project status changed from {current_status} to {status}",
+        **_audit_user(current_user),
     )
 
     return {
@@ -192,11 +176,12 @@ def update_project_status(
     }
 
 
-@router.put("/{project_id}", response_model=ProjectResponse, dependencies=[Depends(require_admin)])
+@router.put("/{project_id}", response_model=ProjectResponse)
 def update_project(
     project_id: str,
     data: ProjectUpdate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin),
 ):
 
     project = db.query(Project).filter(Project.id == project_id).first()
@@ -205,7 +190,6 @@ def update_project(
         raise HTTPException(404, "Project not found")
 
     try:
-        # Update fields
         project.name = data.name
         project.code = data.code
         project.description = data.description
@@ -220,21 +204,19 @@ def update_project(
             action="update",
             entity_type="project",
             entity_id=str(project_id),
-            details=f"Project {project.name} updated"
+            details=f"Project {project.name} updated",
+            **_audit_user(current_user),
         )
 
         return project
 
     except IntegrityError:
         db.rollback()
-        raise HTTPException(
-            status_code=400,
-            detail="Project with this code already exists"
-        )
+        raise HTTPException(status_code=400, detail="Project with this code already exists")
 
 
-@router.patch("/{project_id}/archive", dependencies=[Depends(require_admin)])
-def archive_project(project_id: str, db: Session = Depends(get_db)):
+@router.patch("/{project_id}/archive")
+def archive_project(project_id: str, db: Session = Depends(get_db), current_user: dict = Depends(require_admin)):
 
     project = db.query(Project).filter(Project.id == project_id).first()
 
@@ -244,18 +226,11 @@ def archive_project(project_id: str, db: Session = Depends(get_db)):
     if project.is_deleted:
         raise HTTPException(400, "Project already archived")
 
-    # Archive project
     project.is_deleted = True
     project.deleted_at = datetime.utcnow()
     project.status = "inactive"
 
-    # Deactivate all sites
-    db.query(Site).filter(
-        Site.project_id == project_id
-    ).update({"status": "inactive"})
-
-
-    # Deactivate all workers
+    db.query(Site).filter(Site.project_id == project_id).update({"status": "inactive"})
     db.query(Worker).filter(Worker.project_id == project_id).update({"status": "inactive"})
 
     db.commit()
@@ -265,14 +240,15 @@ def archive_project(project_id: str, db: Session = Depends(get_db)):
         action="archive",
         entity_type="project",
         entity_id=str(project_id),
-        details=f"Project {project.name} archived and all linked entities deactivated"
+        details=f"Project {project.name} archived and all linked entities deactivated",
+        **_audit_user(current_user),
     )
 
     return {"message": "Project archived successfully"}
 
 
-@router.patch("/{project_id}/restore", dependencies=[Depends(require_admin)])
-def restore_project(project_id: str, db: Session = Depends(get_db)):
+@router.patch("/{project_id}/restore")
+def restore_project(project_id: str, db: Session = Depends(get_db), current_user: dict = Depends(require_admin)):
 
     project = db.query(Project).filter(Project.id == project_id).first()
 
@@ -286,10 +262,7 @@ def restore_project(project_id: str, db: Session = Depends(get_db)):
     project.deleted_at = None
     project.status = "active"
 
-    # Activate all sites
     db.query(Site).filter(Site.project_id == project_id).update({"status": "active"})
-
-    # Activate all workers
     db.query(Worker).filter(Worker.project_id == project_id).update({"status": "active"})
 
     db.commit()
@@ -299,7 +272,8 @@ def restore_project(project_id: str, db: Session = Depends(get_db)):
         action="restore",
         entity_type="project",
         entity_id=str(project_id),
-        details=f"Project {project.name} restored"
+        details=f"Project {project.name} restored",
+        **_audit_user(current_user),
     )
 
     return {"message": "Project restored successfully"}

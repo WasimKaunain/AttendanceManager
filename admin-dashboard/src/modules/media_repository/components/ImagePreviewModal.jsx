@@ -33,33 +33,33 @@ export default function ImagePreviewModal({ file, onClose, onDelete }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
 
       {/* Modal */}
-      <div className="relative bg-white rounded-2xl shadow-2xl
-                      w-[750px] h-[550px]
+      <div className="relative bg-white dark:bg-slate-800 rounded-t-2xl sm:rounded-2xl shadow-2xl
+                      w-full sm:w-[750px] h-[85vh] sm:h-[550px]
                       flex flex-col">
 
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 bg-white 
+          className="absolute top-4 right-4 bg-white dark:bg-slate-700 
                      rounded-full p-2 shadow-md 
-                     hover:bg-slate-100 z-20"
+                     hover:bg-slate-100 dark:hover:bg-slate-600 z-20"
         >
-          <X size={18} />
+          <X size={18} className="dark:text-slate-200" />
         </button>
 
         {/* Header */}
-        <div className="px-6 py-4 border-b">
-          <h3 className="text-sm font-semibold truncate">
+        <div className="px-4 md:px-6 py-4 border-b dark:border-slate-700">
+          <h3 className="text-sm font-semibold truncate pr-10 dark:text-slate-100">
             {fileName}
           </h3>
         </div>
 
         {/* Image Area */}
         <div
-          className="flex-1 bg-slate-50 overflow-hidden 
+          className="flex-1 bg-slate-50 dark:bg-slate-900 overflow-hidden 
                      relative cursor-grab"
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
@@ -81,31 +81,31 @@ export default function ImagePreviewModal({ file, onClose, onDelete }) {
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t flex justify-between items-center">
+        <div className="px-4 md:px-6 py-3 md:py-4 border-t dark:border-slate-700 flex justify-between items-center gap-3">
 
           {/* Zoom */}
-          <div className="flex gap-3">
+          <div className="flex gap-2 md:gap-3">
             <button
               onClick={() => setZoom((z) => Math.max(z - 0.2, 0.5))}
-              className="bg-slate-200 px-3 py-2 rounded-lg hover:bg-slate-300"
+              className="bg-slate-200 dark:bg-slate-700 dark:text-slate-200 px-2.5 md:px-3 py-2 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600"
             >
               <ZoomOut size={16} />
             </button>
 
             <button
               onClick={() => setZoom((z) => Math.min(z + 0.2, 3))}
-              className="bg-slate-200 px-3 py-2 rounded-lg hover:bg-slate-300"
+              className="bg-slate-200 dark:bg-slate-700 dark:text-slate-200 px-2.5 md:px-3 py-2 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600"
             >
               <ZoomIn size={16} />
             </button>
           </div>
 
           {/* Actions */}
-          <div className="flex gap-4">
+          <div className="flex gap-2 md:gap-4">
             <a
               href={file.download_url}
               download
-              className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm hover:bg-indigo-700"
+              className="bg-indigo-600 text-white px-3 md:px-4 py-2 rounded-xl text-xs md:text-sm hover:bg-indigo-700"
             >
               Download
             </a>
@@ -117,7 +117,7 @@ export default function ImagePreviewModal({ file, onClose, onDelete }) {
                   onClose();
                 }
               }}
-              className="bg-red-500 text-white px-4 py-2 rounded-xl text-sm hover:bg-red-600"
+              className="bg-red-500 text-white px-3 md:px-4 py-2 rounded-xl text-xs md:text-sm hover:bg-red-600"
             >
               Delete
             </button>

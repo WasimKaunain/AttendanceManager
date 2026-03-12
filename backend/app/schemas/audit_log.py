@@ -11,4 +11,6 @@ class AuditLogResponse(ORMBase):
     entity_id: Optional[str]
     details: Optional[str]
     performed_by: Optional[UUID] = None
+    performed_by_name: Optional[str] = None
+    performed_by_role: Optional[str] = None
     created_at: datetime

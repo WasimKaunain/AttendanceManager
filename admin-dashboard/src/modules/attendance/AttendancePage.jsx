@@ -162,7 +162,7 @@ const filtered = useMemo(() => {
 
   return (
     <DashboardLayout>
-      <div className="p-6 space-y-5">
+      <div className="p-4 md:p-6 space-y-5">
 
       <PageHeader
         title="Attendance"
@@ -182,12 +182,12 @@ const filtered = useMemo(() => {
 
 
       {/* ATTENDANCE LIST — scrollable card */}
-      <div className="backdrop-blur-xl bg-white/60 border border-white/40 shadow-xl rounded-3xl overflow-hidden">
+      <div className="backdrop-blur-xl bg-white/60 dark:bg-slate-800/60 border border-white/40 dark:border-slate-700/40 shadow-xl rounded-3xl overflow-hidden">
 
         {/* Card header */}
-        <div className="px-5 py-3 border-b border-white/40 flex items-center justify-between">
-          <span className="text-sm font-semibold text-slate-700">Attendance Records</span>
-          <div className="flex items-center gap-4 text-xs text-slate-400">
+        <div className="px-5 py-3 border-b border-white/40 dark:border-slate-700/40 flex flex-wrap items-center justify-between gap-y-2">
+          <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Attendance Records</span>
+          <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400 dark:text-slate-400">
             <span className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-full border-2 border-green-400 shadow-[0_0_5px_rgba(74,222,128,0.6)]" />
               Checked Out
@@ -196,43 +196,46 @@ const filtered = useMemo(() => {
               <span className="w-2.5 h-2.5 rounded-full border-2 border-yellow-400 shadow-[0_0_5px_rgba(250,204,21,0.6)]" />
               On Site
             </span>
-            <span className="text-slate-300">|</span>
+            <span className="text-slate-300 dark:text-slate-600 hidden sm:inline">|</span>
             <span>{filtered.length} records</span>
           </div>
         </div>
 
-        {/* Column headers */}
-        <div className="grid grid-cols-[2fr_1.5fr_1fr_1fr_1fr_1fr_0.8fr] gap-0 px-5 py-2 bg-slate-50/60 border-b border-slate-100 text-xs font-semibold text-slate-400 uppercase tracking-wide">
-          <span>Worker / Site</span>
-          <span>Date</span>
-          <span>Check In</span>
-          <span>Check Out</span>
-          <span>Hours</span>
-          <span>Status</span>
-          <span className="text-right">Geofence</span>
-        </div>
-
-        {/* Scrollable rows */}
-        <div className="overflow-y-auto max-h-[55vh] custom-scrollbar divide-y divide-slate-100/60">
-          {filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-slate-400 gap-2">
-              <p className="text-sm font-medium">No records found</p>
-              <p className="text-xs">Try adjusting your filters</p>
+        {/* Scrollable table wrapper — horizontal scroll on mobile */}
+        <div className="overflow-x-auto">
+          <div className="min-w-[660px]">
+            {/* Column headers */}
+            <div className="grid grid-cols-[2fr_1.5fr_1fr_1fr_1fr_1fr_0.8fr] gap-0 px-5 py-2 bg-slate-50/60 dark:bg-slate-700/40 border-b border-slate-100 dark:border-slate-700/60 text-xs font-semibold text-slate-400 dark:text-slate-400 uppercase tracking-wide">
+              <span>Worker / Site</span>
+              <span>Date</span>
+              <span>Check In</span>
+              <span>Check Out</span>
+              <span>Hours</span>
+              <span>Status</span>
+              <span className="text-right">Geofence</span>
             </div>
-          ) : (
-            filtered.map((r) => {
-              const isCheckedOut = !!r.check_out_time;
-              return (
-                <div
-                  key={r.id}
-                  onClick={() => setSelectedRecord(r)}
-                  className={`grid grid-cols-[2fr_1.5fr_1fr_1fr_1fr_1fr_0.8fr] gap-0 px-5 py-3
-                              cursor-pointer hover:bg-white/70 transition-all duration-150
-                              ${isCheckedOut
-                                ? "border-l-[3px] border-l-green-400 shadow-[inset_4px_0_8px_rgba(74,222,128,0.08)]"
-                                : "border-l-[3px] border-l-yellow-400 shadow-[inset_4px_0_8px_rgba(250,204,21,0.08)]"
-                              }`}
-                >
+
+            {/* Scrollable rows */}
+            <div className="overflow-y-auto max-h-[55vh] custom-scrollbar divide-y divide-slate-100/60 dark:divide-slate-700/40">
+              {filtered.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 text-slate-400 gap-2">
+                  <p className="text-sm font-medium">No records found</p>
+                  <p className="text-xs">Try adjusting your filters</p>
+                </div>
+              ) : (
+                filtered.map((r) => {
+                  const isCheckedOut = !!r.check_out_time;
+                  return (
+                    <div
+                      key={r.id}
+                      onClick={() => setSelectedRecord(r)}
+                      className={`grid grid-cols-[2fr_1.5fr_1fr_1fr_1fr_1fr_0.8fr] gap-0 px-5 py-3
+                                  cursor-pointer hover:bg-white/70 dark:hover:bg-slate-700/50 transition-all duration-150
+                                  ${isCheckedOut
+                                    ? "border-l-[3px] border-l-green-400 shadow-[inset_4px_0_8px_rgba(74,222,128,0.08)]"
+                                    : "border-l-[3px] border-l-yellow-400 shadow-[inset_4px_0_8px_rgba(250,204,21,0.08)]"
+                                  }`}
+                    >
                   {/* Worker / Site */}
                   <div className="flex flex-col justify-center min-w-0">
                     <span className="text-sm font-semibold text-slate-800 truncate">
@@ -300,17 +303,19 @@ const filtered = useMemo(() => {
               );
             })
           )}
+            </div>
+          </div>
         </div>
       </div>
 
 {selectedRecord && (
-  <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center z-[1000]">
+  <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-end sm:items-center justify-center z-[1000]">
 
     {/* 3D CARD */}
-    <div className="relative w-[720px] max-h-[90vh] overflow-y-auto 
-                    rounded-3xl bg-white/70 backdrop-blur-2xl 
-                    border border-white/40 shadow-[0_25px_60px_rgba(0,0,0,0.25)]
-                    p-8 animate-[fadeIn_.25s_ease]">
+    <div className="relative w-full sm:w-[720px] max-h-[90vh] overflow-y-auto 
+                    rounded-t-3xl sm:rounded-3xl bg-white/90 dark:bg-slate-800/95 backdrop-blur-2xl 
+                    border border-white/40 dark:border-slate-700/40 shadow-[0_25px_60px_rgba(0,0,0,0.25)]
+                    p-6 sm:p-8 animate-[fadeIn_.25s_ease]">
 
       {/* CLOSE BUTTON */}
       <button
@@ -326,20 +331,20 @@ const filtered = useMemo(() => {
 
       {/* HEADER */}
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-slate-800">
+        <h2 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-slate-100">
           Attendance Details
         </h2>
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-slate-500 dark:text-slate-400">
           Complete record overview
         </p>
       </div>
 
       {/* GROUP 1 — WORKER INFO */}
-      <div className="bg-white/60 rounded-2xl p-5 shadow-inner border mb-6">
-        <h3 className="font-semibold text-slate-700 mb-3">
+      <div className="bg-white/60 dark:bg-slate-700/50 rounded-2xl p-4 sm:p-5 shadow-inner border dark:border-slate-600/40 mb-6">
+        <h3 className="font-semibold text-slate-700 dark:text-slate-200 mb-3">
           Worker Information
         </h3>
-        <div className="grid grid-cols-2 gap-3 text-sm">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-slate-700 dark:text-slate-300">
           <p><strong>Name:</strong> {workerMap[selectedRecord.worker_id]}</p>
           <p><strong>Status:</strong> {selectedRecord.status}</p>
           <p><strong>Date:</strong> {format(new Date(selectedRecord.date), "PPP")}</p>
@@ -348,11 +353,11 @@ const filtered = useMemo(() => {
       </div>
 
       {/* GROUP 2 — TIME DETAILS */}
-      <div className="bg-white/60 rounded-2xl p-5 shadow-inner border mb-6">
-        <h3 className="font-semibold text-slate-700 mb-3">
+      <div className="bg-white/60 dark:bg-slate-700/50 rounded-2xl p-4 sm:p-5 shadow-inner border dark:border-slate-600/40 mb-6">
+        <h3 className="font-semibold text-slate-700 dark:text-slate-200 mb-3">
           Time Details
         </h3>
-        <div className="grid grid-cols-2 gap-3 text-sm">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-slate-700 dark:text-slate-300">
           <p>
             <strong>Check-in:</strong>{" "}
             {selectedRecord.check_in_time
@@ -374,11 +379,11 @@ const filtered = useMemo(() => {
       </div>
 
       {/* GROUP 3 — LOCATION DETAILS */}
-      <div className="bg-white/60 rounded-2xl p-5 shadow-inner border mb-6">
-        <h3 className="font-semibold text-slate-700 mb-3">
+      <div className="bg-white/60 dark:bg-slate-700/50 rounded-2xl p-4 sm:p-5 shadow-inner border dark:border-slate-600/40 mb-6">
+        <h3 className="font-semibold text-slate-700 dark:text-slate-200 mb-3">
           Location Details
         </h3>
-        <div className="grid grid-cols-2 gap-3 text-sm">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-slate-700 dark:text-slate-300">
           <p>
             <strong>Check-in Site:</strong><br/>
             {siteMap[selectedRecord.check_in_site_id] || "-"}

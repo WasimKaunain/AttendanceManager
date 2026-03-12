@@ -168,25 +168,26 @@ const siteWorkers = workers.filter((w) => w.site_id === id);
   if (!site) return <DashboardLayout>Loading...</DashboardLayout>;
 
   const GlassCard = ({ children }) => (
-    <div className="backdrop-blur-xl bg-white/60 border border-white/40 shadow-2xl rounded-3xl p-6">
+    <div className="backdrop-blur-xl bg-white/60 dark:bg-slate-800/60 border border-white/40 dark:border-slate-700/40 shadow-2xl rounded-3xl p-4 md:p-6">
       {children}
     </div>
   );
 
   return (
     <DashboardLayout>
-      <div className="p-8 space-y-8 bg-gradient-to-br from-slate-100 via-white to-slate-200 min-h-screen">
+      <div className="p-4 md:p-8 space-y-5 md:space-y-8 bg-gradient-to-br from-slate-100 via-white to-slate-200 dark:from-slate-900 dark:via-slate-950 dark:to-slate-900 min-h-screen">
 
         {/* BACK */}
         <button
           onClick={() => navigate(-1)}
-          className="flex items-center gap-2 text-sm text-slate-600 hover:text-black"
+          className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 hover:text-black dark:hover:text-white"
         >
           <ArrowLeft size={16} />
           Back to Sites
         </button>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Main layout — stacked on mobile, side-by-side on lg+ */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 md:gap-8">
 
           {/* LEFT SIDE PROFILE */}
           <GlassCard>
@@ -197,8 +198,8 @@ const siteWorkers = workers.filter((w) => w.site_id === id);
                 bg-gradient-to-r from-purple-500 via-indigo-500 to-blue-500 
                 opacity-80 blur-[1px]" />
 
-              {/* Circular Map Preview — Google Maps Static API */}
-              <div className="w-40 h-40 rounded-full overflow-hidden border-[5px] border-white shadow-2xl">
+              {/* Circular Map Preview */}
+              <div className="w-32 h-32 md:w-40 md:h-40 rounded-full overflow-hidden border-[5px] border-white shadow-2xl">
                 <img
                   src={`https://maps.googleapis.com/maps/api/staticmap?center=${site.latitude},${site.longitude}&zoom=15&size=160x160&maptype=roadmap&markers=color:purple%7C${site.latitude},${site.longitude}&key=${GOOGLE_MAPS_KEY}`}
                   alt="Site location"
@@ -207,9 +208,7 @@ const siteWorkers = workers.filter((w) => w.site_id === id);
               </div>
 
               {/* Site Name */}
-              <h2 className="text-2xl font-bold bg-gradient-to-r 
-                             from-purple-500 to-indigo-600 
-                             bg-clip-text text-transparent">
+              <h2 className="text-xl md:text-2xl font-bold bg-gradient-to-r from-purple-500 to-indigo-600 bg-clip-text text-transparent">
                 {site.name}
               </h2>
 
@@ -224,7 +223,7 @@ const siteWorkers = workers.filter((w) => w.site_id === id);
                 {site.status.toUpperCase()}
               </div>
 
-              {/* Worker Style Toggle */}
+              {/* Active/Inactive Toggle */}
               <div
                 onClick={() => toggleMutation.mutate()}
                 className={`relative w-full h-12 rounded-full cursor-pointer
@@ -238,32 +237,27 @@ const siteWorkers = workers.filter((w) => w.site_id === id);
                 <div
                   className={`absolute top-1 left-1 h-10 w-1/2 rounded-full 
                     bg-white shadow-xl transition-all duration-500 flex items-center justify-center
-                    ${
-                      site.status === "active"
-                        ? "translate-x-full"
-                        : "translate-x-0"
-                    }`}
+                    ${site.status === "active" ? "translate-x-full" : "translate-x-0"}`}
                 >
                   <span className="font-bold text-sm text-slate-700">
                     {site.status === "active" ? "ACTIVE" : "INACTIVE"}
                   </span>
                 </div>
-
                 <div className="absolute inset-0 flex items-center justify-between px-6 text-white font-bold text-sm">
                   <span>INACTIVE</span>
                   <span>ACTIVE</span>
                 </div>
               </div>
 
-              {/* Edit/Delete */}
-              <div className="mt-6 flex gap-4 w-full">
+              {/* Edit / Archive */}
+              <div className="mt-4 flex gap-3 w-full">
                 <button
                   onClick={() => setEditOpen(true)}
                   className="flex-1 bg-indigo-500/20 border border-indigo-400/40 
-                             text-indigo-700 rounded-xl py-3 font-semibold 
-                             shadow-xl hover:scale-105 transition flex items-center justify-center gap-2"
+                             text-indigo-700 dark:text-indigo-300 rounded-xl py-3 font-semibold 
+                             shadow-xl hover:scale-105 transition flex items-center justify-center gap-2 text-sm"
                 >
-                  <Pencil size={16} />
+                  <Pencil size={15} />
                   Edit
                 </button>
 
@@ -271,10 +265,10 @@ const siteWorkers = workers.filter((w) => w.site_id === id);
                   <button
                     onClick={() => setDeleteOpen(true)}
                     className="flex-1 bg-amber-500/20 border border-amber-400/40 
-                               text-amber-700 rounded-xl py-3 font-semibold 
-                               shadow-xl hover:scale-105 transition flex items-center justify-center gap-2"
+                               text-amber-700 dark:text-amber-400 rounded-xl py-3 font-semibold 
+                               shadow-xl hover:scale-105 transition flex items-center justify-center gap-2 text-sm"
                   >
-                    <Trash2 size={16} />
+                    <Trash2 size={15} />
                     Archive
                   </button>
                 )}
@@ -283,18 +277,18 @@ const siteWorkers = workers.filter((w) => w.site_id === id);
           </GlassCard>
 
           {/* RIGHT SIDE */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-2 space-y-5 md:space-y-6">
 
             {/* Tabs */}
-            <div className="flex gap-6 border-b pb-2">
+            <div className="flex gap-4 md:gap-6 border-b border-slate-200 dark:border-slate-700 pb-2 overflow-x-auto">
               {["overview", "attendance", "workforce"].map((t) => (
                 <button
                   key={t}
                   onClick={() => setTab(t)}
-                  className={`capitalize pb-1 ${
+                  className={`capitalize pb-1 whitespace-nowrap text-sm md:text-base transition-colors ${
                     tab === t
-                      ? "border-b-2 border-black font-medium"
-                      : "text-slate-500"
+                      ? "border-b-2 border-black dark:border-white font-medium text-slate-900 dark:text-white"
+                      : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
                   }`}
                 >
                   {t}
@@ -310,36 +304,34 @@ const siteWorkers = workers.filter((w) => w.site_id === id);
                   const boundaryType = site.boundary_type || "circle";
                   const polygonCoords = Array.isArray(site.polygon_coords) ? site.polygon_coords : [];
                   return (
-                <div className="grid grid-cols-2 gap-6 mb-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6 mb-6">
                   <div>
-                    <p className="text-xs text-slate-500">Address</p>
-                    <p className="font-medium text-slate-800">{site.address || "—"}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Address</p>
+                    <p className="font-medium text-slate-800 dark:text-slate-100 text-sm md:text-base">{site.address || "—"}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-slate-500">Latitude</p>
-                    <p className="font-medium text-slate-800">{site.latitude}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Latitude</p>
+                    <p className="font-medium text-slate-800 dark:text-slate-100 text-sm md:text-base">{site.latitude}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-slate-500">Longitude</p>
-                    <p className="font-medium text-slate-800">{site.longitude}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Longitude</p>
+                    <p className="font-medium text-slate-800 dark:text-slate-100 text-sm md:text-base">{site.longitude}</p>
                   </div>
 
                   {/* Boundary Type */}
                   <div>
-                    <p className="text-xs text-slate-500">Boundary Type</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Boundary Type</p>
                     <div className="flex items-center gap-2 mt-1">
                       {boundaryType === "polygon" ? (
                         <>
                           <Hexagon size={16} className="text-indigo-500" />
-                          <span className="font-semibold text-indigo-600 capitalize">Polygon</span>
-                          <span className="text-xs text-slate-400">
-                            ({polygonCoords.length} points)
-                          </span>
+                          <span className="font-semibold text-indigo-600 dark:text-indigo-400 capitalize text-sm">Polygon</span>
+                          <span className="text-xs text-slate-400">({polygonCoords.length} points)</span>
                         </>
                       ) : (
                         <>
                           <CircleDot size={16} className="text-purple-500" />
-                          <span className="font-semibold text-purple-600 capitalize">Circle</span>
+                          <span className="font-semibold text-purple-600 dark:text-purple-400 capitalize text-sm">Circle</span>
                         </>
                       )}
                     </div>
@@ -348,8 +340,8 @@ const siteWorkers = workers.filter((w) => w.site_id === id);
                   {/* Radius — only for circle */}
                   {boundaryType !== "polygon" && (
                     <div>
-                      <p className="text-xs text-slate-500">Geofence Radius</p>
-                      <p className="font-medium text-slate-800">{site.geofence_radius} meters</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Geofence Radius</p>
+                      <p className="font-medium text-slate-800 dark:text-slate-100 text-sm md:text-base">{site.geofence_radius} meters</p>
                     </div>
                   )}
                 </div>
@@ -383,16 +375,16 @@ const siteWorkers = workers.filter((w) => w.site_id === id);
               <GlassCard>
 
                 {/* Filters */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6">
 
                   <div>
-                    <label className="text-xs text-slate-500">
+                    <label className="text-xs text-slate-500 dark:text-slate-400">
                       Worker Name
                     </label>
                     <select
                       value={selectedWorker}
                       onChange={(e) => setSelectedWorker(e.target.value)}
-                      className="w-full border rounded px-3 py-2"
+                      className="w-full border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 text-sm mt-0.5"
                     >
                       <option value="">All Workers</option>
                       {siteWorkers.map((w) => (
@@ -404,26 +396,26 @@ const siteWorkers = workers.filter((w) => w.site_id === id);
                   </div>
 
                   <div>
-                    <label className="text-xs text-slate-500">
+                    <label className="text-xs text-slate-500 dark:text-slate-400">
                       Start Date
                     </label>
                     <input
                       type="date"
                       value={startDate}
                       onChange={(e) => setStartDate(e.target.value)}
-                      className="w-full border rounded px-3 py-2"
+                      className="w-full border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 text-sm mt-0.5"
                     />
                   </div>
 
                   <div>
-                    <label className="text-xs text-slate-500">
+                    <label className="text-xs text-slate-500 dark:text-slate-400">
                       End Date
                     </label>
                     <input
                       type="date"
                       value={endDate}
                       onChange={(e) => setEndDate(e.target.value)}
-                      className="w-full border rounded px-3 py-2"
+                      className="w-full border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 text-sm mt-0.5"
                     />
                   </div>
 
@@ -455,15 +447,19 @@ const siteWorkers = workers.filter((w) => w.site_id === id);
             {/* Workforce */}
             {tab === "workforce" && (
               <GlassCard>
-                {siteWorkers.map((w) => (
-                  <div
-                    key={w.id}
-                    onClick={() => navigate(`/workers/${w.id}`)}
-                    className="cursor-pointer border-b py-3 hover:underline"
-                  >
-                    {w.full_name}
-                  </div>
-                ))}
+                {siteWorkers.length === 0 ? (
+                  <p className="text-slate-400 dark:text-slate-500 text-sm text-center py-8">No workers assigned to this site.</p>
+                ) : (
+                  siteWorkers.map((w) => (
+                    <div
+                      key={w.id}
+                      onClick={() => navigate(`/workers/${w.id}`)}
+                      className="cursor-pointer border-b border-slate-100 dark:border-slate-700 py-3 text-sm text-slate-800 dark:text-slate-100 hover:text-indigo-600 dark:hover:text-indigo-400 hover:underline transition-colors"
+                    >
+                      {w.full_name}
+                    </div>
+                  ))
+                )}
               </GlassCard>
             )}
 
@@ -494,8 +490,12 @@ const siteWorkers = workers.filter((w) => w.site_id === id);
         entityName={site?.name}
         onClose={() => setDeleteOpen(false)}
         onConfirm={(payload) => {
-          archiveMutation.mutate(payload);
-          setDeleteOpen(false);
+          archiveMutation.mutate(payload, {
+            onSuccess: () => {
+              setDeleteOpen(false);
+              navigate("/sites");
+            },
+          });
         }}
       />
     </DashboardLayout>

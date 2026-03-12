@@ -6,7 +6,7 @@ from app.db.session import SessionLocal
 from app.models.user import User
 from app.schemas.user import UserCreate, UserUpdate, UserResponse
 from app.core.security import hash_password
-from app.core.dependencies import require_admin  
+from app.core.dependencies import require_admin
 from app.services.audit_service import log_action
 
 router = APIRouter(prefix="/users", tags=["Users"])
@@ -20,6 +20,14 @@ def get_db():
         db.close()
 
 
+def _audit_user(user: dict) -> dict:
+    return {
+        "performed_by": UUID(user["sub"]) if user.get("sub") else None,
+        "performed_by_name": user.get("name") or user.get("sub", "Unknown"),
+        "performed_by_role": user.get("role", "admin"),
+    }
+
+
 @router.get("", response_model=list[UserResponse])
 def get_users(
     db: Session = Depends(get_db),
@@ -29,7 +37,7 @@ def get_users(
 
 
 @router.post("", response_model=UserResponse)
-def create_user(data: UserCreate, db: Session = Depends(get_db), _: dict = Depends(require_admin)):
+def create_user(data: UserCreate, db: Session = Depends(get_db), current_admin: dict = Depends(require_admin)):
     # Username uniqueness
     existing = db.query(User).filter(User.username == data.username).first()
     if existing:
@@ -64,7 +72,8 @@ def create_user(data: UserCreate, db: Session = Depends(get_db), _: dict = Depen
         action="create",
         entity_type="user",
         entity_id=new_user.id,
-        details=f"User {new_user.username} created"
+        details=f"User {new_user.username} created",
+        **_audit_user(current_admin),
     )
     return new_user
 
@@ -118,7 +127,8 @@ def update_user(user_id: UUID, data: UserUpdate, db: Session = Depends(get_db), 
         action="update",
         entity_type="user",
         entity_id=user.id,
-        details=f"User {user.username} updated"
+        details=f"User {user.username} updated",
+        **_audit_user(current_admin),
     )
     return user
 
@@ -127,13 +137,12 @@ def update_user(user_id: UUID, data: UserUpdate, db: Session = Depends(get_db), 
 def delete_user(
     user_id: UUID,
     db: Session = Depends(get_db),
-    _: dict = Depends(require_admin)
+    current_admin: dict = Depends(require_admin)
 ):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    # Admin users can never be deleted
     if user.role == "admin":
         raise HTTPException(status_code=403, detail="Admin users cannot be deleted")
 
@@ -145,7 +154,8 @@ def delete_user(
         action="delete",
         entity_type="user",
         entity_id=user.id,
-        details=f"User {user.username} deleted"
+        details=f"User {user.username} deleted",
+        **_audit_user(current_admin),
     )
 
     return {"message": "User deleted successfully"}

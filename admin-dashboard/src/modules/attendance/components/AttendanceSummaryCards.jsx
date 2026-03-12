@@ -51,21 +51,21 @@ export default function AttendanceSummaryCards({ records }) {
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6">
       {cards.map((card) => {
         const Icon = card.icon;
 
         return (
           <div
             key={card.label}
-            className="bg-white p-5 rounded-xl shadow-sm border hover:shadow-md transition"
+            className="bg-white dark:bg-slate-800 p-4 md:p-5 rounded-xl shadow-sm border dark:border-slate-700/50 hover:shadow-md transition"
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-slate-500 uppercase tracking-wide">
+                <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">
                   {card.label}
                 </p>
-                <p className="text-2xl font-semibold mt-2">
+                <p className="text-xl md:text-2xl font-semibold mt-2 dark:text-slate-100">
                   {card.value}
                 </p>
               </div>

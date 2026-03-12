@@ -271,7 +271,7 @@ const toggleMutation = useMutation({
 
   return (
     <DashboardLayout>
-      <div className="p-8 space-y-8 min-h-screen">
+      <div className="p-4 md:p-8 space-y-5 md:space-y-8 min-h-screen">
 
         {/* Back */}
         <button
@@ -282,8 +282,8 @@ const toggleMutation = useMutation({
           Back to Workers
         </button>
 
-        {/* Top Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Top Section — stacked on mobile, side-by-side on lg+ */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 md:gap-8">
 
           {/* Left Profile Card */}
           <GlassCard>
@@ -295,32 +295,32 @@ const toggleMutation = useMutation({
                 opacity-80 blur-[1px]" />
           
               {/* Profile Image */}
-              <div className={`w-40 h-40 rounded-full object-cover border-[5px] border-white shadow-2xl 
+              <div className={`w-32 h-32 md:w-40 md:h-40 rounded-full object-cover border-[5px] border-white shadow-2xl 
                 ${worker.status === "active" ? "active-glow" : ""}`}>
                 {worker.photo_url ? (
                   <img
                     src={photoData?.url}
                     alt="profile"
-                    className="w-40 h-40 rounded-full object-cover border-[5px] border-white shadow-2xl ring-4 ring-pink-400/40"
+                    className="w-32 h-32 md:w-40 md:h-40 rounded-full object-cover border-[5px] border-white shadow-2xl ring-4 ring-pink-400/40"
                   />
                 ) : (
-                  <div className="w-40 h-40 rounded-full bg-slate-200 
+                  <div className="w-32 h-32 md:w-40 md:h-40 rounded-full bg-slate-200 
                                   flex items-center justify-center 
-                                  text-slate-500 shadow-inner border-4 border-white">
+                                  text-slate-500 shadow-inner border-4 border-white text-sm">
                     No Photo
                   </div>
                 )}
               </div>
               
               {/* Name */}
-              <h2 className="mt-4 text-2xl font-bold bg-gradient-to-r 
+              <h2 className="mt-4 text-xl md:text-2xl font-bold bg-gradient-to-r 
                              from-pink-500 via-purple-500 to-indigo-500 
                              bg-clip-text text-transparent">
                 {worker.full_name}
               </h2>
 
               {/* ID */}
-              <p className="text-slate-500 font-bold text-lg">{worker.id}</p>
+              <p className="text-slate-500 dark:text-slate-400 font-bold text-sm md:text-base break-all">{worker.id}</p>
               
               {/* Status Badge */}
               <div
@@ -436,10 +436,10 @@ const toggleMutation = useMutation({
           </GlassCard>
 
           {/* Right Info Section */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-2 space-y-4 md:space-y-6">
 
-            {/* Tabs */}
-            <div className="flex gap-6 border-b pb-2">
+            {/* Tabs — scrollable on mobile */}
+            <div className="flex gap-4 md:gap-6 border-b border-slate-200 dark:border-slate-700 pb-2 overflow-x-auto">
               {[
                 { key: "overview",    label: "Overview"    },
                 { key: "attendance",  label: "Analytics"   },
@@ -449,10 +449,10 @@ const toggleMutation = useMutation({
                 <button
                   key={t.key}
                   onClick={() => setTab(t.key)}
-                  className={`capitalize pb-1 ${
+                  className={`capitalize pb-1 whitespace-nowrap text-sm md:text-base transition-colors ${
                     tab === t.key
-                      ? "border-b-2 border-black font-medium"
-                      : "text-slate-500"
+                      ? "border-b-2 border-black dark:border-white font-medium text-slate-900 dark:text-white"
+                      : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
                   }`}
                 >
                   {t.label}
@@ -466,8 +466,8 @@ const toggleMutation = useMutation({
 
                 {/* Identity Card */}
                 <GlassCard>
-                  <h3 className="font-semibold mb-4">Identity</h3>
-                  <div className="grid grid-cols-2 gap-6">
+                  <h3 className="font-semibold mb-4 text-slate-800 dark:text-slate-100">Identity</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
                     <InfoItem label="Employee ID" value={worker.id} />
                     <InfoItem label="ID Number" value={worker.id_number} />
                     <InfoItem label="Joining Date" value={worker.joining_date} />
@@ -477,8 +477,8 @@ const toggleMutation = useMutation({
 
                 {/* Work Details */}
                 <GlassCard>
-                  <h3 className="font-semibold mb-4">Work Details</h3>
-                  <div className="grid grid-cols-2 gap-6">
+                  <h3 className="font-semibold mb-4 text-slate-800 dark:text-slate-100">Work Details</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
                     <InfoItem label="Project" value={projectName} />
                     <InfoItem label="Site" value={siteName} />
                     <InfoItem label="Role" value={worker.role} />
@@ -488,9 +488,8 @@ const toggleMutation = useMutation({
 
                 {/* Compensation */}
                 <GlassCard>
-                  <h3 className="font-semibold mb-4">Compensation</h3>
-
-                  <div className="grid grid-cols-2 gap-6">
+                  <h3 className="font-semibold mb-4 text-slate-800 dark:text-slate-100">Compensation</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
 
                     {worker.type === "permanent" && (
                       <>
@@ -819,20 +818,20 @@ const toggleMutation = useMutation({
                     </div>
 
                     {/* ── Net Payable Hero Card ── */}
-                    <div className={`rounded-3xl p-6 shadow-xl flex items-center justify-between
+                    <div className={`rounded-3xl p-5 md:p-6 shadow-xl flex items-center justify-between gap-4
                       ${payroll.net_payable >= 0
                         ? "bg-gradient-to-r from-emerald-500 to-teal-500"
                         : "bg-gradient-to-r from-red-500 to-rose-500"}`}>
-                      <div>
+                      <div className="min-w-0">
                         <p className="text-emerald-100 text-sm font-medium">Net Payable</p>
-                        <p className="text-white text-4xl font-extrabold mt-1">
+                        <p className="text-white text-2xl md:text-4xl font-extrabold mt-1">
                           ₹ {Math.abs(payroll.net_payable).toLocaleString()}
                         </p>
-                        <p className="text-white/70 text-xs mt-1">
+                        <p className="text-white/70 text-xs mt-1 truncate">
                           {payroll.gross} gross · −{payroll.total_advances + payroll.total_deductions} deducted · +{payroll.total_bonuses} bonus
                         </p>
                       </div>
-                      <Wallet size={48} className="text-white/30" />
+                      <Wallet size={40} className="text-white/30 shrink-0 hidden sm:block" />
                     </div>
 
                     {/* ── Advance / Expense Entries ── */}
@@ -855,27 +854,27 @@ const toggleMutation = useMutation({
                       ) : (
                         <div className="space-y-2">
                           {payroll.entries.map((e) => (
-                            <div key={e.id} className="flex items-center justify-between bg-white/70 rounded-xl px-4 py-3 border border-slate-100">
-                              <div className="flex items-center gap-3">
+                            <div key={e.id} className="flex items-center justify-between gap-2 bg-white/70 dark:bg-slate-700/60 rounded-xl px-3 md:px-4 py-3 border border-slate-100 dark:border-slate-600">
+                              <div className="flex items-center gap-2 md:gap-3 min-w-0">
                                 <span className={`w-2 h-2 rounded-full flex-shrink-0
                                   ${e.entry_type === "bonus" ? "bg-teal-400" :
                                     e.entry_type === "deduction" ? "bg-orange-400" : "bg-red-400"}`} />
-                                <div>
-                                  <p className="text-sm font-medium text-slate-700 capitalize">{e.entry_type}</p>
-                                  {e.note && <p className="text-xs text-slate-400">{e.note}</p>}
+                                <div className="min-w-0">
+                                  <p className="text-sm font-medium text-slate-700 dark:text-slate-200 capitalize">{e.entry_type}</p>
+                                  {e.note && <p className="text-xs text-slate-400 dark:text-slate-500 truncate">{e.note}</p>}
                                 </div>
                               </div>
-                              <div className="flex items-center gap-4">
+                              <div className="flex items-center gap-2 md:gap-4 shrink-0">
                                 <div className="text-right">
                                   <p className={`text-sm font-bold
                                     ${e.entry_type === "bonus" ? "text-teal-600" : "text-red-500"}`}>
                                     {e.entry_type === "bonus" ? "+" : "−"}₹ {e.amount.toLocaleString()}
                                   </p>
-                                  <p className="text-xs text-slate-400">{e.date}</p>
+                                  <p className="text-xs text-slate-400 dark:text-slate-500">{e.date}</p>
                                 </div>
                                 <button
                                   onClick={() => handleDeleteEntry(e.id)}
-                                  className="w-7 h-7 rounded-lg bg-red-50 hover:bg-red-100 flex items-center justify-center text-red-400 transition"
+                                  className="w-7 h-7 rounded-lg bg-red-50 dark:bg-red-900/30 hover:bg-red-100 flex items-center justify-center text-red-400 transition"
                                 >
                                   <Trash size={12} />
                                 </button>
@@ -921,13 +920,13 @@ const toggleMutation = useMutation({
 
       {/* ── Add Payroll Entry Modal ── */}
       {entryModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full space-y-4">
-            <h3 className="font-bold text-slate-800 text-lg">Add Entry</h3>
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl p-6 w-full sm:max-w-sm space-y-4">
+            <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">Add Entry</h3>
 
             {/* Type */}
             <div>
-              <label className="text-xs text-slate-500 font-medium uppercase tracking-wide">Type</label>
+              <label className="text-xs text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wide">Type</label>
               <div className="flex gap-2 mt-1.5">
                 {["advance", "deduction", "bonus"].map((t) => (
                   <button
@@ -937,7 +936,7 @@ const toggleMutation = useMutation({
                       ${entryForm.entry_type === t
                         ? t === "bonus" ? "bg-teal-500 text-white border-teal-500"
                                         : "bg-red-500 text-white border-red-500"
-                        : "bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100"}`}
+                        : "bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"}`}
                   >{t}</button>
                 ))}
               </div>
@@ -945,44 +944,44 @@ const toggleMutation = useMutation({
 
             {/* Amount */}
             <div>
-              <label className="text-xs text-slate-500 font-medium uppercase tracking-wide">Amount (₹)</label>
+              <label className="text-xs text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wide">Amount (₹)</label>
               <input
                 type="number"
                 min="1"
                 value={entryForm.amount}
                 onChange={(e) => setEntryForm((f) => ({ ...f, amount: e.target.value }))}
                 placeholder="e.g. 500"
-                className="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                className="mt-1 w-full border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
               />
             </div>
 
             {/* Date */}
             <div>
-              <label className="text-xs text-slate-500 font-medium uppercase tracking-wide">Date</label>
+              <label className="text-xs text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wide">Date</label>
               <input
                 type="date"
                 value={entryForm.date}
                 onChange={(e) => setEntryForm((f) => ({ ...f, date: e.target.value }))}
-                className="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                className="mt-1 w-full border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
               />
             </div>
 
             {/* Note */}
             <div>
-              <label className="text-xs text-slate-500 font-medium uppercase tracking-wide">Note (optional)</label>
+              <label className="text-xs text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wide">Note (optional)</label>
               <input
                 type="text"
                 value={entryForm.note}
                 onChange={(e) => setEntryForm((f) => ({ ...f, note: e.target.value }))}
                 placeholder="e.g. Tool damage, Festival bonus…"
-                className="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                className="mt-1 w-full border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
               />
             </div>
 
             <div className="flex gap-3 pt-1">
               <button
                 onClick={() => { setEntryModal(false); setEntryForm({ entry_type: "advance", amount: "", date: new Date().toISOString().slice(0, 10), note: "" }); }}
-                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm hover:bg-slate-50"
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 text-sm hover:bg-slate-50 dark:hover:bg-slate-800"
               >Cancel</button>
               <button
                 onClick={handleAddEntry}
@@ -1044,18 +1043,18 @@ const toggleMutation = useMutation({
 
       {/* ── Asset Delete Confirm ── */}
       {assetDeleteKey && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full space-y-4">
-            <h3 className="font-bold text-slate-800 text-lg">Delete File</h3>
-            <p className="text-sm text-slate-500">
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl p-6 w-full sm:max-w-sm space-y-4">
+            <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">Delete File</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
               Are you sure you want to permanently delete{" "}
-              <span className="font-medium text-slate-700">{assetDeleteKey.split("/").pop()}</span>?
+              <span className="font-medium text-slate-700 dark:text-slate-200">{assetDeleteKey.split("/").pop()}</span>?
               This cannot be undone.
             </p>
             <div className="flex gap-3 pt-2">
               <button
                 onClick={() => setAssetDeleteKey(null)}
-                className="flex-1 py-2 rounded-xl border border-slate-200 text-slate-600 text-sm hover:bg-slate-50"
+                className="flex-1 py-2 rounded-xl border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 text-sm hover:bg-slate-50 dark:hover:bg-slate-800"
               >
                 Cancel
               </button>

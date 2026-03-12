@@ -26,6 +26,8 @@ def get_db():
 def list_audit_logs(
     action: str | None = None,
     entity_type: str | None = None,
+    performed_by_name: str | None = None,   # filter by admin/site-incharge name (partial match)
+    performed_by_role: str | None = None,   # "admin" | "site_incharge" | "system"
     start_date: datetime | None = None,
     end_date: datetime | None = None,
     page: int = 1,
@@ -39,6 +41,12 @@ def list_audit_logs(
 
     if entity_type:
         query = query.filter(AuditLog.entity_type == entity_type)
+
+    if performed_by_name:
+        query = query.filter(AuditLog.performed_by_name.ilike(f"%{performed_by_name}%"))
+
+    if performed_by_role:
+        query = query.filter(AuditLog.performed_by_role == performed_by_role)
 
     if start_date:
         query = query.filter(AuditLog.created_at >= start_date)

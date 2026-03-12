@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, extract
 from datetime import datetime, date, timedelta
 from collections import defaultdict
+from uuid import UUID
 
 from app.db.session import SessionLocal
 from app.models.worker import Worker
@@ -30,12 +31,24 @@ def get_db():
         db.close()
 
 
+# -----------------------------
+# Audit helper — extracts name/role/id from JWT payload dict
+# -----------------------------
+def _audit_user(user: dict) -> dict:
+    """Return kwargs for log_action from a JWT payload dict."""
+    return {
+        "performed_by": UUID(user["sub"]) if user.get("sub") else None,
+        "performed_by_name": user.get("name") or user.get("sub", "Unknown"),
+        "performed_by_role": user.get("role", "admin"),
+    }
+
+
 # --------------------------------------------------
 # CREATE WORKER
 # --------------------------------------------------
 
-@router.post("/", response_model=WorkerResponse, dependencies=[Depends(require_admin)])
-def create_worker(data: WorkerCreate,db: Session = Depends(get_db)):
+@router.post("/", response_model=WorkerResponse)
+def create_worker(data: WorkerCreate, db: Session = Depends(get_db), current_user: dict = Depends(require_admin)):
 
     payload = data.dict()
 
@@ -94,7 +107,8 @@ def create_worker(data: WorkerCreate,db: Session = Depends(get_db)):
         action="create",
         entity_type="worker",
         entity_id=worker.id,
-        details=f"Worker {worker.full_name} created"
+        details=f"Worker {worker.full_name} created",
+        **_audit_user(current_user),
     )
 
     return worker
@@ -102,8 +116,8 @@ def create_worker(data: WorkerCreate,db: Session = Depends(get_db)):
 # --------------------------------------------------
 # DELETE WORKER
 # --------------------------------------------------
-@router.delete("/{worker_id}", dependencies=[Depends(require_admin)])
-def delete_worker(worker_id: str, db: Session = Depends(get_db)):
+@router.delete("/{worker_id}")
+def delete_worker(worker_id: str, db: Session = Depends(get_db), current_user: dict = Depends(require_admin)):
     worker = db.query(Worker).filter(Worker.id == worker_id).first()
 
     if not worker:
@@ -117,7 +131,8 @@ def delete_worker(worker_id: str, db: Session = Depends(get_db)):
         action="delete",
         entity_type="worker",
         entity_id=worker.id,
-        details=f"Worker {worker.full_name} deleted"
+        details=f"Worker {worker.full_name} deleted",
+        **_audit_user(current_user),
     )
 
     return {"message": "Worker deleted successfully"}
@@ -323,11 +338,14 @@ def worker_attendance_insight(
 # --------------------------------------------------
 # PATCH / UPDATE WORKER
 # --------------------------------------------------
-@router.patch("/{worker_id}", response_model=WorkerResponse, dependencies=[Depends(require_admin)])
+# PATCH / UPDATE WORKER
+# --------------------------------------------------
+@router.patch("/{worker_id}", response_model=WorkerResponse)
 def patch_worker(
     worker_id: str,
     data: WorkerUpdate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin),
 ):
     worker = db.query(Worker).filter(Worker.id == worker_id).first()
 
@@ -335,6 +353,7 @@ def patch_worker(
         raise HTTPException(status_code=404, detail="Worker not found")
 
     update_data = data.dict(exclude_unset=True)
+    changed_fields = ", ".join(update_data.keys())
 
     for key, value in update_data.items():
         setattr(worker, key, value)
@@ -342,11 +361,20 @@ def patch_worker(
     db.commit()
     db.refresh(worker)
 
+    log_action(
+        db=db,
+        action="update",
+        entity_type="worker",
+        entity_id=worker.id,
+        details=f"Worker {worker.full_name} updated. Fields changed: {changed_fields}",
+        **_audit_user(current_user),
+    )
+
     return worker
 
 
-@router.patch("/{worker_id}/archive",response_model=ActionResponse,dependencies=[Depends(require_admin)])
-def archive_worker(worker_id: str,payload: ArchiveRequest,db: Session = Depends(get_db)):
+@router.patch("/{worker_id}/archive",response_model=ActionResponse)
+def archive_worker(worker_id: str, payload: ArchiveRequest, db: Session = Depends(get_db), current_user: dict = Depends(require_admin)):
     worker = db.query(Worker).filter(Worker.id == worker_id).first()
 
     if not worker:
@@ -366,15 +394,16 @@ def archive_worker(worker_id: str,payload: ArchiveRequest,db: Session = Depends(
         action="archive",
         entity_type="worker",
         entity_id=worker.id,
-        details=payload.reason
+        details=payload.reason,
+        **_audit_user(current_user),
     )
 
     return {"message": "Worker archived successfully"}
 
 
 
-@router.patch("/{worker_id}/restore",response_model=ActionResponse,dependencies=[Depends(require_admin)])
-def restore_worker(worker_id: str, db: Session = Depends(get_db)):
+@router.patch("/{worker_id}/restore",response_model=ActionResponse)
+def restore_worker(worker_id: str, db: Session = Depends(get_db), current_user: dict = Depends(require_admin)):
 
     worker = db.query(Worker).filter(Worker.id == worker_id).first()
 
@@ -396,15 +425,16 @@ def restore_worker(worker_id: str, db: Session = Depends(get_db)):
         action="restore",
         entity_type="worker",
         entity_id=worker.id,
-        details=f"Worker {worker.full_name} restored"
+        details=f"Worker {worker.full_name} restored",
+        **_audit_user(current_user),
     )
 
     return {"message": "Worker restored successfully"}
 
 
 
-@router.delete("/{worker_id}/force-delete",response_model=ActionResponse,dependencies=[Depends(require_admin)])
-def force_delete_worker(worker_id: str,payload: ForceDeleteRequest,db: Session = Depends(get_db)):
+@router.delete("/{worker_id}/force-delete",response_model=ActionResponse)
+def force_delete_worker(worker_id: str, payload: ForceDeleteRequest, db: Session = Depends(get_db), current_user: dict = Depends(require_admin)):
     worker = db.query(Worker).filter(Worker.id == worker_id).first()
 
     if not worker:
@@ -425,7 +455,8 @@ def force_delete_worker(worker_id: str,payload: ForceDeleteRequest,db: Session =
         action="force_delete",
         entity_type="worker",
         entity_id=worker.id,
-        details=payload.reason
+        details=payload.reason,
+        **_audit_user(current_user),
     )
 
     return {"message": "Worker permanently deleted"}
@@ -649,12 +680,12 @@ def get_payroll(
     }
 
 
-@router.post("/{worker_id}/payroll/entries", dependencies=[Depends(require_admin)])
+@router.post("/{worker_id}/payroll/entries")
 def add_payroll_entry(
     worker_id: str,
     payload: dict = Body(...),
     db: Session = Depends(get_db),
-    current_user=Depends(require_admin),
+    current_user: dict = Depends(require_admin),
 ):
     """
     Add an advance / deduction / bonus entry for a worker.
@@ -677,6 +708,9 @@ def add_payroll_entry(
     if amount <= 0:
         raise HTTPException(400, "Amount must be positive")
 
+    # Use name from JWT token; fall back to "admin"
+    performer_name = current_user.get("name") or current_user.get("sub", "admin")
+
     entry = PayrollEntry(
         worker_id  = worker_id,
         year       = payload.get("year",  entry_date.year),
@@ -685,11 +719,20 @@ def add_payroll_entry(
         amount     = amount,
         date       = entry_date,
         note       = payload.get("note", ""),
-        created_by = current_user.username if hasattr(current_user, "username") else "admin",
+        created_by = performer_name,
     )
     db.add(entry)
     db.commit()
     db.refresh(entry)
+
+    log_action(
+        db=db,
+        action="payroll_entry_add",
+        entity_type="worker",
+        entity_id=worker_id,
+        details=f"{entry_type.capitalize()} of ₹{amount} added for {worker.full_name} ({entry_date.strftime('%b %Y')}). Note: {payload.get('note', '')}",
+        **_audit_user(current_user),
+    )
 
     return {
         "id":         str(entry.id),
@@ -701,19 +744,36 @@ def add_payroll_entry(
     }
 
 
-@router.delete("/{worker_id}/payroll/entries/{entry_id}", dependencies=[Depends(require_admin)])
+@router.delete("/{worker_id}/payroll/entries/{entry_id}")
 def delete_payroll_entry(
     worker_id: str,
     entry_id:  str,
     db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin),
 ):
     """Delete a specific payroll entry by ID."""
     import uuid as _uuid
-    entry = db.query(PayrollEntry).filter(        PayrollEntry.id        == _uuid.UUID(entry_id),
+    entry = db.query(PayrollEntry).filter(
+        PayrollEntry.id        == _uuid.UUID(entry_id),
         PayrollEntry.worker_id == worker_id,
     ).first()
     if not entry:
         raise HTTPException(404, "Entry not found")
+
+    worker = db.query(Worker).filter(Worker.id == worker_id).first()
+    worker_name = worker.full_name if worker else worker_id
+
+    entry_info = f"{entry.entry_type} of ₹{entry.amount} on {entry.date}"
     db.delete(entry)
     db.commit()
+
+    log_action(
+        db=db,
+        action="payroll_entry_delete",
+        entity_type="worker",
+        entity_id=worker_id,
+        details=f"Payroll entry deleted for {worker_name}: {entry_info}",
+        **_audit_user(current_user),
+    )
+
     return {"message": "Entry deleted"}

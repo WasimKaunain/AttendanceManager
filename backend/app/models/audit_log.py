@@ -12,5 +12,7 @@ class AuditLog(Base):
     entity_type = Column(String, nullable=False)
     entity_id = Column(String)
     details = Column(String)
-    performed_by = Column(UUID(as_uuid=True))
+    performed_by = Column(UUID(as_uuid=True), nullable=True)
+    performed_by_name = Column(String, nullable=True)   # Human-readable name (admin/site incharge)
+    performed_by_role = Column(String, nullable=True)   # "admin" | "site_incharge" | "system"
     created_at = Column(DateTime, default=datetime.utcnow)

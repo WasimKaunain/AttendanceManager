@@ -22,7 +22,7 @@ function ActivityRow({ item, index }) {
   const hasCheckout = !!item.check_out_time;
 
   return (
-    <div className="flex items-start gap-4 p-4 rounded-2xl bg-white/60 dark:bg-slate-700/50 hover:bg-white/80 dark:hover:bg-slate-700/70 border border-white/40 dark:border-slate-600/40 transition-all duration-200">
+    <div className="flex items-start gap-3 p-3 md:p-4 rounded-2xl bg-white/60 dark:bg-slate-700/50 hover:bg-white/80 dark:hover:bg-slate-700/70 border border-white/40 dark:border-slate-600/40 transition-all duration-200">
       {/* Index badge */}
       <div className="w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-600 text-slate-500 dark:text-slate-300 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
         {index + 1}
@@ -53,8 +53,8 @@ function ActivityRow({ item, index }) {
           {item.date}
         </p>
 
-        {/* Check-in / Check-out times */}
-        <div className="flex items-center gap-4 mt-1.5 text-xs">
+        {/* Check-in / Check-out times — stacks on very small screens */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1.5 text-xs">
           <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
             <LogIn className="w-3 h-3" />
             {item.check_in_time ?? "—"}
@@ -76,8 +76,8 @@ function ActivityRow({ item, index }) {
         </div>
       </div>
 
-      {/* Worker ID chip */}
-      <span className="text-xs text-slate-400 dark:text-slate-500 font-mono shrink-0 mt-0.5">{item.worker_id}</span>
+      {/* Worker ID chip — hidden on small screens */}
+      <span className="hidden sm:block text-xs text-slate-400 dark:text-slate-500 font-mono shrink-0 mt-0.5">{item.worker_id}</span>
     </div>
   );
 }
@@ -107,42 +107,43 @@ export default function DashboardPage() {
   if (!stats)
     return (
       <DashboardLayout>
-        <div className="p-8 text-slate-500">Loading dashboard...</div>
+        <div className="p-4 md:p-8 text-slate-500">Loading dashboard...</div>
       </DashboardLayout>
     );
 
   return (
     <DashboardLayout>
-      <div className="p-6 flex flex-col gap-5 h-screen overflow-hidden">
+      {/* On mobile: normal scroll. On desktop: fixed height with internal scrolling */}
+      <div className="p-4 md:p-6 flex flex-col gap-4 md:gap-5 min-h-screen lg:h-screen lg:overflow-hidden">
 
         <PageHeader
           title="Dashboard"
           subtitle="Overview of projects, workforce and attendance"
         />
 
-        {/* TOP STATS */}
-        <div className="grid grid-cols-4 gap-5 shrink-0">
+        {/* TOP STATS — 2 cols on mobile, 4 on desktop */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-5 shrink-0">
           <StatCard title="Active Projects" value={stats.activeProjects} icon={FolderKanban} />
           <StatCard title="Active Sites"    value={stats.activeSites}    icon={MapPin}       />
           <StatCard title="Active Workers"  value={stats.totalWorkers}   icon={Users}        />
           <StatCard title="Present Today"   value={stats.presentToday}   icon={UserCheck}    />
         </div>
 
-        {/* MIDDLE SECTION */}
-        <div className="grid grid-cols-3 gap-5 shrink-0">
-          <div className="col-span-2 backdrop-blur-xl bg-white/60 dark:bg-slate-800/60 border border-white/40 dark:border-slate-700/40 shadow-xl rounded-3xl p-6">
+        {/* MIDDLE SECTION — stacked on mobile, side-by-side on desktop */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-5 shrink-0">
+          <div className="lg:col-span-2 backdrop-blur-xl bg-white/60 dark:bg-slate-800/60 border border-white/40 dark:border-slate-700/40 shadow-xl rounded-3xl p-4 md:p-6">
             <WeeklyChart data={weeklyData} />
           </div>
-          <div className="backdrop-blur-xl bg-white/60 dark:bg-slate-800/60 border border-white/40 dark:border-slate-700/40 shadow-xl rounded-3xl p-6 overflow-hidden">
+          <div className="backdrop-blur-xl bg-white/60 dark:bg-slate-800/60 border border-white/40 dark:border-slate-700/40 shadow-xl rounded-3xl p-4 md:p-6 overflow-hidden">
             <TodayStatus data={stats.todayStatus} />
           </div>
         </div>
 
-        {/* BOTTOM SECTION */}
-        <div className="flex-1 min-h-0 backdrop-blur-xl bg-white/60 dark:bg-slate-800/60 border border-white/40 dark:border-slate-700/40 shadow-xl rounded-3xl p-6 flex flex-col">
+        {/* BOTTOM SECTION — recent activity */}
+        <div className="flex-1 min-h-0 backdrop-blur-xl bg-white/60 dark:bg-slate-800/60 border border-white/40 dark:border-slate-700/40 shadow-xl rounded-3xl p-4 md:p-6 flex flex-col">
           <div className="flex justify-between items-center mb-4 shrink-0">
             <div>
-              <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Recent Attendance Activity</h2>
+              <h2 className="text-base md:text-lg font-semibold text-slate-800 dark:text-slate-100">Recent Attendance Activity</h2>
               <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Latest 5 check-in/out records across all sites</p>
             </div>
           </div>
@@ -154,7 +155,6 @@ export default function DashboardPage() {
               <p className="text-xs">Recent check-ins and check-outs will appear here.</p>
             </div>
           ) : (
-            /* overflow-y-auto here — only this list scrolls, not the whole page */
             <div className="overflow-y-auto flex-1 space-y-3 pr-1 custom-scrollbar">
               {recentActivity.map((item, index) => (
                 <ActivityRow key={index} item={item} index={index} />

@@ -39,13 +39,15 @@ export default function DataManagementPage() {
       forceDeleteEntity(activeTab, id, payload),
     onSuccess: () => {
       queryClient.invalidateQueries(["archived", activeTab]);
-      setModalOpen(false);
+    },
+    onError: (err) => {
+      console.error("Force delete failed:", err);
     },
   });
 
   return (
     <DashboardLayout>
-      <div className="p-8 min-h-screen space-y-8">
+      <div className="p-4 md:p-8 min-h-screen space-y-6 md:space-y-8">
 
         {/* Back */}
         <button
@@ -62,20 +64,22 @@ export default function DataManagementPage() {
         />
 
         {/* Tabs */}
-        <div className="flex gap-6 border-b border-slate-200 dark:border-slate-700 pb-2">
-          {tabs.map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`capitalize pb-1 transition-colors ${
-                activeTab === tab
-                  ? "border-b-2 border-black dark:border-white font-medium text-slate-900 dark:text-white"
-                  : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
+        <div className="overflow-x-auto -mx-1 px-1">
+          <div className="flex gap-4 md:gap-6 border-b border-slate-200 dark:border-slate-700 pb-2 whitespace-nowrap">
+            {tabs.map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`capitalize pb-1 transition-colors text-sm md:text-base ${
+                  activeTab === tab
+                    ? "border-b-2 border-black dark:border-white font-medium text-slate-900 dark:text-white"
+                    : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                }`}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Table */}
@@ -90,18 +94,18 @@ export default function DataManagementPage() {
             {archived.map((item) => (
               <div
                 key={item.id}
-                className="glass-row flex justify-between items-center"
+                className="glass-row flex flex-wrap sm:flex-nowrap justify-between items-center gap-3"
               >
-                <div>
-                  <p className="row-title">
+                <div className="min-w-0">
+                  <p className="row-title truncate">
                     {item.name || item.full_name}
                   </p>
-                  <p className="row-meta mt-0.5">
+                  <p className="row-meta mt-0.5 text-xs">
                     Deleted at: {item.deleted_at}
                   </p>
                 </div>
 
-                <div className="flex gap-2 flex-shrink-0">
+                <div className="flex gap-2 shrink-0 ml-auto">
                   <button
                     onClick={() => restoreMutation.mutate({ id: item.id })}
                     className="bg-green-600 hover:bg-green-700 text-white text-xs font-semibold px-3 py-2 rounded-xl transition"
@@ -128,13 +132,22 @@ export default function DataManagementPage() {
         <DangerousActionModal
           open={modalOpen}
           entityName={selectedItem?.name || selectedItem?.full_name}
-          onClose={() => setModalOpen(false)}
-          onConfirm={(payload) =>
-            deleteMutation.mutate({
-              id: selectedItem.id,
-              payload,
-            })
-          }
+          onClose={() => {
+            setModalOpen(false);
+            setSelectedItem(null);
+          }}
+          onConfirm={async (payload) => {
+            try {
+              await deleteMutation.mutateAsync({
+                id: selectedItem.id,
+                payload,
+              });
+            } catch (err) {
+              // error is logged in onError; still close the modal so it doesn't freeze
+            }
+            setModalOpen(false);
+            setSelectedItem(null);
+          }}
         />
       </div>
     </DashboardLayout>

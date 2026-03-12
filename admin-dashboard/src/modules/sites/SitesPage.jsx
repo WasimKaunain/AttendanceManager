@@ -46,7 +46,7 @@ export default function SitesPage() {
 
   return (
     <DashboardLayout>
-      <div className="p-6 min-h-screen space-y-6">
+      <div className="p-4 md:p-6 min-h-screen space-y-4 md:space-y-6">
 
         {/* HEADER */}
         <PageHeader
@@ -71,15 +71,15 @@ export default function SitesPage() {
                 onClick={() => navigate(`/sites/${site.id}`)}
                 className="glass-row"
               >
-                <div className="flex justify-between items-center gap-4">
+                <div className="flex justify-between items-center gap-3">
                   <div className="min-w-0">
                     <p className="row-title truncate">{site.name}</p>
-                    <div className="flex items-center gap-3 mt-0.5">
+                    <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
                       <span className="row-sub">{projectMap[site.project_id] || "No project"}</span>
-                      <span className="row-meta">· {site.geofence_radius} m radius</span>
+                      <span className="row-meta hidden sm:inline">· {site.geofence_radius} m radius</span>
                     </div>
                   </div>
-                  <span className={`flex-shrink-0 px-2.5 py-0.5 text-xs rounded-full border backdrop-blur-md ${statusColors[site.status] || statusColors.inactive}`}>
+                  <span className={`shrink-0 px-2.5 py-0.5 text-xs rounded-full border backdrop-blur-md ${statusColors[site.status] || statusColors.inactive}`}>
                     {site.status}
                   </span>
                 </div>

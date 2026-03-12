@@ -133,7 +133,7 @@ export default function WorkersPage() {
   // -------------------------
   return (
     <DashboardLayout>
-      <div className="p-6 min-h-screen space-y-6">
+      <div className="p-4 md:p-6 min-h-screen space-y-4 md:space-y-6">
       <PageHeader
         title="Workers"
         subtitle="Manage workforce and face enrollment"
@@ -141,13 +141,13 @@ export default function WorkersPage() {
         addLabel="New Worker"
       />
 
-      {/* FILTER BAR */}
+      {/* FILTER BAR — wraps naturally on mobile */}
       <div className="flex flex-wrap gap-2">
         <input
           placeholder="Search worker..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="filter-input w-56"
+          className="filter-input w-full sm:w-56"
         />
         <select
           value={filterProject}

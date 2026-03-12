@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from fastapi.responses import FileResponse
-from uuid import uuid4
+from uuid import UUID
 
 from app.db.session import SessionLocal
 from app.schemas.report_schema import ReportRequest
@@ -20,10 +20,19 @@ def get_db():
         db.close()
 
 
+def _audit_user(user: dict) -> dict:
+    return {
+        "performed_by": UUID(user["sub"]) if user.get("sub") else None,
+        "performed_by_name": user.get("name") or user.get("sub", "Unknown"),
+        "performed_by_role": user.get("role", "admin"),
+    }
+
+
 @router.post("/generate", dependencies=[Depends(require_admin)])
 def generate_report(
     request: ReportRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin),
 ):
     try:
         file_path = ReportService.generate(
@@ -39,6 +48,15 @@ def generate_report(
         else:
             media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             filename = f"{request.report_type}_report.xlsx"
+
+        log_action(
+            db=db,
+            action="report_download",
+            entity_type="report",
+            entity_id=request.report_type,
+            details=f"Report '{request.report_type}' downloaded as {request.format.upper()}. Filters: {request.filters}",
+            **_audit_user(current_user),
+        )
 
         return FileResponse(
             file_path,

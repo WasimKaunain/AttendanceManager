@@ -21,21 +21,25 @@ def get_db():
         db.close()
 
 
-@router.post("/", response_model=SiteResponse, dependencies=[Depends(require_admin)])
-def create_site(data: SiteCreate, db: Session = Depends(get_db)):
+def _audit_user(user: dict) -> dict:
+    return {
+        "performed_by": UUID(user["sub"]) if user.get("sub") else None,
+        "performed_by_name": user.get("name") or user.get("sub", "Unknown"),
+        "performed_by_role": user.get("role", "admin"),
+    }
+
+
+@router.post("/", response_model=SiteResponse)
+def create_site(data: SiteCreate, db: Session = Depends(get_db), current_user: dict = Depends(require_admin)):
     from sqlalchemy.exc import IntegrityError
 
-    # Check duplicate site name within the same project
     existing = db.query(Site).filter(
         Site.name == data.name,
         Site.project_id == data.project_id,
         Site.is_deleted == False
     ).first()
     if existing:
-        raise HTTPException(
-            status_code=400,
-            detail="A site with this name already exists in the selected project."
-        )
+        raise HTTPException(status_code=400, detail="A site with this name already exists in the selected project.")
 
     try:
         site = Site(**data.dict())
@@ -44,19 +48,16 @@ def create_site(data: SiteCreate, db: Session = Depends(get_db)):
         db.refresh(site)
     except IntegrityError:
         db.rollback()
-        raise HTTPException(
-            status_code=400,
-            detail="Database error while creating site."
-        )
+        raise HTTPException(status_code=400, detail="Database error while creating site.")
 
-    #audit logging
     log_action(
-    db=db,
-    action="create",
-    entity_type="site",
-    entity_id=str(site.id),
-    details=f"Site {site.name} created"
-)
+        db=db,
+        action="create",
+        entity_type="site",
+        entity_id=str(site.id),
+        details=f"Site {site.name} created",
+        **_audit_user(current_user),
+    )
 
     return site
 
@@ -80,8 +81,8 @@ def get_site(site_id: UUID, db: Session = Depends(get_db)):
     return site
 
 
-@router.patch("/{site_id}", response_model=SiteResponse, dependencies=[Depends(require_admin)])
-def update_site(site_id: UUID, data: SiteUpdate, db: Session = Depends(get_db)):
+@router.patch("/{site_id}", response_model=SiteResponse)
+def update_site(site_id: UUID, data: SiteUpdate, db: Session = Depends(get_db), current_user: dict = Depends(require_admin)):
     site = db.query(Site).filter(Site.id == site_id).first()
 
     if not site:
@@ -93,20 +94,20 @@ def update_site(site_id: UUID, data: SiteUpdate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(site)
 
-    #audit logging
     log_action(
-    db=db,
-    action="update",
-    entity_type="site",
-    entity_id=str(site.id),
-    details=f"Site {site.name} updated"
-)
+        db=db,
+        action="update",
+        entity_type="site",
+        entity_id=str(site.id),
+        details=f"Site {site.name} updated",
+        **_audit_user(current_user),
+    )
 
     return site
 
 
-@router.delete("/{site_id}/force-delete",response_model=SiteResponse,dependencies=[Depends(require_admin)])
-def force_delete_site(site_id: UUID,payload: ForceDeleteRequest, db: Session = Depends(get_db)):
+@router.delete("/{site_id}/force-delete", response_model=SiteResponse)
+def force_delete_site(site_id: UUID, payload: ForceDeleteRequest, db: Session = Depends(get_db), current_user: dict = Depends(require_admin)):
     site = db.query(Site).filter(Site.id == site_id).first()
 
     if not site:
@@ -115,16 +116,12 @@ def force_delete_site(site_id: UUID,payload: ForceDeleteRequest, db: Session = D
     if payload.confirmation != site.name:
         raise HTTPException(400, "Confirmation text mismatch")
 
-    # Delete attendance linked to site (check-in or check-out at this site)
     db.query(AttendanceRecord).filter(
         (AttendanceRecord.check_in_site_id == site_id) |
         (AttendanceRecord.check_out_site_id == site_id)
     ).delete(synchronize_session=False)
 
-    # Delete workers
     db.query(Worker).filter(Worker.site_id == site_id).delete()
-
-    # Delete site
     db.delete(site)
     db.commit()
 
@@ -133,13 +130,14 @@ def force_delete_site(site_id: UUID,payload: ForceDeleteRequest, db: Session = D
         action="force_delete",
         entity_type="site",
         entity_id=str(site_id),
-        details=payload.reason
+        details=payload.reason,
+        **_audit_user(current_user),
     )
 
     return {"message": "Site permanently deleted"}
 
-@router.patch("/{site_id}/archive",response_model=ActionResponse,dependencies=[Depends(require_admin)])
-def archive_site(site_id: UUID, db: Session = Depends(get_db)):
+@router.patch("/{site_id}/archive", response_model=ActionResponse)
+def archive_site(site_id: UUID, db: Session = Depends(get_db), current_user: dict = Depends(require_admin)):
     site = db.query(Site).filter(Site.id == site_id).first()
 
     if not site:
@@ -148,12 +146,10 @@ def archive_site(site_id: UUID, db: Session = Depends(get_db)):
     if site.is_deleted:
         raise HTTPException(400, "Site already archived")
 
-    # Soft delete site
     site.is_deleted = True
     site.deleted_at = datetime.utcnow()
     site.status = "inactive"
 
-    # Deactivate workers linked to this site
     db.query(Worker).filter(Worker.site_id == site_id).update({"status": "inactive"})
 
     db.commit()
@@ -163,14 +159,15 @@ def archive_site(site_id: UUID, db: Session = Depends(get_db)):
         action="archive",
         entity_type="site",
         entity_id=str(site.id),
-        details=f"Site {site.name} archived"
+        details=f"Site {site.name} archived",
+        **_audit_user(current_user),
     )
 
     return {"message": "Site archived successfully"}
 
 
-@router.patch("/{site_id}/restore",response_model=ActionResponse, dependencies=[Depends(require_admin)])
-def restore_site(site_id: UUID, db: Session = Depends(get_db)):
+@router.patch("/{site_id}/restore", response_model=ActionResponse)
+def restore_site(site_id: UUID, db: Session = Depends(get_db), current_user: dict = Depends(require_admin)):
 
     site = db.query(Site).filter(Site.id == site_id).first()
 
@@ -185,7 +182,6 @@ def restore_site(site_id: UUID, db: Session = Depends(get_db)):
     site.deleted_by = None
     site.status = "active"
 
-    # Reactivate workers linked to this site
     db.query(Worker).filter(Worker.site_id == site_id).update({"status": "active"})
 
     db.commit()
@@ -195,7 +191,8 @@ def restore_site(site_id: UUID, db: Session = Depends(get_db)):
         action="restore",
         entity_type="site",
         entity_id=str(site.id),
-        details=f"Site {site.name} restored"
+        details=f"Site {site.name} restored",
+        **_audit_user(current_user),
     )
 
     return {"message": "Site restored successfully"}

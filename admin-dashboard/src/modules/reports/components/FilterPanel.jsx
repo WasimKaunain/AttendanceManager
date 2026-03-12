@@ -22,14 +22,14 @@ export default function FilterPanel({ reportType, filters, onChange }) {
   };
 
   return (
-    <div className="grid md:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
 
       {/* PROJECT REPORT */}
       {reportType === "projects" && (
         <select
           value={filters?.project_id || ""}
           onChange={(e) => handleChange("project_id", e.target.value)}
-          className="border p-3 rounded-xl"
+          className="border dark:border-slate-600 p-3 rounded-xl bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 w-full"
         >
           <option value="">Select Project</option>
           {projects.map((p) => (
@@ -45,7 +45,7 @@ export default function FilterPanel({ reportType, filters, onChange }) {
         <select
           value={filters?.site_id || ""}
           onChange={(e) => handleChange("site_id", e.target.value)}
-          className="border p-3 rounded-xl"
+          className="border dark:border-slate-600 p-3 rounded-xl bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 w-full"
         >
           <option value="">Select Site</option>
           {sites.map((s) => (
@@ -61,7 +61,7 @@ export default function FilterPanel({ reportType, filters, onChange }) {
         <select
           value={filters?.worker_id || ""}
           onChange={(e) => handleChange("worker_id", e.target.value)}
-          className="border p-3 rounded-xl"
+          className="border dark:border-slate-600 p-3 rounded-xl bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 w-full"
         >
           <option value="">Select Worker</option>
           {workers.map((w) => (
@@ -78,7 +78,7 @@ export default function FilterPanel({ reportType, filters, onChange }) {
           <select
             value={filters?.site_id || ""}
             onChange={(e) => handleChange("site_id", e.target.value)}
-            className="border p-3 rounded-xl"
+            className="border dark:border-slate-600 p-3 rounded-xl bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 w-full"
           >
             <option value="">Select Site</option>
             {sites.map((s) => (
@@ -92,7 +92,7 @@ export default function FilterPanel({ reportType, filters, onChange }) {
             type="date"
             value={filters?.from_date || ""}
             onChange={(e) => handleChange("from_date", e.target.value)}
-            className="border p-3 rounded-xl"
+            className="border dark:border-slate-600 p-3 rounded-xl bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 w-full"
           />
 
           <input
@@ -100,7 +100,7 @@ export default function FilterPanel({ reportType, filters, onChange }) {
             value={filters?.to_date || ""}
             min={filters?.from_date || undefined}
             onChange={(e) => handleChange("to_date", e.target.value)}
-            className="border p-3 rounded-xl"
+            className="border dark:border-slate-600 p-3 rounded-xl bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 w-full"
           />
         </>
       )}
@@ -111,7 +111,7 @@ export default function FilterPanel({ reportType, filters, onChange }) {
           <select
             value={filters?.worker_id || ""}
             onChange={(e) => handleChange("worker_id", e.target.value)}
-            className="border p-3 rounded-xl"
+            className="border dark:border-slate-600 p-3 rounded-xl bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 w-full"
           >
             <option value="">Select Worker</option>
             {workers.map((w) => (
@@ -125,7 +125,7 @@ export default function FilterPanel({ reportType, filters, onChange }) {
             type="date"
             value={filters?.from_date || ""}
             onChange={(e) => handleChange("from_date", e.target.value)}
-            className="border p-3 rounded-xl"
+            className="border dark:border-slate-600 p-3 rounded-xl bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 w-full"
           />
 
           <input
@@ -133,7 +133,7 @@ export default function FilterPanel({ reportType, filters, onChange }) {
             value={filters?.to_date || ""}
             min={filters?.from_date || undefined}
             onChange={(e) => handleChange("to_date", e.target.value)}
-            className="border p-3 rounded-xl"
+            className="border dark:border-slate-600 p-3 rounded-xl bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 w-full"
           />
         </>
       )}

@@ -33,7 +33,7 @@ export default function ProjectsPage() {
 
   return (
     <DashboardLayout>
-      <div className="p-6 min-h-screen space-y-6">
+      <div className="p-4 md:p-6 min-h-screen space-y-4 md:space-y-6">
         <PageHeader
           title="Projects"
           subtitle="Manage and monitor construction projects"
@@ -53,15 +53,15 @@ export default function ProjectsPage() {
                 onClick={() => navigate(`/projects/${project.id}`)}
                 className="glass-row"
               >
-                <div className="flex justify-between items-center gap-4">
+                <div className="flex justify-between items-center gap-3">
                   <div className="min-w-0">
                     <p className="row-title truncate">{project.name}</p>
-                    <div className="flex items-center gap-3 mt-0.5">
+                    <div className="flex flex-wrap items-center gap-2 mt-0.5">
                       <span className="row-meta font-mono bg-slate-100 dark:bg-slate-700/60 px-1.5 py-0.5 rounded">{project.code}</span>
                       <span className="row-sub">{project.client_name || "No client"}</span>
                     </div>
                   </div>
-                  <span className={`flex-shrink-0 px-2.5 py-0.5 text-xs rounded-full border backdrop-blur-md ${statusColors[project.status] || statusColors.inactive}`}>
+                  <span className={`shrink-0 px-2.5 py-0.5 text-xs rounded-full border backdrop-blur-md ${statusColors[project.status] || statusColors.inactive}`}>
                     {project.status}
                   </span>
                 </div>

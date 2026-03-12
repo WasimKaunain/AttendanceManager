@@ -15,6 +15,7 @@ from app.core.dependencies import require_site_incharge, get_site_id_or_raise
 from app.schemas.mobile import (MobileWorkerResponse,LocationRequest,GeofenceResponse,FaceEnrollResponse,MobileAttendanceResponse,EmbeddingPayload)
 from app.services.image_service import save_compressed_attendance_image, format_site_folder
 from app.services.r2 import upload_file_to_r2
+from uuid import UUID as _UUID
 
 router = APIRouter(prefix="/mobile", tags=["Mobile"])
 
@@ -25,6 +26,15 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+def _audit_si(user: dict) -> dict:
+    """Extract audit fields from a site_incharge JWT payload."""
+    return {
+        "performed_by": _UUID(user["sub"]) if user.get("sub") else None,
+        "performed_by_name": user.get("name") or user.get("sub", "Unknown"),
+        "performed_by_role": "site_incharge",
+    }
 
 # --------------------------------------------------
 # SITE DASHBOARD STATS
@@ -343,7 +353,8 @@ def enroll_face(
         action="face_enrolled",
         entity_type="worker",
         entity_id=worker.id,
-        details=f"Worker {worker.full_name} face enrolled (mobile)"
+        details=f"Worker {worker.full_name} face enrolled via mobile app",
+        **_audit_si(user),
     )
 
     return {"message": "Face enrolled successfully"}
@@ -558,7 +569,8 @@ def check_in(
         action="check_in",
         entity_type="attendance",
         entity_id=str(record.id),
-        details=f"Worker {worker_id} checked in (mobile)"
+        details=f"Worker {worker_id} ({worker.full_name}) checked in at site {site.name}",
+        **_audit_si(user),
     )
 
     return record
@@ -722,6 +734,15 @@ def check_out(
 
     db.commit()
     db.refresh(record)
+
+    log_action(
+        db=db,
+        action="check_out",
+        entity_type="attendance",
+        entity_id=str(record.id),
+        details=f"Worker {worker_id} ({worker.full_name}) checked out at site {site.name}. Hours: {round(record.total_hours or 0, 2)}",
+        **_audit_si(user),
+    )
 
     print("Checkout successful")
     print("---- CHECKOUT DEBUG END ----")
