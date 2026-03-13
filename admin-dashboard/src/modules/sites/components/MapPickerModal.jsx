@@ -8,7 +8,8 @@ import {
 } from "@vis.gl/react-google-maps";
 import { Search, X, MapPin, Maximize2, Minimize2, Trash2, CircleDot, Hexagon } from "lucide-react";
 
-const GOOGLE_MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+const GOOGLE_MAPS_KEY = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "").trim();
+const HAS_GOOGLE_MAPS_KEY = GOOGLE_MAPS_KEY.length > 0;
 const API_BASE        = import.meta.env.VITE_API_BASE_URL;
 
 // ─────────────────────────────────────────────────────────────
@@ -454,35 +455,41 @@ export default function MapPickerModal({ open, onClose, onConfirm, initialMode =
 
         {/* ── MAP ── */}
         <div className="flex-1 relative overflow-hidden">
-          <APIProvider apiKey={GOOGLE_MAPS_KEY} language="en" region="US">
-            <Map
-              defaultCenter={{ lat: 20.5937, lng: 78.9629 }}
-              defaultZoom={5}
-              gestureHandling="greedy"
-              disableDefaultUI={false}
-              style={{ width: "100%", height: "100%" }}
-            >
-              <MapContent
-                mode={mode}
-                flyTo={flyTo}
-                onFlyDone={() => setFlyTo(null)}
-                circleCenter={circleCenter}
-                setCircleCenter={setCircleCenter}
-                circleRadius={circleRadius}
-                polygonPoints={polygonPoints}
-                setPolygonPoints={setPolygonPoints}
-                onAddressResolved={handleAddressResolved}
-              />
+          {HAS_GOOGLE_MAPS_KEY ? (
+            <APIProvider apiKey={GOOGLE_MAPS_KEY} language="en" region="US">
+              <Map
+                defaultCenter={{ lat: 20.5937, lng: 78.9629 }}
+                defaultZoom={5}
+                gestureHandling="greedy"
+                disableDefaultUI={false}
+                style={{ width: "100%", height: "100%" }}
+              >
+                <MapContent
+                  mode={mode}
+                  flyTo={flyTo}
+                  onFlyDone={() => setFlyTo(null)}
+                  circleCenter={circleCenter}
+                  setCircleCenter={setCircleCenter}
+                  circleRadius={circleRadius}
+                  polygonPoints={polygonPoints}
+                  setPolygonPoints={setPolygonPoints}
+                  onAddressResolved={handleAddressResolved}
+                />
 
-              {mode === "circle" && circleCenter && (
-                <Marker position={circleCenter} />
-              )}
+                {mode === "circle" && circleCenter && (
+                  <Marker position={circleCenter} />
+                )}
 
-              {mode === "polygon" && (
-                <PolygonMarkers points={polygonPoints} onRemove={removePolygonPoint} />
-              )}
-            </Map>
-          </APIProvider>
+                {mode === "polygon" && (
+                  <PolygonMarkers points={polygonPoints} onRemove={removePolygonPoint} />
+                )}
+              </Map>
+            </APIProvider>
+          ) : (
+            <div className="h-full w-full flex items-center justify-center px-4 text-center text-sm text-slate-500 dark:text-slate-400">
+              Google Maps key is missing. Set VITE_GOOGLE_MAPS_API_KEY in your .env.local and restart the app.
+            </div>
+          )}
 
           {mode === "circle" && circleCenter && (
             <CircleRadiusControl radius={circleRadius} onChange={setCircleRadius} />

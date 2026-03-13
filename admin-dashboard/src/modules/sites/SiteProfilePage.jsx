@@ -12,7 +12,8 @@ import { Component } from "react";
 
 import {LineChart,Line,XAxis,YAxis,Tooltip,CartesianGrid,ResponsiveContainer,} from "recharts";
 
-const GOOGLE_MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+const GOOGLE_MAPS_KEY = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "").trim();
+const HAS_GOOGLE_MAPS_KEY = GOOGLE_MAPS_KEY.length > 0;
 
 // ── Error boundary so a map crash doesn't white-screen the whole page ──
 class MapErrorBoundary extends Component {
@@ -351,20 +352,26 @@ const siteWorkers = workers.filter((w) => w.site_id === id);
                 {/* Boundary Map Preview */}
                 <div className="rounded-2xl overflow-hidden border border-white/40 shadow-inner" style={{ height: 280 }}>
                   <MapErrorBoundary>
-                    <APIProvider apiKey={GOOGLE_MAPS_KEY} language="en" region="US">
-                      <Map
-                        defaultCenter={{ lat: parseFloat(site.latitude) || 20.5937, lng: parseFloat(site.longitude) || 78.9629 }}
-                        defaultZoom={15}
-                        gestureHandling="cooperative"
-                        disableDefaultUI={false}
-                        mapTypeControl={false}
-                        streetViewControl={false}
-                        fullscreenControl={false}
-                        style={{ width: "100%", height: "100%" }}
-                      >
-                        <BoundaryOverlay site={site} />
-                      </Map>
-                    </APIProvider>
+                    {HAS_GOOGLE_MAPS_KEY ? (
+                      <APIProvider apiKey={GOOGLE_MAPS_KEY} language="en" region="US">
+                        <Map
+                          defaultCenter={{ lat: parseFloat(site.latitude) || 20.5937, lng: parseFloat(site.longitude) || 78.9629 }}
+                          defaultZoom={15}
+                          gestureHandling="cooperative"
+                          disableDefaultUI={false}
+                          mapTypeControl={false}
+                          streetViewControl={false}
+                          fullscreenControl={false}
+                          style={{ width: "100%", height: "100%" }}
+                        >
+                          <BoundaryOverlay site={site} />
+                        </Map>
+                      </APIProvider>
+                    ) : (
+                      <div className="h-full w-full flex items-center justify-center px-4 text-center text-sm text-slate-500 dark:text-slate-400">
+                        Google Maps key is missing. Set VITE_GOOGLE_MAPS_API_KEY in your .env.local and restart the app.
+                      </div>
+                    )}
                   </MapErrorBoundary>
                 </div>
               </GlassCard>
