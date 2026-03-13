@@ -1,24 +1,24 @@
 package com.wasim.attendancemanager.ui.splash
 
 import android.graphics.BitmapFactory
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Business
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -32,7 +32,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
@@ -41,96 +40,135 @@ import kotlinx.coroutines.delay
 fun SplashScreen(
     onFinished: () -> Unit
 ) {
-    val context = LocalContext.current
-    val scale = remember { Animatable(0.85f) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+
+    val appLogoScale = remember { Animatable(0.82f) }
+    val appLogoAlpha = remember { Animatable(0f) }
 
     var appLogo by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
     var companyLogo by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
+    var showPoweredText by remember { mutableStateOf(false) }
+    var showCompanyLogo by remember { mutableStateOf(false) }
+    var showRights by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         appLogo = runCatching { context.assets.open("APK_LOGO.jpg").use(BitmapFactory::decodeStream) }.getOrNull()
         companyLogo = runCatching { context.assets.open("AINTSOL_LOGO.png").use(BitmapFactory::decodeStream) }.getOrNull()
 
-        scale.animateTo(
-            targetValue = 1f,
-            animationSpec = tween(durationMillis = 650, easing = FastOutSlowInEasing)
-        )
-        delay(1400)
+        appLogoAlpha.animateTo(1f, animationSpec = tween(durationMillis = 380, easing = FastOutSlowInEasing))
+        appLogoScale.animateTo(1f, animationSpec = tween(durationMillis = 650, easing = FastOutSlowInEasing))
+
+        delay(250)
+        showPoweredText = true
+        delay(300)
+        showCompanyLogo = true
+        delay(280)
+        showRights = true
+
+        delay(900)
         onFinished()
     }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(24.dp),
-        contentAlignment = Alignment.Center
+            .padding(horizontal = 24.dp, vertical = 20.dp)
     ) {
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        Column(
+            modifier = Modifier.align(Alignment.Center),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 28.dp, horizontal = 20.dp),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally
+            Text(
+                text = "AttendCrew",
+                style = MaterialTheme.typography.headlineLarge,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.graphicsLayer {
+                    alpha = appLogoAlpha.value
+                    scaleX = appLogoScale.value
+                    scaleY = appLogoScale.value
+                }
+            )
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            if (appLogo != null) {
+                Image(
+                    bitmap = appLogo!!.asImageBitmap(),
+                    contentDescription = "AttendCrew Logo",
+                    modifier = Modifier
+                        .size(118.dp)
+                        .graphicsLayer {
+                            alpha = appLogoAlpha.value
+                            scaleX = appLogoScale.value
+                            scaleY = appLogoScale.value
+                        }
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Filled.Business,
+                    contentDescription = "AttendCrew Logo",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .size(88.dp)
+                        .graphicsLayer {
+                            alpha = appLogoAlpha.value
+                            scaleX = appLogoScale.value
+                            scaleY = appLogoScale.value
+                        }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            AnimatedVisibility(
+                visible = showPoweredText,
+                enter = fadeIn(animationSpec = tween(420)) +
+                    slideInVertically(animationSpec = tween(420), initialOffsetY = { it / 2 }) +
+                    scaleIn(animationSpec = tween(420), initialScale = 0.72f)
             ) {
                 Text(
-                    text = "AttendCrew",
-                    style = MaterialTheme.typography.headlineLarge,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.graphicsLayer {
-                        scaleX = scale.value
-                        scaleY = scale.value
-                        alpha = scale.value
-                    }
+                    text = "Powered by Aintsol",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
 
-                Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
-                if (appLogo != null) {
+            AnimatedVisibility(
+                visible = showCompanyLogo,
+                enter = fadeIn(animationSpec = tween(380)) + scaleIn(animationSpec = tween(380), initialScale = 0.85f)
+            ) {
+                if (companyLogo != null) {
                     Image(
-                        bitmap = appLogo!!.asImageBitmap(),
-                        contentDescription = "App Logo",
-                        modifier = Modifier.size(116.dp)
+                        bitmap = companyLogo!!.asImageBitmap(),
+                        contentDescription = "AINTSOL Logo",
+                        modifier = Modifier.size(28.dp)
                     )
                 } else {
                     Icon(
                         imageVector = Icons.Filled.Business,
-                        contentDescription = "App Logo",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(84.dp)
+                        contentDescription = "AINTSOL Logo",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(24.dp)
                     )
                 }
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "Powered by AINTSOL",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.size(8.dp))
-                    if (companyLogo != null) {
-                        Image(
-                            bitmap = companyLogo!!.asImageBitmap(),
-                            contentDescription = "AINTSOL Logo",
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Text(
-                    text = "Copyright (c) AINTSOL",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
             }
+        }
+
+        AnimatedVisibility(
+            visible = showRights,
+            enter = fadeIn(animationSpec = tween(380)) + slideInVertically(animationSpec = tween(380), initialOffsetY = { it / 2 }),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 10.dp)
+        ) {
+            Text(
+                text = "All rights reserved",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }

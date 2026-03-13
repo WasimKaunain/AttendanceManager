@@ -70,6 +70,8 @@ fun DashboardScreen(navController: NavController) {
 
     val context = LocalContext.current
     val scope   = rememberCoroutineScope()
+    val tokenManager = remember { TokenManager(context) }
+    val isAdmin = remember { tokenManager.getRole() == "admin" }
 
     var stats            by remember { mutableStateOf<DashboardStats?>(null) }
     var weeklyData       by remember { mutableStateOf<List<WeeklyDay>>(emptyList()) }
@@ -244,6 +246,14 @@ fun DashboardScreen(navController: NavController) {
                         icon     = Icons.Default.FaceRetouchingNatural,
                         onClick  = { navController.navigate("face_enroll") }
                     )
+                    if (isAdmin) {
+                        ActionButtonWide(
+                            title = "Site List",
+                            subtitle = "Switch active site",
+                            icon = Icons.Default.Business,
+                            onClick = { navController.navigate("admin_site_selection") }
+                        )
+                    }
                 }
             }
 

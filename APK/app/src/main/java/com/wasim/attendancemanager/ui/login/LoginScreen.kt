@@ -10,12 +10,17 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -30,6 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.wasim.attendancemanager.data.api.RetrofitInstance
@@ -62,6 +68,7 @@ private fun decodeJwtPayload(token: String): JSONObject? {
 fun LoginScreen(navController: NavController) {
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var showPassword by remember { mutableStateOf(false) }
     var role by remember { mutableStateOf(LoginRole.SITE_INCHARGE) }
     var roleExpanded by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
@@ -141,7 +148,19 @@ fun LoginScreen(navController: NavController) {
                     value = password,
                     onValueChange = { password = it },
                     label = { Text("Password") },
-                    visualTransformation = PasswordVisualTransformation(),
+                    visualTransformation = if (showPassword) {
+                        VisualTransformation.None
+                    } else {
+                        PasswordVisualTransformation()
+                    },
+                    trailingIcon = {
+                        IconButton(onClick = { showPassword = !showPassword }) {
+                            Icon(
+                                imageVector = if (showPassword) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
+                                contentDescription = if (showPassword) "Hide password" else "Show password"
+                            )
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth()
                 )
 

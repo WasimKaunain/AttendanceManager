@@ -10,12 +10,14 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
@@ -199,14 +201,14 @@ fun AdminSiteSelectionScreen(navController: NavController) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(20.dp)
+            .padding(horizontal = 20.dp, vertical = 16.dp)
     ) {
-        Column {
+        Column(modifier = Modifier.fillMaxSize()) {
             Text(
                 text = "Select Active Site",
                 style = MaterialTheme.typography.headlineSmall
             )
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = "Choose a site and verify location to continue.",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -214,7 +216,11 @@ fun AdminSiteSelectionScreen(navController: NavController) {
             )
             Spacer(modifier = Modifier.height(16.dp))
 
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            LazyColumn(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(vertical = 4.dp)
+            ) {
                 items(sites) { site ->
                     Card(
                         modifier = Modifier
@@ -225,10 +231,10 @@ fun AdminSiteSelectionScreen(navController: NavController) {
                             containerColor = MaterialTheme.colorScheme.surface
                         )
                     ) {
-                        Column(modifier = Modifier.padding(14.dp)) {
+                        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
                             Text(site.name, style = MaterialTheme.typography.titleMedium)
                             if (!site.address.isNullOrBlank()) {
-                                Spacer(modifier = Modifier.height(4.dp))
+                                Spacer(modifier = Modifier.height(6.dp))
                                 Text(
                                     site.address,
                                     style = MaterialTheme.typography.bodySmall,
@@ -243,7 +249,9 @@ fun AdminSiteSelectionScreen(navController: NavController) {
             Spacer(modifier = Modifier.height(16.dp))
             OutlinedButton(
                 onClick = { backToLogin(clearAuth = true) },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding(),
                 enabled = !isLoading
             ) {
                 Text("Back to Login")
@@ -255,4 +263,3 @@ fun AdminSiteSelectionScreen(navController: NavController) {
         }
     }
 }
-
