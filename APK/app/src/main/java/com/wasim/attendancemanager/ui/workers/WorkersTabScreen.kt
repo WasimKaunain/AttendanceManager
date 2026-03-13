@@ -17,10 +17,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.wasim.attendancemanager.data.api.RetrofitInstance
 import com.wasim.attendancemanager.data.local.AppPreferences
 import com.wasim.attendancemanager.data.model.SiteWorker
@@ -231,6 +233,29 @@ fun WorkerDetailSheet(worker: SiteWorker, onBack: () -> Unit) {
     val currCode   = prefs.currency
     fun fmtMoney(amount: Double) = AppPreferences.formatMoney(amount, currCode)
 
+    var profilePhotoUrl by remember(worker.id) { mutableStateOf<String?>(null) }
+    var isPhotoLoading by remember(worker.id) { mutableStateOf(worker.photo_url != null) }
+
+    LaunchedEffect(worker.id, worker.photo_url) {
+        if (worker.photo_url.isNullOrBlank()) {
+            profilePhotoUrl = null
+            isPhotoLoading = false
+            return@LaunchedEffect
+        }
+
+        isPhotoLoading = true
+        profilePhotoUrl = null
+
+        try {
+            val response = RetrofitInstance.getApi(context).getWorkerPhoto(worker.id)
+            profilePhotoUrl = if (response.isSuccessful) response.body()?.url else null
+        } catch (_: Exception) {
+            profilePhotoUrl = null
+        } finally {
+            isPhotoLoading = false
+        }
+    }
+
     val todayColor = when (worker.today_status) {
         "present"     -> AppPresent
         "checked_out" -> AppCheckedOut
@@ -270,19 +295,11 @@ fun WorkerDetailSheet(worker: SiteWorker, onBack: () -> Unit) {
             modifier            = Modifier.fillMaxWidth().padding(top = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Box(
-                modifier = Modifier
-                    .size(88.dp)
-                    .shadow(8.dp, CircleShape, ambientColor = AppPrimary.copy(alpha = 0.2f))
-                    .clip(CircleShape)
-                    .background(Brush.linearGradient(listOf(AppPrimary, AppPrimaryLight))),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text  = worker.full_name.firstOrNull()?.uppercase() ?: "?",
-                    style = MaterialTheme.typography.headlineMedium.copy(color = Color.White, fontWeight = FontWeight.Bold)
-                )
-            }
+            WorkerProfileAvatar(
+                fullName = worker.full_name,
+                imageUrl = profilePhotoUrl,
+                isLoading = isPhotoLoading
+            )
 
             Spacer(Modifier.height(12.dp))
 
@@ -323,6 +340,44 @@ fun WorkerDetailSheet(worker: SiteWorker, onBack: () -> Unit) {
             }
         }
         Spacer(Modifier.height(100.dp))
+    }
+}
+
+@Composable
+private fun WorkerProfileAvatar(
+    fullName: String,
+    imageUrl: String?,
+    isLoading: Boolean
+) {
+    Box(
+        modifier = Modifier
+            .size(88.dp)
+            .shadow(8.dp, CircleShape, ambientColor = AppPrimary.copy(alpha = 0.2f))
+            .clip(CircleShape)
+            .background(Brush.linearGradient(listOf(AppPrimary, AppPrimaryLight))),
+        contentAlignment = Alignment.Center
+    ) {
+        if (!imageUrl.isNullOrBlank()) {
+            AsyncImage(
+                model = imageUrl,
+                contentDescription = "Worker profile photo",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+        } else {
+            Text(
+                text  = fullName.firstOrNull()?.uppercase() ?: "?",
+                style = MaterialTheme.typography.headlineMedium.copy(color = Color.White, fontWeight = FontWeight.Bold)
+            )
+        }
+
+        if (isLoading) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(22.dp),
+                color = Color.White,
+                strokeWidth = 2.dp
+            )
+        }
     }
 }
 

@@ -13,6 +13,7 @@ import com.wasim.attendancemanager.data.model.RecentActivity
 import com.wasim.attendancemanager.data.model.SiteWorker
 import com.wasim.attendancemanager.data.model.WeeklyDay
 import com.wasim.attendancemanager.data.model.WorkerResponse
+import com.wasim.attendancemanager.data.model.WorkerPhotoResponse
 
 import retrofit2.Response
 import retrofit2.http.Body
@@ -68,6 +69,12 @@ interface ApiService {
         @Query("search") search: String? = null,
         @Query("status") status: String? = null
     ): Response<List<SiteWorker>>
+
+    /** Signed profile image URL from mobile API (Cloudflare R2) */
+    @GET("mobile/workers/{worker_id}/photo")
+    suspend fun getWorkerPhoto(
+        @Path("worker_id") workerId: String
+    ): Response<WorkerPhotoResponse>
 
     // ── Attendance ────────────────────────────────────────────────────────────
 

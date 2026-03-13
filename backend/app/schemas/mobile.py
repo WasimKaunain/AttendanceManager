@@ -42,6 +42,10 @@ class MobileWorkerResponse(ORMBase):
     status: Optional[str] = None
 
 
+class MobileWorkerPhotoResponse(BaseModel):
+    url: str
+
+
 # ----------------------------
 # Location Request
 # ----------------------------

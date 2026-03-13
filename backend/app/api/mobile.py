@@ -23,9 +23,10 @@ from app.schemas.mobile import (
     MobileSiteOption,
     AdminSelectSiteRequest,
     AdminSelectSiteResponse,
+    MobileWorkerPhotoResponse,
 )
 from app.services.image_service import save_compressed_attendance_image, format_site_folder
-from app.services.r2 import upload_file_to_r2
+from app.services.r2 import upload_file_to_r2, generate_presigned_download_url
 from uuid import UUID as _UUID
 
 router = APIRouter(prefix="/mobile", tags=["Mobile"])
@@ -319,6 +320,26 @@ def get_site_workers(
         })
 
     return result
+
+
+# --------------------------------------------------
+# WORKER PROFILE PHOTO (SIGNED URL)
+# --------------------------------------------------
+@router.get("/workers/{worker_id}/photo", response_model=MobileWorkerPhotoResponse)
+def get_mobile_worker_photo(
+    worker_id: str,
+    user=Depends(require_mobile_user),
+    db: Session = Depends(get_db)
+):
+    worker = db.query(Worker).filter(
+        Worker.id == worker_id,
+        Worker.is_deleted == False
+    ).first()
+
+    if not worker or not worker.photo_url:
+        raise HTTPException(status_code=404, detail="Photo not found")
+
+    return {"url": generate_presigned_download_url(worker.photo_url)}
 
 
 # --------------------------------------------------
@@ -837,6 +858,8 @@ def check_out(
     print("---- CHECKOUT DEBUG END ----")
 
     return record
+
+
 
 
 
