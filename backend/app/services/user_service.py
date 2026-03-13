@@ -1,19 +1,22 @@
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from app.models.user import User
 from app.core.security import verify_password
 
 
 def authenticate_user(db: Session, username: str, password: str):
     """
-    Authenticate by username OR email (for admin users).
+    Authenticate by username OR email (for admin users). Case-insensitive lookup.
     Returns the User ORM object on success, None on failure.
     """
-    # Try username first
-    user = db.query(User).filter(User.username == username).first()
+    uname = (username or "").strip()
 
-    # If not found by username, try email (admin login via email)
+    # Case-insensitive username lookup
+    user = db.query(User).filter(func.lower(User.username) == uname.lower()).first()
+
+    # If not found by username, try email (admin login via email), case-insensitive
     if not user:
-        user = db.query(User).filter(User.email == username).first()
+        user = db.query(User).filter(func.lower(User.email) == uname.lower()).first()
 
     if not user:
         return None
