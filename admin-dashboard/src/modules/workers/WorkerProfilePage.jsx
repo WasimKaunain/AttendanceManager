@@ -491,39 +491,30 @@ const toggleMutation = useMutation({
                   <h3 className="font-semibold mb-4 text-slate-800 dark:text-slate-100">Compensation</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
 
-                    {worker.type === "permanent" && (
-                      <>
-                        <InfoItem
-                          label="Monthly Salary"
-                          value={`₹ ${worker.monthly_salary || 0}`}
-                        />
-                        <InfoItem
-                          label="Daily Rate"
-                          value={`₹ ${worker.daily_rate || 0}`}
-                        />
-                      </>
-                    )}
+                    <InfoItem
+                      label="Monthly Salary"
+                      value={worker.type === "contract" ? "N/A" : `₹ ${worker.monthly_salary != null ? worker.monthly_salary.toLocaleString() : 0}`}
+                    />
 
-                    {worker.type === "contract" && (
-                      <>
-                        <InfoItem
-                          label="Hourly Rate"
-                          value={`₹ ${worker.hourly_rate || 0}`}
-                        />
-                        <InfoItem
-                          label="Daily Rate"
-                          value={`₹ ${worker.daily_rate || 0}`}
-                        />
-                        <InfoItem
-                          label="Daily Working Hours"
-                          value={`${worker.daily_working_hours != null ? worker.daily_working_hours : '—'}`}
-                        />
-                        <InfoItem
-                          label="OT Multiplier"
-                          value={`${worker.ot_multiplier != null ? worker.ot_multiplier : '—'}`}
-                        />
-                      </>
-                    )}
+                    <InfoItem
+                      label="Hourly Rate"
+                      value={worker.hourly_rate != null ? `₹ ${worker.hourly_rate}` : '—'}
+                    />
+
+                    <InfoItem
+                      label="Daily Rate"
+                      value={worker.daily_rate != null ? `₹ ${worker.daily_rate}` : '—'}
+                    />
+
+                    <InfoItem
+                      label="Daily Working Hours"
+                      value={worker.daily_working_hours != null ? worker.daily_working_hours : '—'}
+                    />
+
+                    <InfoItem
+                      label="OT Multiplier"
+                      value={worker.ot_multiplier != null ? worker.ot_multiplier : '—'}
+                    />
 
                   </div>
                 </GlassCard>
@@ -608,7 +599,6 @@ const toggleMutation = useMutation({
                         <div className="flex gap-3 text-xs text-slate-500">
                           {[
                             { color: "bg-emerald-400", label: "Present" },
-                            { color: "bg-amber-400",   label: "Late"    },
                             { color: "bg-slate-200",   label: "Absent"  },
                             { color: "bg-slate-50 border border-slate-200", label: "Future" },
                           ].map((l) => (
