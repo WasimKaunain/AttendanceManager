@@ -49,7 +49,7 @@ export default function LoginPage() {
             />
             {/* Brand */}
             <h1 className="text-white text-3xl font-extrabold tracking-tight leading-none">
-              SiteTrack
+              AttendCrew
             </h1>
             <p className="text-slate-400 text-xs font-medium tracking-widest uppercase">
               Attendance Manager
@@ -131,7 +131,7 @@ export default function LoginPage() {
         </div>
 
         <p className="text-center text-xs text-gray-400 dark:text-gray-500 mt-6">
-          © {new Date().getFullYear()} SiteTrack · Attendance Manager. All rights reserved.
+          © {new Date().getFullYear()} AttendCrew · Attendance Manager. All rights reserved.
         </p>
       </div>
     </div>

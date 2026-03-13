@@ -8,10 +8,11 @@ app = FastAPI(title="Attendance Manager API")
 
 app.add_middleware(
     CORSMiddleware,
-     allow_origins=[
+    allow_origins=[
         "http://localhost:5173",
         "http://127.0.0.1:5173",
-        "https://app.aintsol.com"
+        "http://localhost:3000",
+        "https://app.aintsol.com",
     ],
     allow_credentials=True,
     allow_methods=["*"],

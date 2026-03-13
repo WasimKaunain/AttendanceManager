@@ -45,7 +45,7 @@ export default function Sidebar({ onClose }) {
               className="w-10 h-10 object-contain rounded-xl bg-white p-1 shadow-lg ring-2 ring-white/30"
             />
             <div className="leading-tight">
-              <h1 className="text-base font-extrabold text-white tracking-tight">SiteTrack</h1>
+              <h1 className="text-base font-extrabold text-white tracking-tight">AttendCrew</h1>
               <p className="text-[10px] text-slate-400 tracking-widest uppercase">Attendance Manager</p>
             </div>
           </div>

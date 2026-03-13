@@ -13,18 +13,75 @@ export default function ReportsPage() {
   const { downloadReport, loading } = useReports();
   const [dialogOpen, setDialogOpen] = useState(false);
 
-const handleGenerate = () => {
-  const finalFormat =
-    activeTab === "attendance_sitewise" ||
-    activeTab === "attendance_workerwise"
-      ? format
-      : "pdf";
+  const handleGenerate = async () => {
+    const finalFormat =
+      activeTab === "attendance_sitewise" ||
+      activeTab === "attendance_workerwise"
+        ? format
+        : "pdf";
 
-  downloadReport({
-    report_type: activeTab,
-    filters,
-    format: finalFormat,
-  });
+    // helper to build filters for single-id requests
+    const buildSingleFilter = (key, id) => {
+      const f = { ...(filters || {}) };
+      // remove multi-select arrays if present
+      delete f.project_ids;
+      delete f.site_ids;
+      delete f.worker_ids;
+      f[key] = id;
+      return f;
+    };
+
+    const payloads = [];
+
+    switch (activeTab) {
+      case "projects": {
+        const ids = Array.isArray(filters?.project_ids) ? filters.project_ids : [];
+        ids.forEach((id) =>
+          payloads.push({ report_type: activeTab, filters: buildSingleFilter("project_id", id), format: finalFormat })
+        );
+        break;
+      }
+
+      case "sites": {
+        const ids = Array.isArray(filters?.site_ids) ? filters.site_ids : [];
+        ids.forEach((id) =>
+          payloads.push({ report_type: activeTab, filters: buildSingleFilter("site_id", id), format: finalFormat })
+        );
+        break;
+      }
+
+      case "workers": {
+        const ids = Array.isArray(filters?.worker_ids) ? filters.worker_ids : [];
+        ids.forEach((id) =>
+          payloads.push({ report_type: activeTab, filters: buildSingleFilter("worker_id", id), format: finalFormat })
+        );
+        break;
+      }
+
+      case "attendance_sitewise": {
+        const ids = Array.isArray(filters?.site_ids) ? filters.site_ids : [];
+        ids.forEach((id) =>
+          payloads.push({ report_type: activeTab, filters: buildSingleFilter("site_id", id), format: finalFormat })
+        );
+        break;
+      }
+
+      case "attendance_workerwise": {
+        const ids = Array.isArray(filters?.worker_ids) ? filters.worker_ids : [];
+        ids.forEach((id) =>
+          payloads.push({ report_type: activeTab, filters: buildSingleFilter("worker_id", id), format: finalFormat })
+        );
+        break;
+      }
+
+      default:
+        break;
+    }
+
+    // sequentially download each report to avoid overwhelming the server
+    for (const p of payloads) {
+      await downloadReport(p);
+    }
   };
 
   const GlassCard = ({ children }) => (
@@ -47,17 +104,18 @@ const handleGenerate = () => {
   const isValidFilters = (() => {
     switch (activeTab) {
       case "projects":
-        return !!filters?.project_id;
+        return Array.isArray(filters?.project_ids) && filters.project_ids.length > 0;
 
       case "sites":
-        return !!filters?.site_id;
+        return Array.isArray(filters?.site_ids) && filters.site_ids.length > 0;
 
       case "workers":
-        return !!filters?.worker_id;
+        return Array.isArray(filters?.worker_ids) && filters.worker_ids.length > 0;
 
       case "attendance_sitewise":
         return (
-          !!filters?.site_id &&
+          Array.isArray(filters?.site_ids) &&
+          filters.site_ids.length > 0 &&
           !!filters?.from_date &&
           !!filters?.to_date &&
           isValidDateRange
@@ -65,7 +123,8 @@ const handleGenerate = () => {
 
       case "attendance_workerwise":
         return (
-          !!filters?.worker_id &&
+          Array.isArray(filters?.worker_ids) &&
+          filters.worker_ids.length > 0 &&
           !!filters?.from_date &&
           !!filters?.to_date &&
           isValidDateRange

@@ -36,11 +36,6 @@ function ActivityRow({ item, index }) {
           <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${cfg.bg} ${cfg.text}`}>
             {cfg.label}
           </span>
-          {item.is_late && (
-            <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-yellow-50 text-yellow-600 border border-yellow-200">
-              ⚠ Late
-            </span>
-          )}
         </div>
 
         {/* Site + date */}

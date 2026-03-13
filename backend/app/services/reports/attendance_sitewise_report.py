@@ -95,6 +95,7 @@ class AttendanceSitewiseReportBuilder(BaseReportBuilder):
             for d in date_list:
                 record = attendance_map.get((worker.id, d))
                 if record and record.status == "Checked_out":
+                    # Show a simple present marker; 'is_late' is displayed only when True
                     row.append("L" if record.is_late else "✔")
                 else:
                     row.append("✖")

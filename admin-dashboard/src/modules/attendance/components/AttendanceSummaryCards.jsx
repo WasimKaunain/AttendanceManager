@@ -1,4 +1,4 @@
-import { Users, Clock, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Users, Clock, CheckCircle2 } from "lucide-react";
 
 export default function AttendanceSummaryCards({ records }) {
   const today = new Date();
@@ -12,10 +12,6 @@ export default function AttendanceSummaryCards({ records }) {
 
   const checkedOut = todayRecords.filter(
     (r) => r.status === "checked_out"
-  ).length;
-
-  const late = todayRecords.filter(
-    (r) => r.is_late
   ).length;
 
   const totalHours = todayRecords.reduce(
@@ -35,12 +31,6 @@ export default function AttendanceSummaryCards({ records }) {
       value: checkedOut,
       icon: CheckCircle2,
       color: "bg-emerald-50 text-emerald-600",
-    },
-    {
-      label: "Late",
-      value: late,
-      icon: AlertTriangle,
-      color: "bg-amber-50 text-amber-600",
     },
     {
       label: "Total Hours",

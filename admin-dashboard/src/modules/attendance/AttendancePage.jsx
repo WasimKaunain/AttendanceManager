@@ -374,7 +374,6 @@ const filtered = useMemo(() => {
 
           <p><strong>Total Hours:</strong> {selectedRecord.total_hours || 0}</p>
           <p><strong>Overtime:</strong> {selectedRecord.overtime_hours || 0}</p>
-          <p><strong>Is Late: </strong>{selectedRecord.is_late || "false"}</p>
         </div>
       </div>
 

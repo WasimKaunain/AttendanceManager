@@ -114,6 +114,7 @@ class AttendanceWorkerwiseReportBuilder(BaseReportBuilder):
                 hrs      = round(record.total_hours or 0, 2)
                 ot       = round(record.overtime_hours or 0, 2)
                 geo      = "✔" if record.geofence_valid else "✖"
+                # 'is_late' is optional; render a marker only when True, otherwise empty
                 late     = "✔" if record.is_late else ""
 
                 total_hours  += hrs

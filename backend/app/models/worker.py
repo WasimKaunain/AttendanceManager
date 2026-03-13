@@ -31,6 +31,10 @@ class Worker(Base):
     hourly_rate = Column(Float)
     monthly_salary = Column(Float)
 
+    # ...new fields for payroll calculations...
+    daily_working_hours = Column(Float, nullable=True, default=9.0)
+    ot_multiplier = Column(Float, nullable=True, default=1)
+
     is_deleted = Column(Boolean, nullable=False, default=False, server_default="false")  # soft delete flag
     deleted_at = Column(DateTime, nullable=True)
     deleted_by = Column(String, nullable=True)

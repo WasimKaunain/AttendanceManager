@@ -23,25 +23,43 @@ class WorkerBase(BaseModel):
     hourly_rate: Optional[float] = None
     monthly_salary: Optional[float] = None
 
+    # new payroll fields
+    daily_working_hours: Optional[float] = None
+    ot_multiplier: Optional[float] = None
+
     status: Optional[str] = "active"
-
-    # 🔥 Conditional Validation
-    @model_validator(mode="after")
-    def validate_salary_logic(self):
-        if self.type == "permanent" and not self.monthly_salary:
-            raise ValueError("Permanent worker must have monthly_salary")
-
-        if self.type == "contract" and not self.hourly_rate:
-            raise ValueError("Contract worker must have hourly_rate")
-
-        return self
 
 
 # -----------------------------
 # Create Schema
 # -----------------------------
 class WorkerCreate(WorkerBase):
-    pass
+    @model_validator(mode="after")
+    def validate_salary_logic(self):
+        # daily_working_hours must be present and positive for creation
+        if not self.daily_working_hours or self.daily_working_hours <= 0:
+            raise ValueError("daily_working_hours must be provided and > 0")
+
+        # If hourly_rate missing but daily_rate and daily_working_hours provided, compute it
+        if (not self.hourly_rate or self.hourly_rate == 0) and self.daily_rate:
+            object.__setattr__(self, 'hourly_rate', round(self.daily_rate / self.daily_working_hours, 4))
+
+        # default ot_multiplier
+        if not self.ot_multiplier:
+            object.__setattr__(self, 'ot_multiplier', 1.5)
+
+        if self.type == "permanent":
+            if not self.monthly_salary:
+                raise ValueError("Permanent worker must have monthly_salary")
+        else:  # contract
+            # contract should not require monthly salary
+            if self.monthly_salary:
+                # allow but clear it
+                object.__setattr__(self, 'monthly_salary', None)
+            if not self.daily_rate:
+                raise ValueError("Contract worker must have daily_rate")
+
+        return self
 
 
 # -----------------------------
@@ -61,7 +79,28 @@ class WorkerUpdate(BaseModel):
     daily_rate: Optional[float] = None
     hourly_rate: Optional[float] = None
     monthly_salary: Optional[float] = None
+
+    # new fields
+    daily_working_hours: Optional[float] = None
+    ot_multiplier: Optional[float] = None
+
     status: Optional[str] = None
+
+    @model_validator(mode="after")
+    def validate_update(self):
+        # Only validate when fields are supplied: ensure daily_working_hours if provided is > 0
+        if self.daily_working_hours is not None and self.daily_working_hours <= 0:
+            raise ValueError("daily_working_hours must be > 0 when provided")
+
+        # Compute hourly_rate if possible when daily_rate and daily_working_hours provided and hourly missing
+        if (self.hourly_rate is None or self.hourly_rate == 0) and self.daily_rate and self.daily_working_hours:
+            object.__setattr__(self, 'hourly_rate', round(self.daily_rate / self.daily_working_hours, 4))
+
+        # default ot_multiplier if not provided
+        if self.ot_multiplier is None:
+            object.__setattr__(self, 'ot_multiplier', 1.0)
+
+        return self
 
 
 # -----------------------------

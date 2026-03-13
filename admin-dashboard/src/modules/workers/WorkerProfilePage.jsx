@@ -514,6 +514,14 @@ const toggleMutation = useMutation({
                           label="Daily Rate"
                           value={`₹ ${worker.daily_rate || 0}`}
                         />
+                        <InfoItem
+                          label="Daily Working Hours"
+                          value={`${worker.daily_working_hours != null ? worker.daily_working_hours : '—'}`}
+                        />
+                        <InfoItem
+                          label="OT Multiplier"
+                          value={`${worker.ot_multiplier != null ? worker.ot_multiplier : '—'}`}
+                        />
                       </>
                     )}
 

@@ -27,7 +27,7 @@ class AttendanceRecord(Base):
     check_out_selfie_url = Column(String)
 
     status = Column(String)
-    is_late = Column(Boolean, default=False)
+    is_late = Column(Boolean, nullable=True, default=None)
     geofence_valid = Column(Boolean, default=True)
 
     total_hours = Column(Float)

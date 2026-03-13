@@ -170,7 +170,6 @@ def get_site_recent_activity(
             "check_in_time":   r.check_in_time.strftime("%I:%M %p")  if r.check_in_time  else None,
             "check_out_time":  r.check_out_time.strftime("%I:%M %p") if r.check_out_time else None,
             "status":          r.status,
-            "is_late":         r.is_late,
             "total_hours":     round(r.total_hours, 1) if r.total_hours else None,
         })
     return result
@@ -298,7 +297,6 @@ def get_site_attendance(
             "check_in_time": r.check_in_time.strftime("%I:%M %p") if r.check_in_time else None,
             "check_out_time": r.check_out_time.strftime("%I:%M %p") if r.check_out_time else None,
             "status": r.status,
-            "is_late": r.is_late,
             "total_hours": round(r.total_hours, 1) if r.total_hours else None,
             "geofence_valid": r.geofence_valid,
         })
@@ -731,6 +729,23 @@ def check_out(
     record.check_out_selfie_url = permanent_path
     record.status = "checked_out"
     record.geofence_valid = True
+
+    # Calculate total hours and overtime
+    try:
+        if record.check_in_time and record.check_out_time:
+            delta = record.check_out_time - record.check_in_time
+            total_hours = round(delta.total_seconds() / 3600, 2)
+        else:
+            total_hours = 0
+    except Exception:
+        total_hours = 0
+
+    record.total_hours = total_hours
+
+    # compute overtime based on worker.daily_working_hours (nullable)
+    dw_hours = getattr(worker, 'daily_working_hours', None) or 0
+    overtime = max(0, total_hours - dw_hours)
+    record.overtime_hours = round(overtime, 2)
 
     db.commit()
     db.refresh(record)

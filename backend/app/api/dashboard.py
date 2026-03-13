@@ -62,12 +62,8 @@ def get_dashboard_stats(db: Session = Depends(get_db)):
             AttendanceRecord.check_in_time.isnot(None)
         ).count()
 
-        # Late
-        late = db.query(AttendanceRecord).filter(
-            AttendanceRecord.date == today,
-            AttendanceRecord.check_in_site_id == site.id,
-            AttendanceRecord.is_late == True
-        ).count()
+        # Late: intentionally omitted from stats as is_late is deprecated for analytics
+        late = None
 
         # Leave
         leave = db.query(AttendanceRecord).filter(
@@ -84,7 +80,7 @@ def get_dashboard_stats(db: Session = Depends(get_db)):
             "total_workers": site_workers,
             "present": present,
             "absent": absent,
-            "late": late,
+            "late": None,
             "leave": leave
         })
 
@@ -176,7 +172,6 @@ def recent_activity(db: Session = Depends(get_db)):
             "check_in_time": r.check_in_time.strftime("%I:%M %p") if r.check_in_time else None,
             "check_out_time": r.check_out_time.strftime("%I:%M %p") if r.check_out_time else None,
             "status": r.status,
-            "is_late": r.is_late,
             "total_hours": round(r.total_hours, 1) if r.total_hours else None,
         })
 
