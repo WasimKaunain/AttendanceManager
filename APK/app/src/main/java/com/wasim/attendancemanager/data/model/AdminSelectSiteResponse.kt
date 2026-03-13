@@ -2,13 +2,13 @@ package com.wasim.attendancemanager.data.model
 
 import com.google.gson.annotations.SerializedName
 
-data class LoginResponse(
+data class AdminSelectSiteResponse(
     val access_token: String,
-    val role: String? = null,
-    val site_id: String? = null,
-    val site_name: String? = null,
+    val role: String,
     @SerializedName("selected_site_id")
-    val selectedSiteId: String? = null,
+    val selectedSiteId: String,
     @SerializedName("selected_site_name")
-    val selectedSiteName: String? = null
+    val selectedSiteName: String
 )
+
+

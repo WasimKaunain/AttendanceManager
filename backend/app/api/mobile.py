@@ -11,8 +11,19 @@ from datetime import datetime, date, timedelta
 from app.models.worker import Worker
 from app.models.site import Site
 from app.models.attendance import AttendanceRecord
-from app.core.dependencies import require_site_incharge, get_site_id_or_raise
-from app.schemas.mobile import (MobileWorkerResponse,LocationRequest,GeofenceResponse,FaceEnrollResponse,MobileAttendanceResponse,EmbeddingPayload)
+from app.core.dependencies import require_mobile_user, require_admin, get_site_id_or_raise
+from app.core.security import create_access_token
+from app.schemas.mobile import (
+    MobileWorkerResponse,
+    LocationRequest,
+    GeofenceResponse,
+    FaceEnrollResponse,
+    MobileAttendanceResponse,
+    EmbeddingPayload,
+    MobileSiteOption,
+    AdminSelectSiteRequest,
+    AdminSelectSiteResponse,
+)
 from app.services.image_service import save_compressed_attendance_image, format_site_folder
 from app.services.r2 import upload_file_to_r2
 from uuid import UUID as _UUID
@@ -28,20 +39,86 @@ def get_db():
         db.close()
 
 
-def _audit_si(user: dict) -> dict:
-    """Extract audit fields from a site_incharge JWT payload."""
+def _audit_mobile(user: dict) -> dict:
+    """Extract audit fields from a mobile JWT payload (admin or site_incharge)."""
     return {
         "performed_by": _UUID(user["sub"]) if user.get("sub") else None,
         "performed_by_name": user.get("name") or user.get("sub", "Unknown"),
-        "performed_by_role": "site_incharge",
+        "performed_by_role": user.get("role") or "unknown",
     }
+
+
+# --------------------------------------------------
+# ADMIN SITE SELECTION
+# --------------------------------------------------
+@router.get("/admin/sites", response_model=list[MobileSiteOption])
+def get_admin_mobile_sites(
+    user=Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    sites = (
+        db.query(Site)
+        .filter(Site.status == "active", Site.is_deleted == False)
+        .order_by(Site.name.asc())
+        .all()
+    )
+    return sites
+
+
+@router.post("/admin/select-site", response_model=AdminSelectSiteResponse)
+def admin_select_site(
+    data: AdminSelectSiteRequest,
+    user=Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    site = db.query(Site).filter(
+        Site.id == data.site_id,
+        Site.status == "active",
+        Site.is_deleted == False,
+    ).first()
+
+    if not site:
+        raise HTTPException(status_code=404, detail="Active site not found")
+
+    inside, _, _ = is_within_geofence(
+        data.latitude,
+        data.longitude,
+        site.latitude,
+        site.longitude,
+        site.geofence_radius,
+        boundary_type=getattr(site, "boundary_type", "circle"),
+        polygon_coords=getattr(site, "polygon_coords", None),
+    )
+    if not inside:
+        raise HTTPException(status_code=403, detail="Outside geofence for selected site")
+
+    token_data = {
+        "sub": user.get("sub"),
+        "role": "admin",
+        "name": user.get("name") or "Admin",
+        "selected_site_id": str(site.id),
+        "selected_site_name": site.name,
+        # Also set site_id/site_name for backward compatibility with existing mobile code.
+        "site_id": str(site.id),
+        "site_name": site.name,
+    }
+
+    scoped_token = create_access_token(token_data)
+
+    return {
+        "access_token": scoped_token,
+        "role": "admin",
+        "selected_site_id": str(site.id),
+        "selected_site_name": site.name,
+    }
+
 
 # --------------------------------------------------
 # SITE DASHBOARD STATS
 # --------------------------------------------------
 @router.get("/dashboard/stats")
 def get_site_dashboard_stats(
-    user=Depends(require_site_incharge),
+    user=Depends(require_mobile_user),
     db: Session = Depends(get_db)
 ):
     site_id = get_site_id_or_raise(user)
@@ -100,7 +177,7 @@ def get_site_dashboard_stats(
 # --------------------------------------------------
 @router.get("/dashboard/weekly")
 def get_site_weekly_attendance(
-    user=Depends(require_site_incharge),
+    user=Depends(require_mobile_user),
     db: Session = Depends(get_db)
 ):
     site_id = get_site_id_or_raise(user)
@@ -147,7 +224,7 @@ def get_site_weekly_attendance(
 # --------------------------------------------------
 @router.get("/dashboard/recent-activity")
 def get_site_recent_activity(
-    user=Depends(require_site_incharge),
+    user=Depends(require_mobile_user),
     db: Session = Depends(get_db)
 ):
     site_id = get_site_id_or_raise(user)
@@ -182,7 +259,7 @@ def get_site_recent_activity(
 def get_site_workers(
     search: str | None = Query(None),
     status: str | None = Query(None),   # "active" | "inactive"
-    user=Depends(require_site_incharge),
+    user=Depends(require_mobile_user),
     db: Session = Depends(get_db)
 ):
     today = date.today()
@@ -253,7 +330,7 @@ def get_site_attendance(
     date_from: str | None = Query(None),   # YYYY-MM-DD
     date_to: str | None = Query(None),     # YYYY-MM-DD
     sort_order: str = Query("desc"),       # "asc" | "desc"
-    user=Depends(require_site_incharge),
+    user=Depends(require_mobile_user),
     db: Session = Depends(get_db)
 ):
     site_id = get_site_id_or_raise(user)
@@ -314,7 +391,7 @@ def enroll_face(
     worker_id: str,
     embedding: str = Form(...),  # JSON string
     photo: UploadFile = File(...),
-    user=Depends(require_site_incharge),
+    user=Depends(require_mobile_user),
     db: Session = Depends(get_db)
 ):
     try:
@@ -352,7 +429,7 @@ def enroll_face(
         entity_type="worker",
         entity_id=worker.id,
         details=f"Worker {worker.full_name} face enrolled via mobile app",
-        **_audit_si(user),
+        **_audit_mobile(user),
     )
 
     return {"message": "Face enrolled successfully"}
@@ -361,7 +438,7 @@ def enroll_face(
 @router.get("/workers", response_model=list[MobileWorkerResponse])
 def get_workers(
     search: str | None = Query(None),
-    user=Depends(require_site_incharge),
+    user=Depends(require_mobile_user),
     db: Session = Depends(get_db)
 ):
     # List ALL workers across all sites — site incharge can work with any worker
@@ -380,11 +457,8 @@ def get_workers(
 
 
 @router.post("/verify-geofence", response_model=GeofenceResponse)
-def verify_geofence(data: LocationRequest, user=Depends(require_site_incharge), db: Session = Depends(get_db)):
-    site_id = user.get("site_id")
-
-    if not site_id:
-        return GeofenceResponse(inside=False, site_id=None, site_name=None)
+def verify_geofence(data: LocationRequest, user=Depends(require_mobile_user), db: Session = Depends(get_db)):
+    site_id = get_site_id_or_raise(user)
 
     site = db.query(Site).filter(Site.id == site_id).first()
     if not site:
@@ -434,7 +508,7 @@ def check_in(
     longitude: float = Form(...),
     embedding: str = Form(...),  # JSON string
     photo: UploadFile = File(...),
-    user=Depends(require_site_incharge),
+    user=Depends(require_mobile_user),
     db: Session = Depends(get_db)
 ):
     today = date.today()
@@ -568,7 +642,7 @@ def check_in(
         entity_type="attendance",
         entity_id=str(record.id),
         details=f"Worker {worker_id} ({worker.full_name}) checked in at site {site.name}",
-        **_audit_si(user),
+        **_audit_mobile(user),
     )
 
     return record
@@ -583,7 +657,7 @@ def check_out(
     longitude: float = Form(...),
     embedding: str = Form(...),
     photo: UploadFile = File(...),
-    user=Depends(require_site_incharge),
+    user=Depends(require_mobile_user),
     db: Session = Depends(get_db)
 ):
     print("---- CHECKOUT DEBUG START ----")
@@ -756,10 +830,14 @@ def check_out(
         entity_type="attendance",
         entity_id=str(record.id),
         details=f"Worker {worker_id} ({worker.full_name}) checked out at site {site.name}. Hours: {round(record.total_hours or 0, 2)}",
-        **_audit_si(user),
+        **_audit_mobile(user),
     )
 
     print("Checkout successful")
     print("---- CHECKOUT DEBUG END ----")
 
     return record
+
+
+
+

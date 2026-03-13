@@ -5,10 +5,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.compose.*
 import com.wasim.attendancemanager.data.local.AppPreferences
 import com.wasim.attendancemanager.data.local.TokenManager
+import com.wasim.attendancemanager.ui.login.AdminSiteSelectionScreen
 import com.wasim.attendancemanager.ui.login.LoginScreen
 import com.wasim.attendancemanager.ui.main.MainShell
 import com.wasim.attendancemanager.ui.workers.WorkersScreen
 import com.wasim.attendancemanager.ui.camera.CameraScreen
+import com.wasim.attendancemanager.ui.splash.SplashScreen
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 
@@ -27,12 +29,25 @@ fun AppNavGraph(
     if (tokenManager.getToken() != null && tokenManager.isTokenExpired()) {
         tokenManager.clearAll()
     }
-    val startDestination = if (tokenManager.isLoggedIn()) "dashboard" else "login"
 
-    NavHost(navController = navController, startDestination = startDestination) {
+    NavHost(navController = navController, startDestination = "splash") {
+        composable("splash") {
+            SplashScreen(
+                onFinished = {
+                    val destination = if (tokenManager.isLoggedIn()) "dashboard" else "login"
+                    navController.navigate(destination) {
+                        popUpTo("splash") { inclusive = true }
+                    }
+                }
+            )
+        }
 
         composable("login") {
             LoginScreen(navController)
+        }
+
+        composable("admin_site_selection") {
+            AdminSiteSelectionScreen(navController)
         }
 
         composable("dashboard") {

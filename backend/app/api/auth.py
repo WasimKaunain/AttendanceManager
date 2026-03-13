@@ -7,6 +7,7 @@ from app.services.user_service import authenticate_user
 from app.services.email_service import send_otp_email
 from app.services import otp_store
 from app.models.user import User
+from app.models.site import Site
 from app.db.session import SessionLocal
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -27,6 +28,12 @@ def login(data: LoginRequest, db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
+    if data.login_as and user.role != data.login_as:
+        raise HTTPException(
+            status_code=403,
+            detail=f"This account is not allowed for '{data.login_as}' login"
+        )
+
     token_data = {
         "sub": str(user.id),
         "role": user.role,
@@ -38,9 +45,15 @@ def login(data: LoginRequest, db: Session = Depends(get_db)):
     else:
         token_data["name"] = getattr(user, "username", str(user.id))
 
-    # Only add site_id if exists
+    site_name = None
+
+    # Only add site context if exists (site_incharge)
     if hasattr(user, "site_id") and user.site_id:
         token_data["site_id"] = str(user.site_id)
+        site = db.query(Site).filter(Site.id == user.site_id).first()
+        if site:
+            site_name = site.name
+            token_data["site_name"] = site_name
 
     token = create_access_token(token_data)
 
@@ -48,6 +61,9 @@ def login(data: LoginRequest, db: Session = Depends(get_db)):
         "access_token": token,
         "role": user.role,
         "site_id": token_data.get("site_id"),
+        "site_name": site_name,
+        "selected_site_id": token_data.get("selected_site_id"),
+        "selected_site_name": token_data.get("selected_site_name"),
     }
 
 

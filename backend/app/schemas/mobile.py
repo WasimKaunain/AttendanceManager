@@ -6,6 +6,32 @@ from app.schemas.base import ORMBase
 
 
 # ----------------------------
+# Admin Site Context (Mobile)
+# ----------------------------
+class MobileSiteOption(BaseModel):
+    id: UUID
+    name: str
+    address: Optional[str] = None
+    latitude: float
+    longitude: float
+    geofence_radius: Optional[float] = None
+
+
+class AdminSelectSiteRequest(BaseModel):
+    site_id: UUID
+    latitude: float
+    longitude: float
+
+
+class AdminSelectSiteResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    role: str
+    selected_site_id: str
+    selected_site_name: str
+
+
+# ----------------------------
 # Worker (Mobile Response)
 # ----------------------------
 class MobileWorkerResponse(ORMBase):
@@ -53,7 +79,7 @@ class EmbeddingPayload(BaseModel):
 class MobileAttendanceResponse(ORMBase):
     id: UUID
     worker_id: str
-    
+
     check_in_site_id: Optional[UUID] = None
     check_out_site_id: Optional[UUID] = None
 

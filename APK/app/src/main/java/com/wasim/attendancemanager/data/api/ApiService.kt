@@ -1,5 +1,8 @@
 package com.wasim.attendancemanager.data.api
 
+import com.wasim.attendancemanager.data.model.AdminSelectSiteRequest
+import com.wasim.attendancemanager.data.model.AdminSelectSiteResponse
+import com.wasim.attendancemanager.data.model.AdminSite
 import com.wasim.attendancemanager.data.model.AttendanceRecord
 import com.wasim.attendancemanager.data.model.DashboardStats
 import com.wasim.attendancemanager.data.model.GeofenceResponse
@@ -29,6 +32,16 @@ interface ApiService {
     suspend fun login(
         @Body request: LoginRequest
     ): Response<LoginResponse>
+
+    // ── Admin site scope ─────────────────────────────────────────────────────
+
+    @GET("mobile/admin/sites")
+    suspend fun getAdminSites(): Response<List<AdminSite>>
+
+    @POST("mobile/admin/select-site")
+    suspend fun selectAdminSite(
+        @Body request: AdminSelectSiteRequest
+    ): Response<AdminSelectSiteResponse>
 
     // ── Dashboard ────────────────────────────────────────────────────────────
 
@@ -103,5 +116,3 @@ interface ApiService {
         @Part photo: MultipartBody.Part
     ): Response<Any>
 }
-
-

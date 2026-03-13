@@ -5,6 +5,7 @@ from app.core.security import SECRET_KEY, ALGORITHM
 
 security = HTTPBearer()
 
+
 def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
 ):
@@ -18,6 +19,7 @@ def get_current_user(
             detail="Invalid or expired token"
         )
 
+
 def require_admin(user=Depends(get_current_user)):
     if user.get("role") != "admin":
         raise HTTPException(
@@ -26,15 +28,15 @@ def require_admin(user=Depends(get_current_user)):
         )
     return user
 
+
 def require_site_incharge(user=Depends(get_current_user)):
-    """Allow only site_incharge role. Admin is intentionally blocked from mobile APIs."""
+    """Allow only site_incharge role with an assigned site."""
     role = user.get("role")
     if role != "site_incharge":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Site incharge access required"
         )
-    # site_incharge must always have a site_id assigned
     if not user.get("site_id"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -43,17 +45,55 @@ def require_site_incharge(user=Depends(get_current_user)):
     return user
 
 
-def get_site_id_or_raise(user: dict) -> str:
-    """Extract site_id from JWT payload; raise 403 if missing.
-    Should never happen for site_incharge (enforced in require_site_incharge),
-    but kept as a safety net.
-    """
-    site_id = user.get("site_id")
-    if not site_id:
+def require_site_incharge_only(user=Depends(get_current_user)):
+    """Alias for explicitness in endpoints that must never allow admin."""
+    return require_site_incharge(user)
+
+
+def require_mobile_user(user=Depends(get_current_user)):
+    """Allow mobile access for site_incharge and admin roles."""
+    role = user.get("role")
+    if role not in {"site_incharge", "admin"}:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="No site assigned to this account."
+            detail="Only admin or site incharge can use mobile APIs"
         )
-    return site_id
+
+    if role == "site_incharge" and not user.get("site_id"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No site assigned to this account. Contact admin."
+        )
+    return user
 
 
+def get_site_id_or_raise(user: dict) -> str:
+    """Resolve effective site context for mobile requests.
+
+    - site_incharge: fixed to JWT `site_id`
+    - admin: must use a scoped token containing `selected_site_id` (or `site_id` fallback)
+    """
+    role = user.get("role")
+
+    if role == "site_incharge":
+        site_id = user.get("site_id")
+        if not site_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No site assigned to this account."
+            )
+        return site_id
+
+    if role == "admin":
+        site_id = user.get("selected_site_id") or user.get("site_id")
+        if not site_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Admin must select a site first in mobile app."
+            )
+        return site_id
+
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Unsupported role for site-scoped mobile API"
+    )
