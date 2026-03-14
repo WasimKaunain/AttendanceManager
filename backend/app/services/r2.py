@@ -1,6 +1,7 @@
 import boto3
 import os
 from botocore.client import Config
+from botocore.exceptions import ClientError
 
 R2_ENDPOINT = os.getenv("R2_ENDPOINT")
 R2_ACCESS_KEY = os.getenv("R2_ACCESS_KEY")
@@ -45,3 +46,14 @@ def generate_presigned_download_url(object_key: str):
         },
         ExpiresIn=300,
     )
+
+
+def object_exists_in_r2(object_key: str) -> bool:
+    try:
+        s3.head_object(Bucket=R2_BUCKET, Key=object_key)
+        return True
+    except ClientError as exc:
+        error_code = exc.response.get("Error", {}).get("Code")
+        if error_code in {"404", "NoSuchKey", "NotFound"}:
+            return False
+        raise

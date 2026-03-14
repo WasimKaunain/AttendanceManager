@@ -1,13 +1,22 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, Body
+from pydantic import ValidationError
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from sqlalchemy import func, extract
 from datetime import datetime, date, timedelta
-from collections import defaultdict
 from uuid import UUID
+from fastapi.responses import StreamingResponse
+from openpyxl import Workbook
+from openpyxl.worksheet.datavalidation import DataValidation
+from openpyxl.workbook.defined_name import DefinedName
+import io, re
+
+from app.models.project import Project
+from app.models.site import Site
 
 from app.db.session import SessionLocal
 from app.models.worker import Worker
+from app.models import project
 from app.models.attendance import AttendanceRecord
 from app.models.site import Site
 from app.models.payroll import PayrollEntry
@@ -16,6 +25,7 @@ from app.core.dependencies import require_admin
 from app.services.audit_service import log_action
 from app.services.r2 import generate_presigned_download_url, upload_file_to_r2, s3, R2_BUCKET
 from app.services.image_service import format_site_folder
+from app.services.worker_photo_service import resolve_worker_profile_photo_key
 
 router = APIRouter(prefix="/workers", tags=["Workers"])
 
@@ -53,9 +63,9 @@ def create_worker(data: WorkerCreate, db: Session = Depends(get_db), current_use
     payload = data.dict()
 
     # Generate Custom Worker ID
-    last4_mobile = payload["mobile"][-4:]
-    last4_id = payload["id_number"][-4:]
-    worker_id = f"EMP{last4_mobile}{last4_id}"
+    last3_mobile = payload["mobile"][-3:]
+    last3_id = payload["id_number"][-3:]
+    worker_id = f"E{last3_mobile}{last3_id}"
 
     # Prevent Worker ID conflict
     existing = db.query(Worker).filter(Worker.id == worker_id).first()
@@ -112,6 +122,203 @@ def create_worker(data: WorkerCreate, db: Session = Depends(get_db), current_use
     )
 
     return worker
+
+
+# --------------------------------------------------
+# WORKER TEMPLATE ENDPOINTS
+# --------------------------------------------------
+
+MAX_BULK_ROWS = 100
+
+
+def sanitize_name(name: str):
+    """Convert project name into Excel-safe named range"""
+    name = re.sub(r"\W+", "_", name)
+    if name[0].isdigit():
+        name = "_" + name
+    return name
+
+
+@router.get("/template-excel")
+def download_worker_template(db: Session = Depends(get_db)):
+
+    projects = (
+        db.query(Project)
+        .filter(Project.is_deleted == False, Project.status == "active")
+        .order_by(Project.name)
+        .all()
+    )
+
+    sites = (
+        db.query(Site)
+        .filter(Site.is_deleted == False, Site.status == "active")
+        .order_by(Site.name)
+        .all()
+    )
+
+    wb = Workbook()
+
+    # -----------------------
+    # workers sheet
+    # -----------------------
+
+    ws = wb.active
+    ws.title = "workers"
+
+    headers = [
+        "full_name",
+        "mobile",
+        "id_number",
+        "project",
+        "site",
+        "role",
+        "type",
+        "monthly_salary",
+        "daily_rate",
+        "daily_working_hours",
+        "hourly_rate",
+        "ot_multiplier",
+    ]
+
+    ws.append(headers)
+
+    for _ in range(MAX_BULK_ROWS):
+        ws.append([""] * len(headers))
+
+    # -----------------------
+    # projects sheet
+    # -----------------------
+
+    ws_projects = wb.create_sheet("projects")
+    ws_projects.append(["project"])
+
+    for p in projects:
+        ws_projects.append([p.name])
+
+    # -----------------------
+    # roles sheet
+    # -----------------------
+
+    ws_roles = wb.create_sheet("roles")
+
+    roles = ["labour", "mason", "helper", "supervisor", "electrician"]
+
+    ws_roles.append(["role"])
+
+    for r in roles:
+        ws_roles.append([r])
+
+    # -----------------------
+    # sites sheet
+    # -----------------------
+
+    ws_sites = wb.create_sheet("sites")
+
+    project_map = {p.id: p for p in projects}
+
+    project_sites = {}
+
+    for p in projects:
+        project_sites[p.name] = []
+
+    for s in sites:
+        project = project_map.get(s.project_id)
+
+        if not project:
+            continue
+        
+        project_name = project.name
+        project_sites[project_name].append(s.name)
+
+    col = 1
+
+    for project_name, site_list in project_sites.items():
+
+        safe_name = sanitize_name(project_name)
+
+        ws_sites.cell(row=1, column=col).value = safe_name
+
+        for i, site in enumerate(site_list, start=2):
+            ws_sites.cell(row=i, column=col).value = site
+
+        start = f"${ws_sites.cell(row=2, column=col).column_letter}$2"
+        end = f"${ws_sites.cell(row=len(site_list)+1, column=col).column_letter}${len(site_list)+1}"
+
+        wb.defined_names.add(
+            DefinedName(
+                name=safe_name,
+                attr_text=f"sites!{start}:{end}",
+            )
+        )
+
+        col += 1
+
+    # -----------------------
+    # dropdown validations
+    # -----------------------
+
+    project_validation = DataValidation(
+        type="list",
+        formula1=f"=projects!$A$2:$A${len(projects)+1}",
+        allow_blank=False,
+    )
+
+    ws.add_data_validation(project_validation)
+    project_validation.add(f"D2:D{MAX_BULK_ROWS+1}")
+
+    role_validation = DataValidation(
+        type="list",
+        formula1=f"=roles!$A$2:$A${len(roles)+1}",
+    )
+
+    ws.add_data_validation(role_validation)
+    role_validation.add(f"F2:F{MAX_BULK_ROWS+1}")
+
+    type_validation = DataValidation(
+        type="list",
+        formula1='"contract,permanent"',
+    )
+
+    ws.add_data_validation(type_validation)
+    type_validation.add(f"G2:G{MAX_BULK_ROWS+1}")
+
+    # -----------------------
+    # formulas
+    # -----------------------
+
+    for row in range(2, MAX_BULK_ROWS + 2):
+
+        # site dependent dropdown
+        dv_site = DataValidation(
+            type="list",
+            formula1=f'=INDIRECT(SUBSTITUTE(D{row}," ","_"))'
+        )
+        ws.add_data_validation(dv_site)
+        dv_site.add(f"E{row}")
+
+        # auto fill first site
+        ws[f"E{row}"] = f'=IF(D{row}="","",INDEX(INDIRECT(SUBSTITUTE(D{row}," ","_")),1))'
+
+        # hourly rate
+        ws[f"K{row}"] = f'=IF(AND(I{row}<>"",J{row}<>""),I{row}/J{row},"")'
+
+
+    # -----------------------
+    # export
+    # -----------------------
+
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": "attachment; filename=workers_template.xlsx"
+        },
+    )
+
 
 # --------------------------------------------------
 # DELETE WORKER
@@ -461,14 +668,22 @@ def force_delete_worker(worker_id: str, payload: ForceDeleteRequest, db: Session
 
     return {"message": "Worker permanently deleted"}
 
+
+# --------------------------------------------------
+# WORKER PHOTO
+# --------------------------------------------------
 @router.get("/{worker_id}/photo")
 def get_worker_photo(worker_id: str, db: Session = Depends(get_db)):
     worker = db.query(Worker).filter(Worker.id == worker_id).first()
 
-    if not worker or not worker.photo_url:
+    if not worker:
+        raise HTTPException(404, "Worker not found")
+
+    photo_key = resolve_worker_profile_photo_key(worker, db)
+    if not photo_key:
         raise HTTPException(404, "Photo not found")
 
-    url = generate_presigned_download_url(worker.photo_url)
+    url = generate_presigned_download_url(photo_key)
 
     return {"url": url}
 
@@ -777,3 +992,232 @@ def delete_payroll_entry(
     )
 
     return {"message": "Entry deleted"}
+
+
+
+@router.post("/bulk-validate")
+def bulk_validate_workers(rows: list[dict], db: Session = Depends(get_db)):
+
+    if not isinstance(rows, list):
+        raise HTTPException(400, "Expected a JSON array of rows")
+
+    if len(rows) > MAX_BULK_ROWS:
+        raise HTTPException(400, f"Max {MAX_BULK_ROWS} rows allowed")
+
+    valid = []
+    invalid = []
+
+    for idx, row in enumerate(rows):
+
+        try:
+
+            row = dict(row)
+
+            # Convert empty strings → None
+            for k, v in row.items():
+                if v == "":
+                    row[k] = None
+
+            # Force numeric fields to string
+            if row.get("mobile") is not None:
+                row["mobile"] = str(row["mobile"]).strip()
+
+            if row.get("id_number") is not None:
+                row["id_number"] = str(row["id_number"]).strip()
+
+            project_name = row.pop("project", None)
+            site_name = row.pop("site", None)
+
+            project = None
+            site = None
+
+            if project_name:
+                project = db.query(Project).filter(
+                    func.lower(Project.name) == project_name.lower(),
+                    Project.is_deleted == False
+                ).first()
+
+            if not project:
+                raise ValueError("Project not found")
+
+            if site_name:
+                site = db.query(Site).filter(
+                    Site.name == site_name,
+                    Site.project_id == project.id,
+                    Site.is_deleted == False
+                ).first()
+
+            if not site:
+                raise ValueError("Site not found for selected project")
+
+            row["project_id"] = project.id
+            row["site_id"] = site.id
+            
+            obj = WorkerCreate(**row)
+            
+            data = obj.model_dump()
+            data["project_id"] = project.id
+            data["site_id"] = site.id
+
+            valid.append({
+                "index": idx,
+                "data": data
+            })
+
+        except ValidationError as e:
+            invalid.append({
+                "index": idx,
+                "row": row,
+                "errors": e.errors()
+            })
+
+        except Exception as e:
+            invalid.append({
+                "index": idx,
+                "row": row,
+                "errors": [{"msg": str(e), "loc": []}]
+            })
+
+    return {"valid": valid, "invalid": invalid}
+
+
+@router.post("/bulk-create")
+def bulk_create_workers(
+    rows: list[dict],
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin),
+):
+
+    if not isinstance(rows, list):
+        raise HTTPException(400, "Expected a JSON array of rows")
+
+    if len(rows) > MAX_BULK_ROWS:
+        raise HTTPException(400, f"Max {MAX_BULK_ROWS} rows allowed")
+
+    created = []
+    failed = []
+
+    for idx, row in enumerate(rows):
+
+        try:
+            data = WorkerCreate(**row).model_dump()
+
+        except ValidationError as e:
+            failed.append({
+                "index": idx,
+                "row": row,
+                "errors": e.errors()
+            })
+            continue
+
+        except Exception as e:
+            failed.append({
+                "index": idx,
+                "row": row,
+                "errors": [str(e)]
+            })
+            continue
+
+        try:
+
+            last3_mobile = str(data.get("mobile", ""))[-3:]
+            last3_id = str(data.get("id_number", ""))[-3:]
+            worker_id = f"EMP{last3_mobile}{last3_id}"
+
+            existing = db.query(Worker).filter(
+                Worker.id == worker_id
+            ).first()
+
+            if existing:
+                failed.append({
+                    "index": idx,
+                    "row": row,
+                    "errors": ["Worker ID conflict"]
+                })
+                continue
+
+            mobile_exists = db.query(Worker).filter(
+                Worker.mobile == data.get("mobile")
+            ).first()
+
+            if mobile_exists:
+                failed.append({
+                    "index": idx,
+                    "row": row,
+                    "errors": ["Mobile already registered"]
+                })
+                continue
+
+            id_exists = db.query(Worker).filter(
+                Worker.id_number == data.get("id_number")
+            ).first()
+
+            if id_exists:
+                failed.append({
+                    "index": idx,
+                    "row": row,
+                    "errors": ["ID number already registered"]
+                })
+                continue
+
+            worker = Worker(
+                id=worker_id,
+                joining_date=date.today(),
+                **data
+            )
+
+            db.add(worker)
+            db.commit()
+            db.refresh(worker)
+
+            # -----------------------------
+            # AUDIT LOG
+            # -----------------------------
+            log_action(
+                db=db,
+                action="worker_create_bulk",
+                entity_type="worker",
+                entity_id=worker.id,
+                details=f"Worker created via bulk import: {worker.full_name} ({worker.mobile})",
+                **_audit_user(current_user),
+            )
+
+            created.append({
+                "index": idx,
+                "id": worker.id,
+                "name": worker.full_name,
+            })
+
+        except IntegrityError:
+
+            db.rollback()
+
+            failed.append({
+                "index": idx,
+                "row": row,
+                "errors": ["Database integrity error"]
+            })
+
+        except Exception as e:
+
+            db.rollback()
+
+            failed.append({
+                "index": idx,
+                "row": row,
+                "errors": [str(e)]
+            })
+
+    # -----------------------------
+    # OPTIONAL BULK SUMMARY LOG
+    # -----------------------------
+    log_action(
+        db=db,
+        action="worker_bulk_import_summary",
+        entity_type="worker",
+        entity_id=None,
+        details=f"Bulk import completed: {len(created)} created, {len(failed)} failed",
+        **_audit_user(current_user),
+    )
+
+    return {"created": created, "failed": failed}

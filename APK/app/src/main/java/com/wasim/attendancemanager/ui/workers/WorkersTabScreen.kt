@@ -27,7 +27,6 @@ import com.wasim.attendancemanager.data.api.RetrofitInstance
 import com.wasim.attendancemanager.data.local.AppPreferences
 import com.wasim.attendancemanager.data.model.SiteWorker
 import com.wasim.attendancemanager.ui.components.AppDividerLine
-import com.wasim.attendancemanager.ui.components.SectionHeader
 import com.wasim.attendancemanager.ui.components.StatusBadge
 import com.wasim.attendancemanager.ui.theme.*
 import kotlinx.coroutines.launch
@@ -233,11 +232,12 @@ fun WorkerDetailSheet(worker: SiteWorker, onBack: () -> Unit) {
     val currCode   = prefs.currency
     fun fmtMoney(amount: Double) = AppPreferences.formatMoney(amount, currCode)
 
+    val hasProfilePhoto = !worker.photo_url.isNullOrBlank()
     var profilePhotoUrl by remember(worker.id) { mutableStateOf<String?>(null) }
-    var isPhotoLoading by remember(worker.id) { mutableStateOf(worker.photo_url != null) }
+    var isPhotoLoading by remember(worker.id, worker.photo_url) { mutableStateOf(hasProfilePhoto) }
 
     LaunchedEffect(worker.id, worker.photo_url) {
-        if (worker.photo_url.isNullOrBlank()) {
+        if (!hasProfilePhoto) {
             profilePhotoUrl = null
             isPhotoLoading = false
             return@LaunchedEffect

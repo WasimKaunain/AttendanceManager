@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { Toaster} from "react-hot-toast"; 
 import LoginPage from "../modules/auth/LoginPage";
 import ForgotPasswordPage from "../modules/auth/ForgotPasswordPage";
 import Dashboard from "../modules/dashboard/Dashboard";
@@ -21,6 +22,8 @@ import ProtectedRoute from "../core/auth/ProtectedRoute";
 export default function App() {
   return (
     <BrowserRouter>
+      { /* toast Container */ }
+      <Toaster position="top-right" reverseOrder={false} />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />

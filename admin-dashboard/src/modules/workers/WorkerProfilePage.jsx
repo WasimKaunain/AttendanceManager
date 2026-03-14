@@ -1090,9 +1090,13 @@ const toggleMutation = useMutation({
       entityName={worker?.full_name}
       onClose={() => setDeleteOpen(false)}
       onConfirm={(payload) => {
-        archiveMutation.mutate(payload);
-        setDeleteOpen(false);
-      }}
+          archiveMutation.mutate(payload, {
+            onSuccess: () => {
+              setDeleteOpen(false);
+              navigate("/workers");
+            },
+          });
+        }}
     />
     </DashboardLayout>
   );

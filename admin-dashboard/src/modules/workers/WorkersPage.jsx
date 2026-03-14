@@ -2,20 +2,19 @@ import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import DashboardLayout from "@/layout/DashboardLayout";
 import PageHeader from "@/shared/components/PageHeader";
-import { Card, CardContent } from "@/shared/components/Card";
-import DataTable from "@/shared/components/DataTable";
-import { Trash2, Pencil } from "lucide-react";
-
-
+import { toast } from "react-hot-toast";
 import { useWorkers } from "./hooks";
 import WorkerFormDialog from "./components/WorkerFormDialog";
+import BulkImportModal from "./components/BulkImportModal";
 import { useQuery } from "@tanstack/react-query";
 import api from "@/core/api/axios";
+import { downloadTemplate } from "./services";
 
 export default function WorkersPage() {
   const navigate = useNavigate();
 
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [bulkOpen, setBulkOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [filterProject, setFilterProject] = useState("");
   const [filterSite, setFilterSite] = useState("");
@@ -27,6 +26,7 @@ export default function WorkersPage() {
     workersQuery,
     createMutation,
     deleteMutation,
+    refetch,
   } = useWorkers();
 
   const { data: projects = [] } = useQuery({
@@ -139,7 +139,30 @@ export default function WorkersPage() {
         subtitle="Manage workforce and face enrollment"
         onAdd={() => setDialogOpen(true)}
         addLabel="New Worker"
+        // Add a secondary action prop? we'll add manual buttons below
       />
+
+      <div className="flex gap-2 items-center">
+        <button
+          onClick={async () => {
+            try {
+              await downloadTemplate();
+            } catch (err) {
+              console.error('Download XLSX template failed', err);
+              alert('Download XLSX template failed: ' + (err?.message || err));
+            }
+          }}
+          className="px-3 py-1 bg-slate-100 rounded-md text-sm"
+        >
+          Download XLSX Template
+        </button>
+        <button
+          onClick={() => setBulkOpen(true)}
+          className="px-3 py-1 bg-blue-600 text-white rounded-md text-sm"
+        >
+          Import Workers
+        </button>
+      </div>
 
       {/* FILTER BAR — wraps naturally on mobile */}
       <div className="flex flex-wrap gap-2">
@@ -225,6 +248,35 @@ export default function WorkersPage() {
           } catch (err) {
             throw err; // re-throw so WorkerFormDialog's catch block receives it
           }
+        }}
+      />
+
+      <BulkImportModal
+        open={bulkOpen}
+        onClose={() => setBulkOpen(false)}
+        onImported={(res) => {
+        
+          // close modal
+          setBulkOpen(false);
+        
+          // refresh workers
+          try {
+            if (typeof refetch === "function") refetch();
+            else if (workersQuery?.refetch) workersQuery.refetch();
+          } catch {
+            window.location.reload();
+          }
+        
+          const created = res?.created || [];
+        
+          if (created.length) {
+          
+            const names =created.slice(0, 5).map(w => w.name || w.id).join(", ");
+          
+            toast.success(`${created.length} workers imported successfully\n${names}`);
+          
+          } else {toast.error("No workers were created");}
+        
         }}
       />
     </div>

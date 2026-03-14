@@ -30,5 +30,6 @@ export const useWorkers = () => {
     workersQuery,
     createMutation,
     deleteMutation,
+    refetch: workersQuery.refetch,
   };
 };

@@ -27,6 +27,7 @@ from app.schemas.mobile import (
 )
 from app.services.image_service import save_compressed_attendance_image, format_site_folder
 from app.services.r2 import upload_file_to_r2, generate_presigned_download_url
+from app.services.worker_photo_service import resolve_worker_profile_photo_key
 from uuid import UUID as _UUID
 
 router = APIRouter(prefix="/mobile", tags=["Mobile"])
@@ -336,10 +337,14 @@ def get_mobile_worker_photo(
         Worker.is_deleted == False
     ).first()
 
-    if not worker or not worker.photo_url:
+    if not worker:
+        raise HTTPException(status_code=404, detail="Worker not found")
+
+    photo_key = resolve_worker_profile_photo_key(worker, db)
+    if not photo_key:
         raise HTTPException(status_code=404, detail="Photo not found")
 
-    return {"url": generate_presigned_download_url(worker.photo_url)}
+    return {"url": generate_presigned_download_url(photo_key)}
 
 
 # --------------------------------------------------
@@ -356,11 +361,16 @@ def get_site_attendance(
 ):
     site_id = get_site_id_or_raise(user)
 
-    # Join with Worker to allow SQL-level name filtering and avoid N+1 queries
+    # Include attendance where this site handled either check-in or check-out.
     query = (
         db.query(AttendanceRecord, Worker)
         .join(Worker, Worker.id == AttendanceRecord.worker_id)
-        .filter(AttendanceRecord.check_in_site_id == site_id)
+        .filter(
+            or_(
+                AttendanceRecord.check_in_site_id == site_id,
+                AttendanceRecord.check_out_site_id == site_id,
+            )
+        )
     )
 
     if worker_name:

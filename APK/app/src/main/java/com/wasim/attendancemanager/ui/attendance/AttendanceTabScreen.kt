@@ -90,7 +90,7 @@ fun AttendanceTabScreen() {
                 modifier = Modifier.align(Alignment.CenterEnd)
             ) {
                 Icon(
-                    if (showFilters) Icons.Default.FilterListOff else Icons.Default.FilterList,
+                    if (showFilters) Icons.Default.Close else Icons.Default.FilterList,
                     contentDescription = "Filter",
                     tint = AppOnPrimary
                 )
@@ -287,4 +287,3 @@ private fun AttendanceInfoChip(
         Text(label, style = MaterialTheme.typography.bodySmall.copy(color = color, fontSize = 12.sp))
     }
 }
-

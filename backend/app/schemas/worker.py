@@ -1,9 +1,8 @@
 from typing import Optional, Literal
 from uuid import UUID
-from pydantic import BaseModel, model_validator, Field
+from pydantic import BaseModel, model_validator, Field, field_validator
 from app.schemas.base import ORMBase
 from datetime import datetime, date
-
 
 # -----------------------------
 # Base Schema (Shared Fields)
@@ -23,11 +22,39 @@ class WorkerBase(BaseModel):
     hourly_rate: Optional[float] = None
     monthly_salary: Optional[float] = None
 
-    # new payroll fields
     daily_working_hours: Optional[float] = None
     ot_multiplier: Optional[float] = None
 
     status: Optional[str] = "active"
+
+    # -----------------------------
+    # Validators
+    # -----------------------------
+
+    @field_validator("mobile", "id_number", mode="before")
+    def convert_to_string(cls, v):
+        if v is None:
+            return v
+        return str(v).strip()
+
+    @field_validator("mobile")
+    def validate_mobile(cls, v):
+        if not v.isdigit() or len(v) != 10:
+            raise ValueError("Mobile number must be exactly 10 digits")
+        return v
+
+    @field_validator(
+        "daily_rate",
+        "hourly_rate",
+        "monthly_salary",
+        "daily_working_hours",
+        "ot_multiplier",
+        mode="before"
+    )
+    def empty_string_to_none(cls, v):
+        if v == "":
+            return None
+        return v
 
 
 # -----------------------------
@@ -37,7 +64,7 @@ class WorkerCreate(WorkerBase):
     @model_validator(mode="after")
     def validate_salary_logic(self):
         # daily_working_hours must be present and positive for creation
-        if not self.daily_working_hours or self.daily_working_hours <= 0:
+        if self.daily_working_hours is None or self.daily_working_hours <= 0:
             raise ValueError("daily_working_hours must be provided and > 0")
 
         # If hourly_rate missing but daily_rate and daily_working_hours provided, compute it
