@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { X, FilePlus } from "lucide-react";
-import { bulkValidate, bulkCreate } from "../services";
+import { bulkValidate, bulkCreate, getSitesByProject } from "../services";
+import { useQuery } from "@tanstack/react-query";
+import { useWorkers } from "../hooks";
 
 const MAX_ROWS = 100;
 
@@ -12,6 +14,16 @@ export default function BulkImportModal({ open, onClose, onImported }) {
   const [creating, setCreating] = useState(false);
   const [parsing, setParsing] = useState(false);
   const [error, setError] = useState(null);
+  const [selectedProject, setSelectedProject] = useState("");
+  const [selectedSite, setSelectedSite] = useState("");
+  const { projectsQuery } = useWorkers(selectedProject);
+  const projects = projectsQuery.data || [];
+
+  const { data: sites = [] } = useQuery({
+  queryKey: ["sites", selectedProject],
+  queryFn: () => getSitesByProject(selectedProject),
+  enabled: !!selectedProject
+  });
 
   useEffect(() => {
     if (!open) {
@@ -21,6 +33,8 @@ export default function BulkImportModal({ open, onClose, onImported }) {
       setCreating(false);
       setError(null);
       setParsing(false);
+      setSelectedProject("");
+      setSelectedSite("");
     }
   }, [open]);
 
@@ -78,8 +92,9 @@ export default function BulkImportModal({ open, onClose, onImported }) {
 
   const handleValidate = async () => {
 
-    if (!rows.length) {
-      setError("No rows to validate");
+    if (!rows.length) { setError("No rows to validate"); return; }
+    if ((selectedProject && !selectedSite) || (!selectedProject && selectedSite)) {
+      setError("Both project and site must be selected together");
       return;
     }
 
@@ -87,7 +102,7 @@ export default function BulkImportModal({ open, onClose, onImported }) {
 
     try {
 
-      const res = await bulkValidate(rows);
+      const res = await bulkValidate({rows, projectId: selectedProject || null, siteId: selectedSite || null});
       setValidateResult(res);
 
     } catch (err) {
@@ -117,7 +132,7 @@ export default function BulkImportModal({ open, onClose, onImported }) {
         const rowsToCreate =
           validateResult.valid.map(v => v.data);
     
-        const res = await bulkCreate(rowsToCreate);
+        const res = await bulkCreate({rows : rowsToCreate, projectId: selectedProject || null, siteId: selectedSite || null});
     
         if (onImported) onImported(res);
         // close modal
@@ -148,10 +163,7 @@ export default function BulkImportModal({ open, onClose, onImported }) {
 
     <div className="fixed inset-0 z-50 flex items-center justify-center">
 
-      <div
-        className="fixed inset-0 bg-black/40"
-        onClick={onClose}
-      />
+      <div className="fixed inset-0 bg-black/40" onClick={onClose}/>
 
       <div
         className={`relative w-full mx-4 bg-white dark:bg-slate-800 rounded-lg shadow-lg overflow-auto max-h-[90vh] ${
@@ -165,6 +177,30 @@ export default function BulkImportModal({ open, onClose, onImported }) {
           </button>
         </div>
 
+        <div className="flex gap-3">
+          <select
+            value={selectedProject}
+            onChange={(e) => setSelectedProject(e.target.value)}
+            className="border rounded px-2 py-1 text-sm"
+          >
+            <option value="">Project (optional)</option>
+            {projects?.map(p => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+          
+          <select
+            value={selectedSite}
+            onChange={(e) => setSelectedSite(e.target.value)}
+            className="border rounded px-2 py-1 text-sm"
+          >
+            <option value="">Site (optional)</option>
+            {sites?.map(s => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </select>
+        </div>
+          
         <div className="p-4 space-y-4">
 
           <div className="flex items-center gap-3">

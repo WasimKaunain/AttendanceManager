@@ -71,6 +71,21 @@ def list_sites(include_deleted: bool = False, db: Session = Depends(get_db)):
 
     return query.all()
 
+@router.get("/by-project/{project_id}")
+def get_sites_by_project(project_id: UUID, db: Session = Depends(get_db)):
+
+    sites = (
+        db.query(Site)
+        .filter(
+            Site.project_id == project_id,
+            Site.is_deleted == False
+        )
+        .order_by(Site.name)
+        .all()
+    )
+
+    return sites
+
 @router.get("/{site_id}", response_model=SiteResponse, dependencies=[Depends(require_admin)])
 def get_site(site_id: UUID, db: Session = Depends(get_db)):
     site = db.query(Site).filter(Site.id == site_id).first()

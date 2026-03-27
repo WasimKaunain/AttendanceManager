@@ -153,3 +153,14 @@ class ForceDeleteRequest(BaseModel):
 
 class ActionResponse(BaseModel):
     message: str
+
+class WorkerBulkRequest(BaseModel):
+    rows: list[dict]
+    project_id: Optional[UUID] = None
+    site_id: Optional[UUID] = None
+
+    @model_validator(mode="after")
+    def validate_project_site(self):
+        if (self.project_id and not self.site_id) or (self.site_id and not self.project_id):
+            raise ValueError("Both project_id and site_id must be provided together")
+        return self

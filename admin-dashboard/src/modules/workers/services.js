@@ -5,6 +5,16 @@ export const getWorkers = async () => {
   return res.data;
 };
 
+export const getProjects = async () => {
+  const res = await api.get("/projects/");
+  return res.data;
+};
+
+export const getSitesByProject = async (projectId) => {
+  const res = await api.get(`/sites/by-project/${projectId}`);
+  return res.data;
+};
+
 export const createWorker = async (data) => {
   try {
     const res = await api.post("/workers/", data);
@@ -51,12 +61,12 @@ export const downloadTemplate = async () => {
   }
 };
 
-export const bulkValidate = async (rows) => {
-  const res = await api.post("/workers/bulk-validate", rows);
+export const bulkValidate = async (payload) => {
+  const res = await api.post("/workers/bulk-validate", payload);
   return res.data;
 };
 
-export const bulkCreate = async (rows) => {
-  const res = await api.post("/workers/bulk-create", rows);
+export const bulkCreate = async (payload) => {
+  const res = await api.post("/workers/bulk-create", payload);
   return res.data;
 };

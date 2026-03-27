@@ -20,7 +20,7 @@ from app.models import project
 from app.models.attendance import AttendanceRecord
 from app.models.site import Site
 from app.models.payroll import PayrollEntry
-from app.schemas.worker import WorkerCreate, WorkerResponse, WorkerUpdate, ActionResponse, ForceDeleteRequest, ArchiveRequest
+from app.schemas.worker import WorkerCreate, WorkerResponse, WorkerUpdate, ActionResponse, ForceDeleteRequest, ArchiveRequest, WorkerBulkRequest
 from app.core.dependencies import require_admin
 from app.services.audit_service import log_action
 from app.services.r2 import generate_presigned_download_url, upload_file_to_r2, s3, R2_BUCKET
@@ -996,7 +996,14 @@ def delete_payroll_entry(
 
 
 @router.post("/bulk-validate")
-def bulk_validate_workers(rows: list[dict], db: Session = Depends(get_db)):
+def bulk_validate_workers(
+    payload: WorkerBulkRequest,
+    db: Session = Depends(get_db)
+):
+
+    rows = payload.rows
+    selected_project_id = payload.project_id
+    selected_site_id = payload.site_id
 
     if not isinstance(rows, list):
         raise HTTPException(400, "Expected a JSON array of rows")
@@ -1007,54 +1014,83 @@ def bulk_validate_workers(rows: list[dict], db: Session = Depends(get_db)):
     valid = []
     invalid = []
 
+    # Pre-fetch project/site if selected globally
+    selected_project = None
+    selected_site = None
+
+    if selected_project_id:
+        selected_project = db.query(Project).filter(
+            Project.id == selected_project_id,
+            Project.is_deleted == False
+        ).first()
+
+        if not selected_project:
+            raise HTTPException(400, "Selected project not found")
+
+        selected_site = db.query(Site).filter(
+            Site.id == selected_site_id,
+            Site.project_id == selected_project.id,
+            Site.is_deleted == False
+        ).first()
+
+        if not selected_site:
+            raise HTTPException(400, "Selected site not found for project")
+
     for idx, row in enumerate(rows):
 
         try:
 
             row = dict(row)
 
-            # Convert empty strings → None
             for k, v in row.items():
                 if v == "":
                     row[k] = None
 
-            # Force numeric fields to string
             if row.get("mobile") is not None:
                 row["mobile"] = str(row["mobile"]).strip()
 
             if row.get("id_number") is not None:
                 row["id_number"] = str(row["id_number"]).strip()
 
-            project_name = row.pop("project", None)
-            site_name = row.pop("site", None)
+            # -----------------------------
+            # Resolve project/site
+            # -----------------------------
 
-            project = None
-            site = None
+            if selected_project:
+                project = selected_project
+                site = selected_site
+            else:
 
-            if project_name:
-                project = db.query(Project).filter(
-                    func.lower(Project.name) == project_name.lower(),
-                    Project.is_deleted == False
-                ).first()
+                project_name = row.pop("project", None)
+                site_name = row.pop("site", None)
 
-            if not project:
-                raise ValueError("Project not found")
+                project = None
+                site = None
 
-            if site_name:
-                site = db.query(Site).filter(
-                    Site.name == site_name,
-                    Site.project_id == project.id,
-                    Site.is_deleted == False
-                ).first()
+                if project_name:
+                    project = db.query(Project).filter(
+                        func.lower(Project.name) == project_name.lower(),
+                        Project.is_deleted == False
+                    ).first()
 
-            if not site:
-                raise ValueError("Site not found for selected project")
+                if not project:
+                    raise ValueError("Project not found")
+
+                if site_name:
+                    site = db.query(Site).filter(
+                        Site.name == site_name,
+                        Site.project_id == project.id,
+                        Site.is_deleted == False
+                    ).first()
+
+                if not site:
+                    raise ValueError("Site not found for selected project")
 
             row["project_id"] = project.id
             row["site_id"] = site.id
-            
+
             obj = WorkerCreate(**row)
-            
+
             data = obj.model_dump()
             data["project_id"] = project.id
             data["site_id"] = site.id
@@ -1083,10 +1119,12 @@ def bulk_validate_workers(rows: list[dict], db: Session = Depends(get_db)):
 
 @router.post("/bulk-create")
 def bulk_create_workers(
-    rows: list[dict],
+    payload: WorkerBulkRequest,
     db: Session = Depends(get_db),
     current_user: dict = Depends(require_admin),
 ):
+
+    rows = payload.rows
 
     if not isinstance(rows, list):
         raise HTTPException(400, "Expected a JSON array of rows")
@@ -1170,9 +1208,6 @@ def bulk_create_workers(
             db.commit()
             db.refresh(worker)
 
-            # -----------------------------
-            # AUDIT LOG
-            # -----------------------------
             log_action(
                 db=db,
                 action="worker_create_bulk",
@@ -1189,7 +1224,6 @@ def bulk_create_workers(
             })
 
         except IntegrityError:
-
             db.rollback()
 
             failed.append({
@@ -1199,7 +1233,6 @@ def bulk_create_workers(
             })
 
         except Exception as e:
-
             db.rollback()
 
             failed.append({
@@ -1208,9 +1241,6 @@ def bulk_create_workers(
                 "errors": [str(e)]
             })
 
-    # -----------------------------
-    # OPTIONAL BULK SUMMARY LOG
-    # -----------------------------
     log_action(
         db=db,
         action="worker_bulk_import_summary",

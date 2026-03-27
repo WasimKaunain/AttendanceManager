@@ -22,12 +22,7 @@ export default function WorkersPage() {
   const [editingWorker, setEditingWorker] = useState(null);
 
 
-  const {
-    workersQuery,
-    createMutation,
-    deleteMutation,
-    refetch,
-  } = useWorkers();
+  const {workersQuery,createMutation,refetch,} = useWorkers();
 
   const { data: projects = [] } = useQuery({
     queryKey: ["projects"],

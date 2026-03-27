@@ -3,9 +3,11 @@ import {
   getWorkers,
   createWorker,
   deleteWorker,
+  getProjects,
+  getSitesByProject
 } from "./services";
 
-export const useWorkers = () => {
+export const useWorkers = (selectedProject) => {
   const queryClient = useQueryClient();
 
   const workersQuery = useQuery({
@@ -13,11 +15,21 @@ export const useWorkers = () => {
     queryFn: getWorkers,
   });
 
+  const projectsQuery = useQuery({
+    queryKey: ["projects"],
+    queryFn: getProjects,
+  });
+
+  const sitesQuery = useQuery({
+    queryKey: ["sites", selectedProject],
+    queryFn: () => getSitesByProject(selectedProject),
+    enabled: !!selectedProject,
+  });
+
   const createMutation = useMutation({
     mutationFn: createWorker,
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: ["workers"] }),
-    onError: () => {}, // ensures mutateAsync re-throws the error to the caller
   });
 
   const deleteMutation = useMutation({
@@ -28,6 +40,8 @@ export const useWorkers = () => {
 
   return {
     workersQuery,
+    projectsQuery,
+    sitesQuery,
     createMutation,
     deleteMutation,
     refetch: workersQuery.refetch,
