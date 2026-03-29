@@ -18,6 +18,7 @@ export default function BulkImportModal({ open, onClose, onImported }) {
   const [selectedSite, setSelectedSite] = useState("");
   const { projectsQuery } = useWorkers(selectedProject);
   const projects = projectsQuery.data || [];
+  const [editableRows, setEditableRows] = useState([]);
 
   const { data: sites = [] } = useQuery({
   queryKey: ["sites", selectedProject],
@@ -39,13 +40,14 @@ export default function BulkImportModal({ open, onClose, onImported }) {
   }, [open]);
 
   const handleFileChange = async (e) => {
+      
       const f = e.target.files?.[0];
       if (!f) return;
-
+      
       setParsing(true);
       setError(null);
       setValidateResult(null);
-
+      
       try {
       
         const name = f.name.toLowerCase();
@@ -65,7 +67,6 @@ export default function BulkImportModal({ open, onClose, onImported }) {
       
         if (!ws) throw new Error("Workers sheet not found");
       
-        // 🔥 IMPORTANT: raw: true prevents scientific notation issues
         let parsed = XLSX.utils.sheet_to_json(ws, {
           defval: "",
           raw: true
@@ -75,13 +76,11 @@ export default function BulkImportModal({ open, onClose, onImported }) {
           throw new Error("Excel file is empty");
         }
       
-        // 🔥 Normalize important fields
         parsed = parsed.map(row => {
         
           let mobile = row.mobile;
           let idNumber = row.id_number;
         
-          // Convert to string safely
           if (mobile !== undefined && mobile !== null) {
             mobile = String(mobile);
             if (mobile.includes("e") || mobile.includes("E")) {
@@ -105,7 +104,6 @@ export default function BulkImportModal({ open, onClose, onImported }) {
           };
         });
       
-        // Remove empty rows
         parsed = parsed.filter(r =>
           Object.values(r).some(v => String(v).trim() !== "")
         );
@@ -115,6 +113,7 @@ export default function BulkImportModal({ open, onClose, onImported }) {
         }
       
         setRows(parsed);
+        setEditableRows(parsed);   // ✅ FIXED (correct place)
         setHeaders(Object.keys(parsed[0]));
       
       } catch (err) {
@@ -128,40 +127,63 @@ export default function BulkImportModal({ open, onClose, onImported }) {
       
       }
     };
+
+
   const handleValidate = async () => {
+    
+      if (!editableRows.length) {
+        setError("No rows to validate");
+        return;
+      }
+    
+      if ((selectedProject && !selectedSite) || (!selectedProject && selectedSite)) {
+        setError("Both project and site must be selected together");
+        return;
+      }
+    
+      setError(null);
+    
+      const processedRows = editableRows.map(row => {
+      
+        if (selectedProject && selectedSite) {
+          return {
+            ...row,
+            project: projects.find(p => p.id == selectedProject)?.name || null,
+            site: sites.find(s => s.id == selectedSite)?.name || null
+          };
+        }
+      
+        return row;
+      });
+    
+      try {
+      
+        const res = await bulkValidate({
+          rows: processedRows,
+          projectId: selectedProject || null,
+          siteId: selectedSite || null
+        });
+      
+        setValidateResult(res);
+      
+      } catch (err) {
+      
+        console.error(err);
+        setError(err.message || "Validation failed");
+      
+      }
+    };
 
-    if (!rows.length) { setError("No rows to validate"); return; }
-    if ((selectedProject && !selectedSite) || (!selectedProject && selectedSite)) {
-      setError("Both project and site must be selected together");
-      return;
-    }
-
-    setError(null);
-    const processedRows = rows.map(row => {
-
-    // If dropdown selected → override row values
-    if (selectedProject && selectedSite) {
-      return {
-        ...row,
-        project: projects.find(p => p.id == selectedProject)?.name || null,
-        site: sites.find(s => s.id == selectedSite)?.name || null
+    const handleCellChange = (rowIndex, col, value) => {
+        setEditableRows(prev => {
+          const updated = [...prev];
+          updated[rowIndex] = {
+            ...updated[rowIndex],
+            [col]: value
+          };
+          return updated;
+        });
       };
-    }
-
-  return row;
-});
-    try {
-
-      const res = await bulkValidate({rows: processedRows, projectId: selectedProject || null, siteId: selectedSite || null});
-      setValidateResult(res);
-
-    } catch (err) {
-
-      console.error(err);
-      setError(err.message || "Validation failed");
-
-    }
-  };
 
     const handleCreate = async () => {
     
@@ -297,6 +319,12 @@ export default function BulkImportModal({ open, onClose, onImported }) {
             <div className="text-red-600 text-sm">{error}</div>
           )}
 
+          {validateResult && (
+              <div className="text-xs text-slate-500">
+                ✏️ Edit highlighted cells and click "Validate" again
+              </div>
+            )}
+
           {validateResult?.invalid?.length > 0 && (
             <div className="bg-red-50 border border-red-200 p-3 rounded text-sm">
               <strong>{validateResult.invalid.length} rows have errors.</strong>
@@ -322,7 +350,7 @@ export default function BulkImportModal({ open, onClose, onImported }) {
 
                 <tbody>
 
-                  {rows.slice(0,100).map((row, idx) => {
+                  {editableRows.slice(0,100).map((row, idx) => {
                     const displayRow = {
                       ...row,
                       project: selectedProject
@@ -352,7 +380,17 @@ export default function BulkImportModal({ open, onClose, onImported }) {
                                 "p-2 border whitespace-nowrap relative " +
                                 (hasError ? "bg-red-100 text-red-800" : isValidRow ? "bg-green-100 text-green-800" : "") }>
                               <div className="flex items-center gap-1">
-                                <span>{String(displayRow[col] ?? "")}</span>
+                                {hasError ? (
+                                    <input
+                                      value={displayRow[col] ?? ""}
+                                      onChange={(e) =>
+                                        handleCellChange(idx, col, e.target.value)
+                                      }
+                                      className="border px-1 text-xs w-full"
+                                    />
+                                  ) : (
+                                    <span>{String(displayRow[col] ?? "")}</span>
+                                  )}
                             
                                 {cellErrors.length > 0 && (
                                   <span title={cellErrors.map(e => e.message).join(", ")}>
