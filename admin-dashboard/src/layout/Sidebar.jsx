@@ -2,7 +2,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/core/auth/AuthContext";
 import { useTheme } from "@/core/theme/ThemeContext";
 import { Moon, Sun, X } from "lucide-react";
-import aintsolLogo from "@/assets/aintsol-logo.png";
+import attendcrewLogo from "@/assets/attendCrew-logo.jpg";
 
 import {LayoutDashboard,FolderKanban,MapPin,Users,ClipboardCheck,Clock,BarChart3,LogOut,UserCog,} from "lucide-react";
 
@@ -40,13 +40,13 @@ export default function Sidebar({ onClose }) {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <img
-              src={aintsolLogo}
-              alt="AINTSOL"
+              src={attendcrewLogo}
+              alt="AttendCrew Logo"
               className="w-10 h-10 object-contain rounded-xl bg-white p-1 shadow-lg ring-2 ring-white/30"
             />
             <div className="leading-tight">
               <h1 className="text-base font-extrabold text-white tracking-tight">AttendCrew</h1>
-              <p className="text-[10px] text-slate-400 tracking-widest uppercase">Attendance Manager</p>
+              <h2 className="text-xs text-slate-400 tracking-tight">Powered by Aintsol</h2>
             </div>
           </div>
           <div className="flex items-center gap-1">

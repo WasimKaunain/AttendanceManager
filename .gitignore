@@ -84,3 +84,4 @@ Thumbs.db
 *.keystore
 
 *local.properties
+seed_users.py

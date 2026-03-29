@@ -300,7 +300,7 @@ def download_worker_template(db: Session = Depends(get_db)):
         ws[f"E{row}"] = f'=IF(D{row}="","",INDEX(INDIRECT(SUBSTITUTE(D{row}," ","_")),1))'
 
         # hourly rate
-        ws[f"K{row}"] = f'=IF(AND(I{row}<>"",J{row}<>""),I{row}/J{row},"")'
+        ws[f"K{row}"] = f'=IF(AND(I{row}<>"",J{row}<>""),ROUND(I{row}/J{row},2),"")'
 
 
     # -----------------------
@@ -545,8 +545,7 @@ def worker_attendance_insight(
 # --------------------------------------------------
 # PATCH / UPDATE WORKER
 # --------------------------------------------------
-# PATCH / UPDATE WORKER
-# --------------------------------------------------
+
 @router.patch("/{worker_id}", response_model=WorkerResponse)
 def patch_worker(
     worker_id: str,
@@ -1038,6 +1037,8 @@ def bulk_validate_workers(
 
     for idx, row in enumerate(rows):
 
+        row_errors = []
+
         try:
 
             row = dict(row)
@@ -1052,6 +1053,13 @@ def bulk_validate_workers(
             if row.get("id_number") is not None:
                 row["id_number"] = str(row["id_number"]).strip()
 
+            # duplicate checks
+            if db.query(Worker).filter(Worker.mobile == row.get("mobile")).first():
+                row_errors.append({"field": "mobile", "message": "Mobile already exists"})
+
+            if db.query(Worker).filter(Worker.id_number == row.get("id_number")).first():
+                row_errors.append({"field": "id_number", "message": "ID number already exists"})
+
             # -----------------------------
             # Resolve project/site
             # -----------------------------
@@ -1059,6 +1067,9 @@ def bulk_validate_workers(
             if selected_project:
                 project = selected_project
                 site = selected_site
+
+                row.pop("project", None)
+                row.pop("site", None)
             else:
 
                 project_name = row.pop("project", None)
@@ -1074,44 +1085,89 @@ def bulk_validate_workers(
                     ).first()
 
                 if not project:
-                    raise ValueError("Project not found")
+                    row_errors.append({"field": "project", "message": "Project not found"})
 
-                if site_name:
+                if project and site_name:
                     site = db.query(Site).filter(
                         Site.name == site_name,
                         Site.project_id == project.id,
                         Site.is_deleted == False
                     ).first()
 
-                if not site:
-                    raise ValueError("Site not found for selected project")
+                if project and not site:
+                    row_errors.append({"field": "site", "message": "Site not found for selected project"})
 
-            row["project_id"] = project.id
-            row["site_id"] = site.id
+            # -----------------------------
+            # Schema validation
+            # -----------------------------
 
-            obj = WorkerCreate(**row)
+            if not row_errors:
+                row["project_id"] = project.id
+                row["site_id"] = site.id
 
-            data = obj.model_dump()
-            data["project_id"] = project.id
-            data["site_id"] = site.id
+                obj = WorkerCreate(**row)
+                data = obj.model_dump()
 
-            valid.append({
-                "index": idx,
-                "data": data
-            })
+                data["project_id"] = project.id
+                data["site_id"] = site.id
+
+            # -----------------------------
+            # FINAL
+            # -----------------------------
+
+            if row_errors:
+                invalid.append({
+                    "index": idx,
+                    "row": row,
+                    "errors": row_errors
+                })
+            else:
+                valid.append({
+                    "index": idx,
+                    "data": data
+                })
 
         except ValidationError as e:
+            formatted_errors = []
+
+            FIELD_MAP = {
+                "project_id": "project",
+                "site_id": "site"
+            }
+
+            for err in e.errors():
+                field = err.get("loc", [])[-1] if err.get("loc") else None
+                field = FIELD_MAP.get(field, field)
+
+                formatted_errors.append({
+                    "field": field,
+                    "message": err.get("msg", "Invalid value")
+                })
+
             invalid.append({
                 "index": idx,
                 "row": row,
-                "errors": e.errors()
+                "errors": formatted_errors
             })
 
         except Exception as e:
+            msg = str(e)
+
+            if ":" in msg:
+                field, message = msg.split(":", 1)
+                field = field.strip()
+                message = message.strip()
+            else:
+                field = None
+                message = msg
+
             invalid.append({
                 "index": idx,
                 "row": row,
-                "errors": [{"msg": str(e), "loc": []}]
+                "errors": [{
+                    "field": field,
+                    "message": message
+                }]
             })
 
     return {"valid": valid, "invalid": invalid}

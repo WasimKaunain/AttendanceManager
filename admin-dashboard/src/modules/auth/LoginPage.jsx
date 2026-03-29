@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useAuth } from "../../core/auth/AuthContext";
-import aintsolLogo from "../../assets/aintsol-logo.png";
+import attendCrewLogo from "../../assets/attendCrew-logo.jpg";
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -43,8 +43,8 @@ export default function LoginPage() {
           <div className="bg-gradient-to-br from-slate-800 to-slate-900 px-8 py-8 flex flex-col items-center gap-1">
             {/* Logo */}
             <img
-              src={aintsolLogo}
-              alt="AINTSOL Logo"
+              src={attendCrewLogo}
+              alt="AttendCrew Logo"
               className="w-16 h-16 object-contain rounded-2xl mb-2 shadow-lg"
             />
             {/* Brand */}
@@ -52,7 +52,7 @@ export default function LoginPage() {
               AttendCrew
             </h1>
             <p className="text-slate-400 text-xs font-medium tracking-widest uppercase">
-              Attendance Manager
+              Powered By Aintsol
             </p>
             <p className="text-slate-500 text-xs mt-3">Sign in to your account</p>
           </div>
