@@ -44,7 +44,7 @@ export default function DashboardLayout({ children, theme = "operational" }) {
           >
             <Menu size={20} />
           </button>
-          <span className="font-bold text-slate-900 dark:text-white text-sm tracking-tight">SiteTrack</span>
+          <span className="font-bold text-slate-900 dark:text-white text-sm tracking-tight">AttendCrew</span>
         </div>
 
         {/* ── Page content ── */}
