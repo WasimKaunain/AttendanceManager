@@ -58,6 +58,7 @@ APK/local.properties
 APK/.idea/
 APK/build/
 APK/app/build/
+APK/app/google-services.json
 
 # Generated files
 *.apk
