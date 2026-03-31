@@ -45,12 +45,33 @@ fun WorkersScreen(
         scope.launch {
             isLoading = true
             try {
-                val response = RetrofitInstance.getApi(context)
-                    .getWorkers(search = searchQuery.ifBlank { null })
-                if (response.isSuccessful) {
-                    workers = response.body() ?: emptyList()
+                val api = RetrofitInstance.getApi(context)
+                if (mode == "enroll") {
+                    val response = api.getSiteWorkers(
+                        search = searchQuery.ifBlank { null },
+                        status = "active"
+                    )
+                    if (response.isSuccessful) {
+                        workers = (response.body() ?: emptyList()).map { siteWorker ->
+                            WorkerResponse(
+                                id = siteWorker.id,
+                                full_name = siteWorker.full_name,
+                                mobile = siteWorker.mobile,
+                                site_id = null,
+                                status = siteWorker.status,
+                                photo_url = siteWorker.photo_url
+                            )
+                        }
+                    } else {
+                        Toast.makeText(context, "Failed to load workers", Toast.LENGTH_SHORT).show()
+                    }
                 } else {
-                    Toast.makeText(context, "Failed to load workers", Toast.LENGTH_SHORT).show()
+                    val response = api.getWorkers(search = searchQuery.ifBlank { null })
+                    if (response.isSuccessful) {
+                        workers = response.body() ?: emptyList()
+                    } else {
+                        Toast.makeText(context, "Failed to load workers", Toast.LENGTH_SHORT).show()
+                    }
                 }
             } catch (e: Exception) {
                 Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
@@ -137,7 +158,10 @@ fun WorkersScreen(
             LazyColumn(contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp)) {
                 items(workers) { worker ->
                     val encodedName = URLEncoder.encode(worker.full_name, StandardCharsets.UTF_8.toString())
-                    WorkerPickerItem(worker = worker) {
+                    WorkerPickerItem(
+                        worker = worker,
+                        showPendingMarker = mode == "enroll"
+                    ) {
                         when (mode) {
                             "enroll"  -> navController.navigate("camera_enroll/${worker.id}/$encodedName")
                             "checkin" -> navController.navigate("camera_checkin/${worker.id}/$encodedName")
@@ -154,7 +178,13 @@ fun WorkersScreen(
 // ── Worker Picker Row Card ────────────────────────────────────────────────────
 
 @Composable
-fun WorkerPickerItem(worker: WorkerResponse, onClick: () -> Unit) {
+fun WorkerPickerItem(
+    worker: WorkerResponse,
+    showPendingMarker: Boolean,
+    onClick: () -> Unit
+) {
+    val isEnrollmentPending = showPendingMarker && worker.photo_url.isNullOrBlank()
+
     Card(
         modifier  = Modifier.fillMaxWidth().clickable { onClick() },
         shape     = RoundedCornerShape(14.dp),
@@ -179,9 +209,31 @@ fun WorkerPickerItem(worker: WorkerResponse, onClick: () -> Unit) {
 
             // Info
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(worker.full_name, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold, color = AppTextPrimary))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(worker.full_name, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold, color = AppTextPrimary))
+                    if (isEnrollmentPending) {
+                        Icon(
+                            imageVector = Icons.Default.WarningAmber,
+                            contentDescription = "Face enrollment pending",
+                            tint = Color(0xFFF59F00),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
                 Text("ID: ${worker.id}", style = MaterialTheme.typography.bodySmall.copy(color = AppTextSecondary, fontSize = 11.sp))
                 Text("📱 ${worker.mobile}", style = MaterialTheme.typography.bodySmall.copy(color = AppTextSecondary, fontSize = 11.sp))
+                if (isEnrollmentPending) {
+                    Text(
+                        text = "Face enrollment pending",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = Color(0xFFB7791F),
+                            fontWeight = FontWeight.Medium
+                        )
+                    )
+                }
             }
 
             // Status badge
@@ -204,4 +256,3 @@ fun WorkerPickerItem(worker: WorkerResponse, onClick: () -> Unit) {
         }
     }
 }
-

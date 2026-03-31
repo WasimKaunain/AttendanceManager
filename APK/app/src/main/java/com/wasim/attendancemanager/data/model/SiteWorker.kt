@@ -15,4 +15,3 @@ data class SiteWorker(
     val hourly_rate: Double?,
     val monthly_salary: Double?
 )
-

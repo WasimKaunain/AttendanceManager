@@ -40,8 +40,13 @@ fun WorkersTabScreen() {
     var workers      by remember { mutableStateOf<List<SiteWorker>>(emptyList()) }
     var searchQuery  by remember { mutableStateOf("") }
     var statusFilter by remember { mutableStateOf<String?>(null) } // null = all
+    var pendingEnrollmentOnly by remember { mutableStateOf(false) }
     var isLoading    by remember { mutableStateOf(true) }
     var selectedWorker by remember { mutableStateOf<SiteWorker?>(null) }
+
+    val displayedWorkers = remember(workers, pendingEnrollmentOnly) {
+        if (pendingEnrollmentOnly) workers.filter { it.photo_url.isNullOrBlank() } else workers
+    }
 
     fun fetchWorkers() {
         scope.launch {
@@ -85,7 +90,7 @@ fun WorkersTabScreen() {
             Column {
                 Text("Workers", style = MaterialTheme.typography.labelLarge.copy(color = AppOnPrimary.copy(alpha = 0.75f)))
                 Text(
-                    "${workers.size} total",
+                    "${displayedWorkers.size} Workers",
                     style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold, color = AppOnPrimary)
                 )
             }
@@ -127,6 +132,11 @@ fun WorkersTabScreen() {
                         onClick   = { statusFilter = "inactive" },
                         label     = { Text("Inactive") }
                     )
+                    FilterChip(
+                        selected = pendingEnrollmentOnly,
+                        onClick = { pendingEnrollmentOnly = !pendingEnrollmentOnly },
+                        label = { Text("Face Pending") }
+                    )
                 }
 
                 Button(
@@ -142,7 +152,7 @@ fun WorkersTabScreen() {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = AppPrimary)
             }
-        } else if (workers.isEmpty()) {
+        } else if (displayedWorkers.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(Icons.Default.PeopleOutline, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(48.dp))
@@ -152,7 +162,7 @@ fun WorkersTabScreen() {
             }
         } else {
             LazyColumn(contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 100.dp)) {
-                items(workers) { worker ->
+                items(displayedWorkers) { worker ->
                     WorkerRow(worker = worker, onClick = { selectedWorker = worker })
                     Spacer(Modifier.height(8.dp))
                 }
@@ -177,6 +187,7 @@ fun WorkerRow(worker: SiteWorker, onClick: () -> Unit) {
         else          -> "Absent"
     }
     val activeColor = if (worker.status == "active") AppPresent else AppInactive
+    val isEnrollmentPending = worker.photo_url.isNullOrBlank()
 
     Card(
         modifier  = Modifier.fillMaxWidth().clickable { onClick() },
@@ -202,8 +213,36 @@ fun WorkerRow(worker: SiteWorker, onClick: () -> Unit) {
 
             // Info
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(worker.full_name, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface))
-                Text(worker.id,       style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        worker.full_name,
+                        style = MaterialTheme.typography.titleSmall.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    )
+                    if (isEnrollmentPending) {
+                        Icon(
+                            imageVector = Icons.Default.WarningAmber,
+                            contentDescription = "Face enrollment pending",
+                            tint = Color(0xFFF59F00),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+                Text(worker.id, style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp))
+                if (isEnrollmentPending) {
+                    Text(
+                        text = "Face enrollment pending",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = Color(0xFFB7791F),
+                            fontWeight = FontWeight.Medium
+                        )
+                    )
+                }
             }
 
             // Badges
@@ -266,6 +305,7 @@ fun WorkerDetailSheet(worker: SiteWorker, onBack: () -> Unit) {
         "checked_out" -> "Checked Out"
         else          -> "Absent"
     }
+    val isEnrollmentPending = worker.photo_url.isNullOrBlank()
 
     Column(
         modifier = Modifier
@@ -312,6 +352,7 @@ fun WorkerDetailSheet(worker: SiteWorker, onBack: () -> Unit) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 StatusBadge(label = worker.status.replaceFirstChar { it.uppercase() }, color = if (worker.status == "active") AppPresent else AppInactive)
                 if (worker.status == "active") StatusBadge(label = todayLabel, color = todayColor)
+                if (isEnrollmentPending) StatusBadge(label = "Face Pending", color = Color(0xFFF59F00))
             }
         }
 

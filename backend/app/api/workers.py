@@ -1216,7 +1216,7 @@ def bulk_create_workers(
 
             last3_mobile = str(data.get("mobile", ""))[-3:]
             last3_id = str(data.get("id_number", ""))[-3:]
-            worker_id = f"EMP{last3_mobile}{last3_id}"
+            worker_id = f"E{last3_mobile}{last3_id}"
 
             existing = db.query(Worker).filter(
                 Worker.id == worker_id

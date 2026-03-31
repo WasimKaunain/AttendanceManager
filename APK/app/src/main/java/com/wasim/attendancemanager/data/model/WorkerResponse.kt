@@ -5,5 +5,6 @@ data class WorkerResponse(
     val full_name: String,
     val mobile: String,
     val site_id: String?,
-    val status: String?
+    val status: String?,
+    val photo_url: String? = null
 )

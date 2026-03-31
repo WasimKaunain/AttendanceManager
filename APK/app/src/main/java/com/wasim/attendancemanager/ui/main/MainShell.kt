@@ -78,7 +78,7 @@ fun MainShell(
                 when (tab) {
                     BottomTab.DASHBOARD  -> DashboardScreen(navController)
                     BottomTab.WORKERS    -> WorkersTabScreen()
-                    BottomTab.ATTENDANCE -> AttendanceTabScreen()
+                    BottomTab.ATTENDANCE -> AttendanceTabScreen(navController)
                     BottomTab.PROFILE    -> ProfileScreen(
                         navController  = navController,
                         isDarkTheme    = isDarkTheme,

@@ -21,14 +21,19 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wasim.attendancemanager.data.api.RetrofitInstance
 import com.wasim.attendancemanager.data.model.AttendanceRecord
-import com.wasim.attendancemanager.ui.components.AppDividerLine
 import com.wasim.attendancemanager.ui.components.SectionHeader
 import com.wasim.attendancemanager.ui.components.StatusBadge
 import com.wasim.attendancemanager.ui.theme.*
 import kotlinx.coroutines.launch
+import androidx.navigation.NavController
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @Composable
-fun AttendanceTabScreen() {
+fun AttendanceTabScreen(navController: NavController) {
 
     val context = LocalContext.current
     val scope   = rememberCoroutineScope()
@@ -192,7 +197,20 @@ fun AttendanceTabScreen() {
         } else {
             LazyColumn(contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 100.dp)) {
                 items(records) { record ->
-                    AttendanceCard(record = record)
+                    val encodedName = URLEncoder.encode(record.worker_name, StandardCharsets.UTF_8.toString())
+                    val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+                    val canDirectCheckout =
+                        record.status == "checked_in" &&
+                        record.check_out_time == null &&
+                        record.date == today
+
+                    AttendanceCard(
+                        record = record,
+                        showDirectCheckout = canDirectCheckout,
+                        onDirectCheckout = {
+                            navController.navigate("camera_checkout/${record.worker_id}/$encodedName")
+                        }
+                    )
                     Spacer(Modifier.height(8.dp))
                 }
             }
@@ -203,7 +221,11 @@ fun AttendanceTabScreen() {
 // ── Attendance Card ───────────────────────────────────────────────────────────
 
 @Composable
-fun AttendanceCard(record: AttendanceRecord) {
+fun AttendanceCard(
+    record: AttendanceRecord,
+    showDirectCheckout: Boolean,
+    onDirectCheckout: () -> Unit
+) {
 
     val statusColor = when (record.status) {
         "checked_out" -> AppPresent
@@ -243,7 +265,27 @@ fun AttendanceCard(record: AttendanceRecord) {
                         style = MaterialTheme.typography.bodySmall.copy(color = AppTextSecondary, fontSize = 11.sp)
                     )
                 }
-                StatusBadge(statusLabel, statusColor)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    if (showDirectCheckout) {
+                        IconButton(
+                            onClick = onDirectCheckout,
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Color(0xFFE3F2FD))
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ArrowForward,
+                                contentDescription = "Go to checkout",
+                                tint = AppPrimary
+                            )
+                        }
+                    }
+                    StatusBadge(statusLabel, statusColor)
+                }
             }
 
             Spacer(Modifier.height(10.dp))

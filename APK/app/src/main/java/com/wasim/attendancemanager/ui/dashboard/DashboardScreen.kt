@@ -2,11 +2,13 @@ package com.wasim.attendancemanager.ui.dashboard
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.graphics.BitmapFactory
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
@@ -24,6 +26,8 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -72,13 +76,17 @@ fun DashboardScreen(navController: NavController) {
     val scope   = rememberCoroutineScope()
     val tokenManager = remember { TokenManager(context) }
     val isAdmin = remember { tokenManager.getRole() == "admin" }
+    val appLogoBitmap = remember {
+        runCatching {
+            context.assets.open("APK_LOGO.jpg").use(BitmapFactory::decodeStream)
+        }.getOrNull()
+    }
 
     var stats            by remember { mutableStateOf<DashboardStats?>(null) }
     var weeklyData       by remember { mutableStateOf<List<WeeklyDay>>(emptyList()) }
     var recentActivity   by remember { mutableStateOf<List<RecentActivity>>(emptyList()) }
     var isLoading        by remember { mutableStateOf(true) }
     var geofenceLoading  by remember { mutableStateOf(false) }
-    var showLogoutDialog by remember { mutableStateOf(false) }
 
     // Today's date string e.g. "Tuesday, 11 Mar 2026"
     val todayString = remember {
@@ -139,25 +147,6 @@ fun DashboardScreen(navController: NavController) {
         )
     }
 
-    // ── Logout dialog ─────────────────────────────────────────────────────────
-    if (showLogoutDialog) {
-        AlertDialog(
-            onDismissRequest = { showLogoutDialog = false },
-            title = { Text("Logout") },
-            text  = { Text("Are you sure you want to logout?") },
-            confirmButton = {
-                Button(onClick = {
-                    showLogoutDialog = false
-                    TokenManager(context).clearAll()
-                    navController.navigate("login") { popUpTo(0) { inclusive = true } }
-                }) { Text("Logout") }
-            },
-            dismissButton = {
-                OutlinedButton(onClick = { showLogoutDialog = false }) { Text("Cancel") }
-            }
-        )
-    }
-
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -170,39 +159,59 @@ fun DashboardScreen(navController: NavController) {
             modifier = Modifier
                 .fillMaxWidth()
                 .background(Brush.linearGradient(listOf(AppPrimary, AppPrimaryLight)))
-                .padding(start = 20.dp, end = 8.dp, top = 28.dp, bottom = 28.dp)
+                .padding(start = 20.dp, end = 20.dp, top = 28.dp, bottom = 28.dp)
         ) {
-            Column(modifier = Modifier.align(Alignment.CenterStart)) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Icon(
-                        Icons.Default.LocationOn,
-                        contentDescription = null,
-                        tint     = AppOnPrimary.copy(alpha = 0.8f),
-                        modifier = Modifier.size(16.dp)
-                    )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (appLogoBitmap != null) {
+                        Image(
+                            bitmap = appLogoBitmap.asImageBitmap(),
+                            contentDescription = "AttendCrew",
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier
+                                .height(64.dp)
+                                .widthIn(max = 220.dp)
+                        )
+                    }
                     Text(
-                        text  = stats?.site_name ?: "Loading…",
-                        style = MaterialTheme.typography.labelLarge.copy(
-                            color = AppOnPrimary.copy(alpha = 0.85f)
+                        text = "Powered by Aintsol",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = AppOnPrimary.copy(alpha = 0.82f),
+                            fontSize = 10.sp
                         )
                     )
                 }
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    text  = todayString,
-                    style = MaterialTheme.typography.headlineSmall.copy(
-                        fontWeight = FontWeight.Bold, color = AppOnPrimary
+
+                Column(horizontalAlignment = Alignment.End) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.LocationOn,
+                            contentDescription = null,
+                            tint     = AppOnPrimary.copy(alpha = 0.8f),
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            text  = stats?.site_name ?: "Loading...",
+                            style = MaterialTheme.typography.labelLarge.copy(
+                                color = AppOnPrimary.copy(alpha = 0.85f)
+                            )
+                        )
+                    }
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text  = todayString,
+                        style = MaterialTheme.typography.headlineSmall.copy(
+                            fontWeight = FontWeight.Bold, color = AppOnPrimary
+                        )
                     )
-                )
-            }
-            IconButton(
-                onClick  = { showLogoutDialog = true },
-                modifier = Modifier.align(Alignment.CenterEnd)
-            ) {
-                Icon(Icons.Default.ExitToApp, contentDescription = "Logout", tint = AppOnPrimary)
+                }
             }
         }
 
@@ -544,9 +553,14 @@ private fun LegendDot(color: Color, label: String) {
 
 @Composable
 private fun DayColumn(day: WeeklyDay, maxVal: Int) {
-    val maxHeight   = 100.dp
-    val presentAnim by animateDpAsState((maxHeight * day.present / maxVal.toFloat()), tween(600), label = "p")
-    val absentAnim  by animateDpAsState((maxHeight * day.absent  / maxVal.toFloat()), tween(600, 100), label = "a")
+    val maxHeight = 100.dp
+    val safeMax = maxVal.coerceAtLeast(1).toFloat()
+    val presentRatio = day.present.toFloat() / safeMax
+    val absentRatio = day.absent.toFloat() / safeMax
+    val presentTarget = maxHeight * presentRatio
+    val absentTarget = maxHeight * absentRatio
+    val presentAnim by animateDpAsState(targetValue = presentTarget, animationSpec = tween(600), label = "p")
+    val absentAnim by animateDpAsState(targetValue = absentTarget, animationSpec = tween(600, 100), label = "a")
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Bottom,
