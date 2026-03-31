@@ -1,0 +1,10 @@
+package com.attendcrew.app.data.model
+
+data class WorkerResponse(
+    val id: String,
+    val full_name: String,
+    val mobile: String,
+    val site_id: String?,
+    val status: String?,
+    val photo_url: String? = null
+)

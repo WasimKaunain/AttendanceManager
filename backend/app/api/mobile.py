@@ -6,7 +6,7 @@ from app.services.audit_service import log_action
 from app.services.geofence import is_within_geofence
 from app.services.face_service import is_same_person, cosine_similarity
 from app.services.debug_logger import log_face, log_geofence
-import uuid, shutil, os, json
+import uuid, shutil, os, json, pytz
 from datetime import datetime, date, timedelta
 from app.models.worker import Worker
 from app.models.site import Site
@@ -542,7 +542,6 @@ def check_in(
     user=Depends(require_mobile_user),
     db: Session = Depends(get_db)
 ):
-    today = date.today()
 
     site_id = get_site_id_or_raise(user)
 
@@ -551,7 +550,14 @@ def check_in(
         raise HTTPException(400, "Invalid site")
     print(f"Valid site and Site name : {site.name}")
 
-    existing = db.query(AttendanceRecord).filter(AttendanceRecord.worker_id == worker_id,AttendanceRecord.date == today).first()
+    utc_now = datetime.utcnow().replace(tzinfo=pytz.utc)
+    try:
+        tz = pytz.timezone(site.timezone)
+    except Exception:
+        tz = pytz.timezone("Asia/Riyadh")
+    local_time = utc_now.astimezone(tz)
+
+    existing = db.query(AttendanceRecord).filter(AttendanceRecord.worker_id == worker_id,AttendanceRecord.date == local_time.date()).first()
 
     if existing:
         raise HTTPException(400, "Already checked in today")
@@ -644,7 +650,7 @@ def check_in(
     site_folder = format_site_folder(site.name)
 
     # 4️⃣ Save compressed to structured folder
-    permanent_path = save_compressed_attendance_image(temp_path=temp_path,site_name=site_folder,worker_id=worker.id,mode="Checkin")
+    permanent_path = save_compressed_attendance_image(temp_path=temp_path,site_name=site_folder,worker_id=worker.id,mode="Checkin", timezone_str=site.timezone)
 
     # delete temp
     os.remove(temp_path)
@@ -654,8 +660,8 @@ def check_in(
         worker_id=worker_id,
         check_in_site_id=site.id,
         project_id=site.project_id,
-        date=today,
-        check_in_time=datetime.utcnow(),
+        date=local_time.date(),
+        check_in_time=local_time,
         check_in_lat=latitude,
         check_in_lng=longitude,
         check_in_selfie_url=permanent_path,
@@ -691,37 +697,27 @@ def check_out(
     user=Depends(require_mobile_user),
     db: Session = Depends(get_db)
 ):
-    print("---- CHECKOUT DEBUG START ----")
-    print("Worker ID:", worker_id)
-    print("Latitude:", latitude, "Longitude:", longitude)
-
-    today = date.today()
-    print("Today:", today)
 
     site_id = get_site_id_or_raise(user)
-    print("Manager site_id:", site_id)
-
 
     site = db.query(Site).filter(Site.id == site_id).first()
     if not site:
         print("FAIL: Invalid site")
         raise HTTPException(400, "Invalid site")
 
-    print("Site Name:", site.name)
-
-    record = db.query(AttendanceRecord).filter(
-        AttendanceRecord.worker_id == worker_id,
-        AttendanceRecord.date == today
-    ).first()
-
-    print("Attendance record found:", bool(record))
+    utc_now = datetime.utcnow().replace(tzinfo=pytz.utc)
+    try:
+        tz = pytz.timezone(site.timezone)
+    except Exception:
+        tz = pytz.timezone("Asia/Riyadh")
+    local_time = utc_now.astimezone(tz)
+    
+    record = db.query(AttendanceRecord).filter(AttendanceRecord.worker_id == worker_id, AttendanceRecord.date == local_time.date()).first()
 
     if not record or not record.check_in_time:
-        print("FAIL: No check-in found")
         raise HTTPException(400, "No check-in found")
 
     if record.check_out_time:
-        print("FAIL: Already checked out")
         raise HTTPException(400, "Already checked out")
 
     worker = db.query(Worker).filter(Worker.id == worker_id).first()
@@ -734,8 +730,6 @@ def check_out(
     if not worker.face_embedding:
         print("FAIL: Face not enrolled")
         raise HTTPException(400, "Worker face not enrolled")
-
-    print("Worker face embedding exists")
 
     temp_path = f"/tmp/{uuid.uuid4()}.jpg"
     with open(temp_path, "wb") as buffer:
@@ -823,12 +817,12 @@ def check_out(
     # Image stored under the check-out site's folder (manager's current site)
     site_folder = format_site_folder(site.name)
 
-    permanent_path = save_compressed_attendance_image(temp_path=temp_path,site_name=site_folder,worker_id=worker.id,mode="Checkout")
+    permanent_path = save_compressed_attendance_image(temp_path=temp_path,site_name=site_folder,worker_id=worker.id,mode="Checkout", timezone_str=site.timezone)
 
     os.remove(temp_path)
 
     record.check_out_site_id = site.id   # manager's current site — may differ from check-in site
-    record.check_out_time = datetime.utcnow()
+    record.check_out_time = local_time
     record.check_out_lat = latitude
     record.check_out_lng = longitude
     record.check_out_selfie_url = permanent_path
@@ -863,9 +857,6 @@ def check_out(
         details=f"Worker {worker_id} ({worker.full_name}) checked out at site {site.name}. Hours: {round(record.total_hours or 0, 2)}",
         **_audit_mobile(user),
     )
-
-    print("Checkout successful")
-    print("---- CHECKOUT DEBUG END ----")
 
     return record
 

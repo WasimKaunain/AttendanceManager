@@ -2,15 +2,29 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+
+    // 🔥 Firebase
+    id("com.google.gms.google-services")
+    id("com.google.firebase.crashlytics")
+}
+
+import java.util.Properties
+import java.io.FileInputStream
+
+val keystorePropertiesFile = rootProject.file("local.properties")
+val keystoreProperties = Properties().apply {
+    if (keystorePropertiesFile.exists()) {
+        load(FileInputStream(keystorePropertiesFile))
+    }
 }
 
 android {
-    namespace = "com.wasim.attendancemanager"
+    namespace = "com.attendcrew.app"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.wasim.attendancemanager"
-        minSdk = 23   // ⬅️ Recommended (better stability for location + security)
+        applicationId = "com.attendcrew.app"
+        minSdk = 23
         targetSdk = 34
         versionCode = 1
         versionName = "1.0.0"
@@ -18,24 +32,22 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
-    // 🔑 Signing Config (PLACEHOLDERS — replace later)
     signingConfigs {
-        release {
-            storeFile file("your-keystore.jks")
-            storePassword "your_store_password"
-            keyAlias "your_key_alias"
-            keyPassword "your_key_password"
+        create("release") {
+            storeFile = file(keystoreProperties["MYAPP_UPLOAD_STORE_FILE"].toString())
+            storePassword = keystoreProperties["MYAPP_UPLOAD_STORE_PASSWORD"].toString()
+            keyAlias = keystoreProperties["MYAPP_UPLOAD_KEY_ALIAS"].toString()
+            keyPassword = keystoreProperties["MYAPP_UPLOAD_KEY_PASSWORD"].toString()
         }
     }
 
     buildTypes {
         release {
-            debuggable false
-            isMinifyEnabled = true
-            isShrinkResources = true
+            isDebuggable = false
+            isMinifyEnabled = false
+            isShrinkResources = false
 
-            // 🔐 Attach signing config
-            signingConfig signingConfigs.release
+            signingConfig = signingConfigs.getByName("release")
 
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -59,7 +71,6 @@ android {
 
     buildFeatures {
         compose = true
-        buildConfig = true   // ⬅️ REQUIRED for BuildConfig.BASE_URL
     }
 
     packaging {
@@ -90,10 +101,10 @@ dependencies {
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
     implementation("com.squareup.retrofit2:converter-gson:2.9.0")
 
-    // ⚠️ Logging ONLY in debug (important for security)
-    debugImplementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
+    // ✅ Logging (chosen to keep it in release too)
+    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
 
-    // 📍 Location (Geofencing)
+    // 📍 Location
     implementation("com.google.android.gms:play-services-location:21.0.1")
 
     // 📷 CameraX
@@ -102,16 +113,20 @@ dependencies {
     implementation("androidx.camera:camera-lifecycle:1.3.4")
     implementation("androidx.camera:camera-view:1.3.4")
 
-    // 🎨 Icons
-    implementation("androidx.compose.material:material-icons-core")
-    implementation("androidx.compose.material:material-icons-extended")
-
-    // 🤖 ML + Face Detection
+    // 🤖 ML
     implementation("org.tensorflow:tensorflow-lite:2.14.0")
     implementation("com.google.mlkit:face-detection:16.1.5")
 
-    // 🔄 Coroutines Play Services
+    // 🔥 Firebase Crashlytics
+    implementation("com.google.firebase:firebase-crashlytics-ktx:18.6.3")
+    implementation("com.google.firebase:firebase-analytics-ktx:21.6.1")
+
+    // 🔄 Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
+
+    // 🎨 Icons
+    implementation("androidx.compose.material:material-icons-core")
+    implementation("androidx.compose.material:material-icons-extended")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

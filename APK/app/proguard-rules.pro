@@ -5,14 +5,14 @@
 -renamesourcefileattribute SourceFile
 
 # ── TensorFlow Lite ───────────────────────────────────────────────────────────
--keep class org.tensorflow.lite.** { *; }
+-keep class org.tensorflow.** { *; }
 -keep class org.tensorflow.lite.gpu.** { *; }
 -dontwarn org.tensorflow.lite.**
 
 # ── Gson / Retrofit data models ───────────────────────────────────────────────
 # Keep all data classes used by Gson serialisation (Retrofit responses)
--keep class com.wasim.attendancemanager.data.model.** { *; }
--keepclassmembers class com.wasim.attendancemanager.data.model.** { *; }
+-keep class com.attendcrew.app.data.model.** { *; }
+-keepclassmembers class com.attendcrew.app.data.model.** { *; }
 
 # Gson internals
 -keepattributes Signature
@@ -22,10 +22,14 @@
 -keep class * implements com.google.gson.TypeAdapterFactory
 -keep class * implements com.google.gson.JsonSerializer
 -keep class * implements com.google.gson.JsonDeserializer
+-keep class * {
+    @com.google.gson.annotations.SerializedName <fields>;
+}
 
 # ── Retrofit ──────────────────────────────────────────────────────────────────
 -keepattributes RuntimeVisibleAnnotations
 -keep class retrofit2.** { *; }
+-keep interface retrofit2.** { *; }
 -keepclasseswithmembers class * {
     @retrofit2.http.* <methods>;
 }
@@ -54,3 +58,26 @@
 # ── Jetpack Compose ───────────────────────────────────────────────────────────
 -dontwarn androidx.compose.**
 
+# ── model class ─────────────────────────────────────────────────────────────
+-keep class com.attendcrew.app.data.model.** { *; }
+
+# ── Prevent warnings ───────────────────────────────────────────────────────────
+-dontwarn org.tensorflow.**
+-dontwarn okhttp3.**
+-dontwarn retrofit2.**
+
+# Keep constructors for Gson (VERY IMPORTANT)
+-keepclassmembers class * {
+    public <init>(...);
+}
+
+# Keep generic signatures (needed for Retrofit/Gson)
+-keepattributes Signature
+-keepattributes Exceptions
+-keepattributes InnerClasses
+-keepattributes EnclosingMethod
+
+# Keep Retrofit response types
+-keepclassmembers,allowshrinking,allowobfuscation interface * {
+    @retrofit2.http.* <methods>;
+}

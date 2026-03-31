@@ -2,12 +2,22 @@ from datetime import datetime
 from PIL import Image
 from io import BytesIO
 from app.services.r2 import upload_file_to_r2
-import re
+import re, pytz
 
-def save_compressed_attendance_image(temp_path: str,site_name: str,worker_id: str,mode: str) -> str: # "Checkin" or "Checkout"
+def save_compressed_attendance_image(temp_path: str,site_name: str,worker_id: str,mode: str, timezone_str : str) -> str: # "Checkin" or "Checkout"
 
-    # 1️⃣ Generate timestamp
-    timestamp = datetime.utcnow().strftime("%Y-%m-%d_%H-%M-%S")
+    # 1️⃣ Validate timezone (no hardcoding, just safe fallback to UTC)
+    try:
+        tz = pytz.timezone(timezone_str)
+    except Exception:
+        tz = pytz.utc   # ✅ fallback without hardcoding region
+
+    # 2️⃣ Get local time
+    utc_now = datetime.utcnow().replace(tzinfo=pytz.utc)
+    local_time = utc_now.astimezone(tz)
+
+    # 3️⃣ Timestamp using LOCAL TIME
+    timestamp = local_time.strftime("%Y-%m-%d_%H-%M-%S_%f")
 
     # 2️⃣ Create new structured key
     object_key = (f"{site_name}/"f"{worker_id}/"f"Attendance Images/"f"{mode}/"f"{timestamp}.jpg")

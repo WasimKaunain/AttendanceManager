@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1019862692597",
+    "project_id": "attendcrew",
+    "storage_bucket": "attendcrew.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1019862692597:android:49e239c0ec2d6001df0bbc",
+        "android_client_info": {
+          "package_name": "com.attendcrew.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCRoXEgh17INwjRLCQl8eIk8KKM6cbwahE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

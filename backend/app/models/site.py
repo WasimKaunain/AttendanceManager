@@ -15,6 +15,7 @@ class Site(Base):
     latitude = Column(Float, nullable=False)
     longitude = Column(Float, nullable=False)
     geofence_radius = Column(Float, default=200)
+    timezone = Column(String, nullable=True, default="Asia/Riyadh", server_default="Asia/Riyadh")
     # boundary_type: "circle" (uses lat/lng + geofence_radius) or "polygon" (uses polygon_coords)
     boundary_type = Column(String, default="circle", nullable=False, server_default="circle")
     # polygon_coords: list of {lat, lng} dicts, used when boundary_type = "polygon"

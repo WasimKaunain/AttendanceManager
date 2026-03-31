@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from uuid import UUID
 from app.services.audit_service import log_action
+from app.services.timezone import get_timezone_from_coords
 from app.db.session import SessionLocal
 from app.models.site import Site
 from app.models.attendance import AttendanceRecord
@@ -33,16 +34,14 @@ def _audit_user(user: dict) -> dict:
 def create_site(data: SiteCreate, db: Session = Depends(get_db), current_user: dict = Depends(require_admin)):
     from sqlalchemy.exc import IntegrityError
 
-    existing = db.query(Site).filter(
-        Site.name == data.name,
-        Site.project_id == data.project_id,
-        Site.is_deleted == False
-    ).first()
+    existing = db.query(Site).filter(Site.name == data.name,Site.project_id == data.project_id,Site.is_deleted == False).first()
     if existing:
         raise HTTPException(status_code=400, detail="A site with this name already exists in the selected project.")
 
     try:
         site = Site(**data.dict())
+        tz = get_timezone_from_coords(site.latitude, site.longitude)
+        site.timezone = tz if tz else "Asia/Riyadh"
         db.add(site)
         db.commit()
         db.refresh(site)
