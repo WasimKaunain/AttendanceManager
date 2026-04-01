@@ -23,3 +23,7 @@ export const getSiteAttendance = async ({site_id,worker_id,start_date,end_date,}
 export const archiveSite = async ({ id, payload }) => { return api.patch(`/sites/${id}/archive`, payload); };
 
 export const toggleSiteStatus = async ({ id, status }) => { return api.patch(`/sites/${id}`, { status }); };
+
+export const getTimezoneFromCoords = async ({ lat, lng }) => { const res = await api.get("/timezone/detect", {params: { lat, lng }});return res.data;};
+
+export const getAllTimezones = async () => {const res = await api.get("/timezone/list");return res.data.timezones;};

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import MapPickerModal from "./MapPickerModal";
 import { CircleDot, Hexagon, MapPin } from "lucide-react";
-
+import { getTimezoneFromCoords,getAllTimezones } from "../services";
 
 export default function SiteFormDialog({ open, onClose, onSubmit, initialData, projects, isSubmitting }) {
   const [form, setForm] = useState({
@@ -14,10 +14,25 @@ export default function SiteFormDialog({ open, onClose, onSubmit, initialData, p
     boundary_type: "circle",
     polygon_coords: null,
     status: "active",
+    timezone: "",
   });
   const [mapOpen, setMapOpen] = useState(false);
   const [errors, setErrors]   = useState({});
   const [popup, setPopup]     = useState(null);
+  const [loadingTimezone, setLoadingTimezone] = useState(false);
+  const [timezones, setTimezones] = useState([]);
+  const [loadingTimezones, setLoadingTimezones] = useState(false);
+
+  useEffect(() => {
+  if (mapOpen && timezones.length === 0) {
+    setLoadingTimezones(true);
+
+    getAllTimezones()
+      .then(setTimezones)
+      .catch(() => setTimezones([]))
+      .finally(() => setLoadingTimezones(false));
+  }
+}, [mapOpen]);
 
   useEffect(() => {
     if (initialData) {
@@ -31,6 +46,7 @@ export default function SiteFormDialog({ open, onClose, onSubmit, initialData, p
         boundary_type:  initialData.boundary_type  || "circle",
         polygon_coords: initialData.polygon_coords || null,
         status:         initialData.status         || "active",
+        timezone:       initialData.timezone       || "",
       });
     } else {
       setForm({
@@ -54,11 +70,21 @@ export default function SiteFormDialog({ open, onClose, onSubmit, initialData, p
     if (!form.project_id) e.project_id = "Please select a project";
     if (!form.latitude)   e.latitude   = "Latitude is required";
     if (!form.longitude)  e.longitude  = "Longitude is required";
+    if (!form.timezone) e.timezone = "Timezone is required";
     if (form.boundary_type === "polygon" && (!form.polygon_coords || form.polygon_coords.length < 3))
       e.polygon_coords = "Draw at least 3 boundary points on the map";
     setErrors(e);
     return Object.keys(e).length === 0;
   };
+
+  function getPolygonCentroid(points) {
+    if (!points || points.length === 0) return null;
+
+    const lat = points.reduce((sum, p) => sum + p.lat, 0) / points.length;
+    const lng = points.reduce((sum, p) => sum + p.lng, 0) / points.length;
+
+    return { lat, lng };
+  }
 
   const handleSubmit = async () => {
     if (!validate()) return;
@@ -229,6 +255,52 @@ export default function SiteFormDialog({ open, onClose, onSubmit, initialData, p
               </button>
             </div>
 
+
+            {/*Timezone selector (auto-filled from map coords)*/}
+            
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 uppercase mb-1.5">
+                Timezone
+              </label>
+
+              <select
+                value={form.timezone}
+                onChange={(e) => {
+                  setForm({ ...form, timezone: e.target.value });
+                  setErrors((p) => ({ ...p, timezone: undefined }));
+                }}
+                disabled={!form.latitude}
+                className={`w-full border rounded-xl p-3 text-sm ${
+                  !form.latitude ? "bg-gray-100 cursor-not-allowed" : ""
+                }`}
+              >
+                <option value="">
+                    {loadingTimezones ? "Loading timezones..." : "Select Timezone"}
+                  </option>
+
+                  {/* ⭐ Show detected timezone first */}
+                  {form.timezone && (
+                    <option value={form.timezone}>⭐ {form.timezone} (Detected)</option>
+                  )}
+
+                  {/* Full list */}
+                  {timezones.filter((tz) => tz !== form.timezone).map((tz) => (<option key={tz} value={tz}>{tz}</option>
+                    ))}
+              </select>
+
+                {loadingTimezone && (
+                  <p className="text-xs text-slate-400 mt-1">
+                    Detecting timezone...
+                  </p>
+                )}
+
+              {form.timezone && (
+                <p className="text-xs text-indigo-500 mt-1">
+                  Auto-selected from map (you can change it)
+                </p>
+              )}
+            </div>
+
             {/* Status */}
             <div>
               <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">
@@ -281,17 +353,50 @@ export default function SiteFormDialog({ open, onClose, onSubmit, initialData, p
         open={mapOpen}
         initialMode={form.boundary_type}
         onClose={() => setMapOpen(false)}
-        onConfirm={({ latitude, longitude, address, boundary_type, geofence_radius, polygon_coords }) => {
+        onConfirm={async ({ latitude, longitude, address, boundary_type, geofence_radius, polygon_coords }) => {
+          let lat = latitude;
+          let lng = longitude;
+        
+          // ✅ Handle polygon
+          if (boundary_type === "polygon" && polygon_coords?.length > 0) {
+            const centroid = getPolygonCentroid(polygon_coords);
+            if (centroid) {
+              lat = centroid.lat;
+              lng = centroid.lng;
+            }
+          }
+        
+          let timezone = form.timezone;
+        
+          try {
+            setLoadingTimezone(true);
+          
+            const res = await getTimezoneFromCoords({ lat, lng });
+            timezone = res.timezone;
+
+          } catch (err) {
+            console.error("Timezone fetch failed", err);
+          } finally {
+            setLoadingTimezone(false);
+          }
+        
           setForm((prev) => ({
             ...prev,
-            latitude:       latitude.toFixed(6),
-            longitude:      longitude.toFixed(6),
-            address:        address || prev.address,
+            latitude: latitude.toFixed(6),
+            longitude: longitude.toFixed(6),
+            address: address || prev.address,
             boundary_type,
             geofence_radius: boundary_type === "circle" ? geofence_radius : prev.geofence_radius,
             polygon_coords: boundary_type === "polygon" ? polygon_coords : null,
+            timezone, // ✅ AUTO SET
           }));
-          setErrors((p) => ({ ...p, latitude: undefined, longitude: undefined, polygon_coords: undefined }));
+        
+          setErrors((p) => ({
+            ...p,
+            latitude: undefined,
+            longitude: undefined,
+            polygon_coords: undefined,
+          }));
         }}
       />
     </>

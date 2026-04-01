@@ -2,12 +2,13 @@ from fastapi import APIRouter, Depends, Query, UploadFile, File, HTTPException, 
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, func
 from app.db.session import SessionLocal
+from app.services.attendance_response_service import serialize_attendance
 from app.services.audit_service import log_action
 from app.services.geofence import is_within_geofence
 from app.services.face_service import is_same_person, cosine_similarity
 from app.services.debug_logger import log_face, log_geofence
 import uuid, shutil, os, json, pytz
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 from app.models.worker import Worker
 from app.models.site import Site
 from app.models.attendance import AttendanceRecord
@@ -54,30 +55,14 @@ def _audit_mobile(user: dict) -> dict:
 # ADMIN SITE SELECTION
 # --------------------------------------------------
 @router.get("/admin/sites", response_model=list[MobileSiteOption])
-def get_admin_mobile_sites(
-    user=Depends(require_admin),
-    db: Session = Depends(get_db)
-):
-    sites = (
-        db.query(Site)
-        .filter(Site.status == "active", Site.is_deleted == False)
-        .order_by(Site.name.asc())
-        .all()
-    )
+def get_admin_mobile_sites(user=Depends(require_admin),db: Session = Depends(get_db)):
+    sites = (db.query(Site).filter(Site.status == "active", Site.is_deleted == False).order_by(Site.name.asc()).all())
     return sites
 
 
 @router.post("/admin/select-site", response_model=AdminSelectSiteResponse)
-def admin_select_site(
-    data: AdminSelectSiteRequest,
-    user=Depends(require_admin),
-    db: Session = Depends(get_db)
-):
-    site = db.query(Site).filter(
-        Site.id == data.site_id,
-        Site.status == "active",
-        Site.is_deleted == False,
-    ).first()
+def admin_select_site(data: AdminSelectSiteRequest,user=Depends(require_admin),db: Session = Depends(get_db)):
+    site = db.query(Site).filter(Site.id == data.site_id,Site.status == "active",Site.is_deleted == False,).first()
 
     if not site:
         raise HTTPException(status_code=404, detail="Active site not found")
@@ -119,46 +104,28 @@ def admin_select_site(
 # SITE DASHBOARD STATS
 # --------------------------------------------------
 @router.get("/dashboard/stats")
-def get_site_dashboard_stats(
-    user=Depends(require_mobile_user),
-    db: Session = Depends(get_db)
-):
+def get_site_dashboard_stats(user=Depends(require_mobile_user),db: Session = Depends(get_db)):
     site_id = get_site_id_or_raise(user)
+    
+    site = db.query(Site).filter(Site.id == site_id).first()
+    if not site:
+        raise HTTPException(400, "Invalid Site")
+    
+    tz = pytz.timezone(site.timezone)
+    today = datetime.now(tz).date()
 
-    today = date.today()
+    total_workers = db.query(Worker).filter(Worker.site_id == site_id,Worker.is_deleted == False).count()
 
-    total_workers = db.query(Worker).filter(
-        Worker.site_id == site_id,
-        Worker.is_deleted == False
-    ).count()
+    active_workers = db.query(Worker).filter(Worker.site_id == site_id,Worker.status == "active",Worker.is_deleted == False).count()
 
-    active_workers = db.query(Worker).filter(
-        Worker.site_id == site_id,
-        Worker.status == "active",
-        Worker.is_deleted == False
-    ).count()
-
-    present_today = db.query(AttendanceRecord).filter(
-        AttendanceRecord.check_in_site_id == site_id,
-        AttendanceRecord.date == today,
-        AttendanceRecord.check_in_time.isnot(None)
-    ).count()
+    present_today = db.query(AttendanceRecord).filter(AttendanceRecord.check_in_site_id == site_id,AttendanceRecord.date == today,AttendanceRecord.check_in_time.isnot(None)).count()
 
     absent_today = max(active_workers - present_today, 0)
 
-    checked_out_today = db.query(AttendanceRecord).filter(
-        AttendanceRecord.check_in_site_id == site_id,
-        AttendanceRecord.date == today,
-        AttendanceRecord.check_out_time.isnot(None)
-    ).count()
+    checked_out_today = db.query(AttendanceRecord).filter(AttendanceRecord.check_in_site_id == site_id,AttendanceRecord.date == today,AttendanceRecord.check_out_time.isnot(None)).count()
 
     # Workers with no face enrolled yet
-    unenrolled_count = db.query(Worker).filter(
-        Worker.site_id == site_id,
-        Worker.status == "active",
-        Worker.is_deleted == False,
-        Worker.face_embedding == None
-    ).count()
+    unenrolled_count = db.query(Worker).filter(Worker.site_id == site_id,Worker.status == "active",Worker.is_deleted == False,Worker.face_embedding == None).count()
 
     site = db.query(Site).filter(Site.id == site_id).first()
     site_name = site.name if site else "Unknown Site"
@@ -178,34 +145,24 @@ def get_site_dashboard_stats(
 # SITE WEEKLY ATTENDANCE CHART
 # --------------------------------------------------
 @router.get("/dashboard/weekly")
-def get_site_weekly_attendance(
-    user=Depends(require_mobile_user),
-    db: Session = Depends(get_db)
-):
+def get_site_weekly_attendance(user=Depends(require_mobile_user),db: Session = Depends(get_db)):
+    
     site_id = get_site_id_or_raise(user)
 
-    today = date.today()
+    site = db.query(Site).filter(Site.id == site_id).first()
+    if not site:
+        raise HTTPException(400, "Invalid Site")
+    
+    today = datetime.now(pytz.timezone(site.timezone)).date()
+
     week_start = today - timedelta(days=6)
 
-    present_results = (
-        db.query(AttendanceRecord.date, func.count(AttendanceRecord.id))
-        .filter(
-            AttendanceRecord.check_in_site_id == site_id,
-            AttendanceRecord.date >= week_start,
-            AttendanceRecord.check_in_time.isnot(None)
-        )
-        .group_by(AttendanceRecord.date)
-        .all()
-    )
+    present_results = (db.query(AttendanceRecord.date, func.count(AttendanceRecord.id)).filter(AttendanceRecord.check_in_site_id == site_id,AttendanceRecord.date >= week_start,AttendanceRecord.check_in_time.isnot(None)).group_by(AttendanceRecord.date).all())
 
     present_map = {r[0]: r[1] for r in present_results}
 
     # active workers count for absent calculation
-    active_workers = db.query(Worker).filter(
-        Worker.site_id == site_id,
-        Worker.status == "active",
-        Worker.is_deleted == False
-    ).count()
+    active_workers = db.query(Worker).filter(Worker.site_id == site_id,Worker.status == "active",Worker.is_deleted == False).count()
 
     response = []
     for i in range(7):
@@ -224,33 +181,31 @@ def get_site_weekly_attendance(
 # --------------------------------------------------
 # RECENT ACTIVITY (last 8 events for this site)
 # --------------------------------------------------
+
 @router.get("/dashboard/recent-activity")
-def get_site_recent_activity(
-    user=Depends(require_mobile_user),
-    db: Session = Depends(get_db)
-):
+def get_site_recent_activity(user=Depends(require_mobile_user),db: Session = Depends(get_db)):
     site_id = get_site_id_or_raise(user)
 
-    records = (
-        db.query(AttendanceRecord, Worker)
-        .join(Worker, Worker.id == AttendanceRecord.worker_id)
-        .filter(AttendanceRecord.check_in_site_id == site_id)
-        .order_by(AttendanceRecord.check_in_time.desc())
-        .limit(8)
-        .all()
-    )
+    site = db.query(Site).filter(Site.id == site_id).first()
+    if not site:
+        raise HTTPException(400, "Invalid site")
+
+    records = (db.query(AttendanceRecord, Worker).join(Worker, Worker.id == AttendanceRecord.worker_id).filter(AttendanceRecord.check_in_site_id == site_id).order_by(AttendanceRecord.check_in_time.desc()).limit(8).all())
 
     result = []
     for r, worker in records:
+        obj = serialize_attendance(r, site.timezone)
+
         result.append({
-            "worker_id":       r.worker_id,
-            "worker_name":     worker.full_name if worker else "Unknown",
-            "date":            str(r.date),
-            "check_in_time":   r.check_in_time.strftime("%I:%M %p")  if r.check_in_time  else None,
-            "check_out_time":  r.check_out_time.strftime("%I:%M %p") if r.check_out_time else None,
-            "status":          r.status,
-            "total_hours":     round(r.total_hours, 1) if r.total_hours else None,
+            "worker_id":   r.worker_id,
+            "worker_name": worker.full_name if worker else "Unknown",
+            "date":        str(obj.date),   # already local
+            "check_in_time":  obj.check_in_time.strftime("%I:%M %p") if obj.check_in_time else None,
+            "check_out_time": obj.check_out_time.strftime("%I:%M %p") if obj.check_out_time else None,
+            "status":      obj.status,
+            "total_hours": round(obj.total_hours, 1) if obj.total_hours else None,
         })
+
     return result
 
 
@@ -258,27 +213,20 @@ def get_site_recent_activity(
 # WORKERS LIST (all workers across all sites, with today's attendance status)
 # --------------------------------------------------
 @router.get("/site-workers")
-def get_site_workers(
-    search: str | None = Query(None),
-    status: str | None = Query(None),   # "active" | "inactive"
-    user=Depends(require_mobile_user),
-    db: Session = Depends(get_db)
-):
-    today = date.today()
+def get_site_workers(search: str | None = Query(None),status: str | None = Query(None),user=Depends(require_mobile_user),db: Session = Depends(get_db)):
+
+    site_id = get_site_id_or_raise(user)
+
+    site = db.query(Site).filter(Site.id == site_id).first()
+    if not site:
+        raise HTTPException(400, "Invalid site")
+    today = datetime.now(pytz.timezone(site.timezone)).date()
 
     # List ALL workers regardless of site — site incharge can work with any worker
-    query = db.query(Worker).filter(
-        Worker.is_deleted == False
-    )
+    query = db.query(Worker).filter(Worker.is_deleted == False)
 
     if search:
-        query = query.filter(
-            or_(
-                Worker.full_name.ilike(f"%{search}%"),
-                Worker.mobile.ilike(f"%{search}%"),
-                Worker.id.ilike(f"%{search}%")
-            )
-        )
+        query = query.filter(or_(Worker.full_name.ilike(f"%{search}%"),Worker.mobile.ilike(f"%{search}%"),Worker.id.ilike(f"%{search}%")))
 
     if status:
         query = query.filter(Worker.status == status)
@@ -289,10 +237,7 @@ def get_site_workers(
     worker_ids = [w.id for w in workers]
     today_attendances = {}
     if worker_ids:
-        att_rows = db.query(AttendanceRecord).filter(
-            AttendanceRecord.worker_id.in_(worker_ids),
-            AttendanceRecord.date == today
-        ).all()
+        att_rows = db.query(AttendanceRecord).filter(AttendanceRecord.worker_id.in_(worker_ids),AttendanceRecord.date == today).all()
         today_attendances = {a.worker_id: a for a in att_rows}
 
     result = []
@@ -332,10 +277,7 @@ def get_mobile_worker_photo(
     user=Depends(require_mobile_user),
     db: Session = Depends(get_db)
 ):
-    worker = db.query(Worker).filter(
-        Worker.id == worker_id,
-        Worker.is_deleted == False
-    ).first()
+    worker = db.query(Worker).filter(Worker.id == worker_id,Worker.is_deleted == False).first()
 
     if not worker:
         raise HTTPException(status_code=404, detail="Worker not found")
@@ -360,18 +302,13 @@ def get_site_attendance(
     db: Session = Depends(get_db)
 ):
     site_id = get_site_id_or_raise(user)
+    site = db.query(Site).filter(Site.id == site_id).first()
+    if not site:
+        raise HTTPException(400, "Invalid site")
+
 
     # Include attendance where this site handled either check-in or check-out.
-    query = (
-        db.query(AttendanceRecord, Worker)
-        .join(Worker, Worker.id == AttendanceRecord.worker_id)
-        .filter(
-            or_(
-                AttendanceRecord.check_in_site_id == site_id,
-                AttendanceRecord.check_out_site_id == site_id,
-            )
-        )
-    )
+    query = (db.query(AttendanceRecord, Worker).join(Worker, Worker.id == AttendanceRecord.worker_id).filter(or_(AttendanceRecord.check_in_site_id == site_id,AttendanceRecord.check_out_site_id == site_id,)))
 
     if worker_name:
         query = query.filter(Worker.full_name.ilike(f"%{worker_name}%"))
@@ -397,15 +334,16 @@ def get_site_attendance(
 
     result = []
     for r, w in rows:
+        obj = serialize_attendance(r, site.timezone)
         result.append({
             "id": str(r.id),
             "worker_id": r.worker_id,
             "worker_name": w.full_name if w else "Unknown",
-            "date": str(r.date),
-            "check_in_time": r.check_in_time.strftime("%I:%M %p") if r.check_in_time else None,
-            "check_out_time": r.check_out_time.strftime("%I:%M %p") if r.check_out_time else None,
-            "status": r.status,
-            "total_hours": round(r.total_hours, 1) if r.total_hours else None,
+            "date": str(obj.date),
+            "check_in_time": obj.check_in_time.strftime("%I:%M %p") if obj.check_in_time else None,
+            "check_out_time": obj.check_out_time.strftime("%I:%M %p") if obj.check_out_time else None,
+            "status": obj.status,
+            "total_hours": round(obj.total_hours, 1) if obj.total_hours else None,
             "geofence_valid": r.geofence_valid,
         })
 
@@ -476,13 +414,7 @@ def get_workers(
     query = db.query(Worker).filter(Worker.status == 'active')
 
     if search:
-        query = query.filter(
-            or_(
-                Worker.full_name.ilike(f"%{search}%"),
-                Worker.mobile.ilike(f"%{search}%"),
-                Worker.id.ilike(f"%{search}%")
-            )
-        )
+        query = query.filter(or_(Worker.full_name.ilike(f"%{search}%"),Worker.mobile.ilike(f"%{search}%"),Worker.id.ilike(f"%{search}%")))
 
     return query.all()
 
@@ -550,12 +482,8 @@ def check_in(
         raise HTTPException(400, "Invalid site")
     print(f"Valid site and Site name : {site.name}")
 
-    utc_now = datetime.utcnow().replace(tzinfo=pytz.utc)
-    try:
-        tz = pytz.timezone(site.timezone)
-    except Exception:
-        tz = pytz.timezone("Asia/Riyadh")
-    local_time = utc_now.astimezone(tz)
+    utc_now = datetime.now(timezone.utc)
+    local_time = utc_now.astimezone(pytz.timezone(site.timezone))
 
     existing = db.query(AttendanceRecord).filter(AttendanceRecord.worker_id == worker_id,AttendanceRecord.date == local_time.date()).first()
 
@@ -661,7 +589,7 @@ def check_in(
         check_in_site_id=site.id,
         project_id=site.project_id,
         date=local_time.date(),
-        check_in_time=local_time,
+        check_in_time=utc_now,
         check_in_lat=latitude,
         check_in_lng=longitude,
         check_in_selfie_url=permanent_path,
@@ -705,13 +633,9 @@ def check_out(
         print("FAIL: Invalid site")
         raise HTTPException(400, "Invalid site")
 
-    utc_now = datetime.utcnow().replace(tzinfo=pytz.utc)
-    try:
-        tz = pytz.timezone(site.timezone)
-    except Exception:
-        tz = pytz.timezone("Asia/Riyadh")
-    local_time = utc_now.astimezone(tz)
-    
+    utc_now = datetime.now(timezone.utc)
+    local_time = utc_now.astimezone(pytz.timezone(site.timezone))
+
     record = db.query(AttendanceRecord).filter(AttendanceRecord.worker_id == worker_id, AttendanceRecord.date == local_time.date()).first()
 
     if not record or not record.check_in_time:
@@ -822,7 +746,7 @@ def check_out(
     os.remove(temp_path)
 
     record.check_out_site_id = site.id   # manager's current site — may differ from check-in site
-    record.check_out_time = local_time
+    record.check_out_time = utc_now
     record.check_out_lat = latitude
     record.check_out_lng = longitude
     record.check_out_selfie_url = permanent_path

@@ -38,6 +38,7 @@ Thumbs.db
 .idea/
 backend/uploads/
 backend/daily_attendance_images/
+backend/scripts
 
 # ==============================
 # Build / Cache

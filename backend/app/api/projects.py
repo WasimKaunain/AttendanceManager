@@ -103,9 +103,7 @@ def project_summary(project_id: str, db: Session = Depends(get_db)):
 
     total_sites = db.query(Site).filter(Site.project_id == project_id).count()
     total_workers = db.query(Worker).filter(Worker.project_id == project_id).count()
-    total_attendance = db.query(AttendanceRecord).filter(
-        AttendanceRecord.project_id == project_id
-    ).count()
+    total_attendance = db.query(AttendanceRecord).filter(AttendanceRecord.project_id == project_id).count()
 
     return {
         "project": project,
@@ -114,7 +112,6 @@ def project_summary(project_id: str, db: Session = Depends(get_db)):
         "total_attendance": total_attendance
     }
 
-from datetime import date
 
 @router.put("/{project_id}/status")
 def update_project_status(

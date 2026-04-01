@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from uuid import UUID
 from app.services.audit_service import log_action
-from app.services.timezone import get_timezone_from_coords
 from app.db.session import SessionLocal
 from app.models.site import Site
 from app.models.attendance import AttendanceRecord
@@ -10,6 +9,8 @@ from app.models.worker import Worker
 from app.schemas.site import SiteCreate, SiteResponse, SiteUpdate, ForceDeleteRequest, ArchiveRequest, ActionResponse
 from app.core.dependencies import require_admin
 from datetime import datetime
+from sqlalchemy.exc import IntegrityError
+import pytz
 
 router = APIRouter(prefix="/sites", tags=["Sites"])
 
@@ -31,30 +32,45 @@ def _audit_user(user: dict) -> dict:
 
 
 @router.post("/", response_model=SiteResponse)
-def create_site(data: SiteCreate, db: Session = Depends(get_db), current_user: dict = Depends(require_admin)):
-    from sqlalchemy.exc import IntegrityError
+def create_site(data: SiteCreate,db: Session = Depends(get_db),current_user: dict = Depends(require_admin)):
+
 
     existing = db.query(Site).filter(Site.name == data.name,Site.project_id == data.project_id,Site.is_deleted == False).first()
+
     if existing:
-        raise HTTPException(status_code=400, detail="A site with this name already exists in the selected project.")
+        raise HTTPException(status_code=400,detail="A site with this name already exists in the selected project.")
 
     try:
-        site = Site(**data.dict())
-        tz = get_timezone_from_coords(site.latitude, site.longitude)
-        site.timezone = tz if tz else "Asia/Riyadh"
+        site_data = data.dict()
+
+        # 🔥 Validate timezone from input
+        timezone_str = site_data.get("timezone")
+
+        if not timezone_str:
+            raise HTTPException(status_code=400,detail="Timezone is required")
+
+        if timezone_str not in pytz.all_timezones:
+            raise HTTPException(status_code=400,detail="Invalid timezone")
+
+        site = Site(**site_data)
+
+        # ✅ Set timezone directly (NO auto-detection)
+        site.timezone = timezone_str
+
         db.add(site)
         db.commit()
         db.refresh(site)
+
     except IntegrityError:
         db.rollback()
-        raise HTTPException(status_code=400, detail="Database error while creating site.")
+        raise HTTPException(status_code=400,detail="Database error while creating site.")
 
     log_action(
         db=db,
         action="create",
         entity_type="site",
         entity_id=str(site.id),
-        details=f"Site {site.name} created",
+        details=f"Site {site.name} created (timezone={site.timezone})",
         **_audit_user(current_user),
     )
 
@@ -73,15 +89,7 @@ def list_sites(include_deleted: bool = False, db: Session = Depends(get_db)):
 @router.get("/by-project/{project_id}")
 def get_sites_by_project(project_id: UUID, db: Session = Depends(get_db)):
 
-    sites = (
-        db.query(Site)
-        .filter(
-            Site.project_id == project_id,
-            Site.is_deleted == False
-        )
-        .order_by(Site.name)
-        .all()
-    )
+    sites = (db.query(Site).filter(Site.project_id == project_id,Site.is_deleted == False).order_by(Site.name).all())
 
     return sites
 

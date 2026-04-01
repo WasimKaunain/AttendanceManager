@@ -17,7 +17,7 @@ class SiteBase(BaseModel):
     boundary_type: Optional[str] = "circle"   # "circle" | "polygon"
     polygon_coords: Optional[List[Any]] = None  # [{lat, lng}, ...]
     status: Optional[str] = "active"
-
+    timezone: str
 
 # -----------------------------
 # Create Schema
@@ -39,7 +39,7 @@ class SiteUpdate(BaseModel):
     boundary_type: Optional[str] = None
     polygon_coords: Optional[List[Any]] = None
     status: Optional[str] = None
-
+    timezone: Optional[str] = None
 
 # -----------------------------
 # Response Schema
