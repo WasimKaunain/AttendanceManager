@@ -84,6 +84,7 @@ export default function WorkerProfilePage() {
       (await api.get(`/workers/${id}/attendance-insight`, {
         params: { year: heatmapDate.year, month: heatmapDate.month },
       })).data,
+      enabled: tab === "attendance",
   });
 
   const shiftHeatmapMonth = (delta) => {
@@ -110,6 +111,7 @@ export default function WorkerProfilePage() {
       (await api.get(`/workers/${id}/payroll`, {
         params: { year: payrollDate.year, month: payrollDate.month },
       })).data,
+    enabled: tab === "payroll",
   });
 
   const shiftPayrollMonth = (delta) => {
@@ -203,13 +205,10 @@ const toggleMutation = useMutation({
   // -------------------------
   // Worker Assets
   // -------------------------
-  const {
-    data: assetsData,
-    isLoading: assetsLoading,
-    refetch: refetchAssets,
-  } = useQuery({
+  const {data: assetsData,isLoading: assetsLoading,refetch: refetchAssets,} = useQuery({
     queryKey: ["worker-assets", id],
     queryFn: async () => (await api.get(`/workers/${id}/assets`)).data,
+    enabled: tab === "assets",
     staleTime: 0,
   });
 

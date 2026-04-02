@@ -25,10 +25,10 @@ android {
     defaultConfig {
         applicationId = "com.attendcrew.app"
         minSdk = 23
-        targetSdk = 34
-        versionCode = 1
+        targetSdk = 35
+        versionCode = 4
         versionName = "1.0.0"
-
+        manifestPlaceholders["adIdEnabled"] = "false" // Disable Ad ID collection for Firebase Analytics
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
