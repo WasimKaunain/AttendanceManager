@@ -127,6 +127,36 @@ export default function SiteFormDialog({ open, onClose, onSubmit, initialData, p
 
           <div className="px-6 py-5 space-y-4">
 
+            {/* Project */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">
+                Project
+              </label>
+              <select
+                value={form.project_id}
+                onChange={(e) => {
+                  const selectedProject = projects.find(p => p.id === e.target.value);
+                
+                  setForm({
+                    ...form,
+                    project_id: e.target.value,
+                    name: selectedProject ? selectedProject.name : form.name, // autofill
+                  });
+                
+                  setErrors((p) => ({ ...p, project_id: undefined }));
+                }}
+                className={`w-full border dark:border-slate-600 rounded-xl p-3 text-sm bg-white dark:bg-slate-700 dark:text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500 ${errors.project_id ? "border-red-400 bg-red-50 dark:bg-red-900/20" : ""}`}
+              >
+                <option value="">Select Project</option>
+                {projects.filter((p) => p.status === "active").map((p) => (<option key={p.id} value={p.id}>{p.name}</option>))}
+              </select>
+              {errors.project_id && (
+                <p className="text-red-500 dark:text-red-400 text-xs mt-1">
+                  {errors.project_id}
+                </p>
+              )}
+            </div>
+            
             {/* Site Name */}
             <div>
               <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">
@@ -135,28 +165,17 @@ export default function SiteFormDialog({ open, onClose, onSubmit, initialData, p
               <input
                 placeholder="e.g. Main Gate, Block A..."
                 value={form.name}
-                onChange={(e) => { setForm({ ...form, name: e.target.value }); setErrors((p) => ({ ...p, name: undefined })); }}
+                onChange={(e) => {
+                  setForm({ ...form, name: e.target.value }); // still editable
+                  setErrors((p) => ({ ...p, name: undefined }));
+                }}
                 className={`w-full border dark:border-slate-600 rounded-xl p-3 text-sm bg-white dark:bg-slate-700 dark:text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500 ${errors.name ? "border-red-400 bg-red-50 dark:bg-red-900/20" : ""}`}
               />
-              {errors.name && <p className="text-red-500 dark:text-red-400 text-xs mt-1">{errors.name}</p>}
-            </div>
-
-            {/* Project */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">
-                Project
-              </label>
-              <select
-                value={form.project_id}
-                onChange={(e) => { setForm({ ...form, project_id: e.target.value }); setErrors((p) => ({ ...p, project_id: undefined })); }}
-                className={`w-full border dark:border-slate-600 rounded-xl p-3 text-sm bg-white dark:bg-slate-700 dark:text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500 ${errors.project_id ? "border-red-400 bg-red-50 dark:bg-red-900/20" : ""}`}
-              >
-                <option value="">Select Project</option>
-                {projects.filter((p) => p.status === "active").map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
-              {errors.project_id && <p className="text-red-500 dark:text-red-400 text-xs mt-1">{errors.project_id}</p>}
+              {errors.name && (
+                <p className="text-red-500 dark:text-red-400 text-xs mt-1">
+                  {errors.name}
+                </p>
+              )}
             </div>
 
             {/* Boundary Type */}
