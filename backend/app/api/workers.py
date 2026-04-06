@@ -201,7 +201,7 @@ def download_worker_template(db: Session = Depends(get_db)):
 
     ws_roles = wb.create_sheet("roles")
 
-    roles = ["labour", "mason", "helper", "supervisor", "electrician"]
+    roles = ["Electrician", "Fitter", "Mason", "Labourer", "Foreman", "Site Manager", "Engineer", "Other"]
 
     ws_roles.append(["role"])
 
