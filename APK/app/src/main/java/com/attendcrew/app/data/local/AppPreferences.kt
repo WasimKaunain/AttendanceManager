@@ -21,7 +21,7 @@ class AppPreferences(context: Context) {
 
     /**
      * ISO currency code, e.g. "PKR", "USD", "INR", "SAR", "AED"
-     * Default is PKR since the app is built for Pakistan.
+     * Default is SAR since the app is built for Saudi Arabia.
      */
     var currency: String
         get()      = prefs.getString("currency", "PKR") ?: "PKR"
@@ -57,38 +57,34 @@ class AppPreferences(context: Context) {
          *   AED: ~0.01309  (1 AED ≈ 76.4 PKR)
          *   QAR: ~0.01299  (1 QAR ≈ 77 PKR)
          */
-        private val RATES_FROM_PKR: Map<String, Double> = mapOf(
-            "PKR" to 1.0,
-            "USD" to 0.003571,
-            "GBP" to 0.002817,
-            "EUR" to 0.003279,
-            "INR" to 0.29762,
-            "SAR" to 0.013393,
-            "AED" to 0.013095,
-            "QAR" to 0.012987
+
+        // Base = SAR
+        private val RATES_FROM_SAR = mapOf(
+            "SAR" to 1.0,
+            "INR" to 24.65,   // from live data
+            "USD" to 0.27,
+            "PKR" to 74.0,
+            "AED" to 0.98,
+            "QAR" to 0.97
         )
 
         /**
-         * Convert [amountInPkr] (stored in PKR) to [toCurrency].
+         * Convert [amountInSAR] (stored in SAR) to [toCurrency].
          */
-        fun convertFromPkr(amountInPkr: Double, toCurrency: String): Double {
-            val rate = RATES_FROM_PKR[toCurrency] ?: 1.0
-            return amountInPkr * rate
+        fun convertFromSar(amountInSar: Double, toCurrency: String): Double {
+            val rate = RATES_FROM_SAR[toCurrency] ?: 1.0
+            return amountInSar * rate
         }
 
         /**
-         * Format [amountInPkr] as a human-readable string in [toCurrency].
+         * Format [amountInSAR] as a human-readable string in [toCurrency].
          * e.g.  "$ 357"  or  "₹ 8,929"
          */
-        fun formatMoney(amountInPkr: Double, toCurrency: String): String {
-            val converted = convertFromPkr(amountInPkr, toCurrency)
-            val symbol    = symbolFor(toCurrency)
-            return when {
-                converted >= 1_000_000 -> "$symbol ${"%.2f".format(converted / 1_000_000)}M"
-                converted >= 1         -> "$symbol ${"%.0f".format(converted)}"
-                converted > 0          -> "$symbol ${"%.4f".format(converted)}"
-                else                   -> "$symbol 0"
-            }
+        fun formatMoney(amountInSar: Double, toCurrency: String): String {
+            val converted = convertFromSar(amountInSar, toCurrency)
+            val symbol = symbolFor(toCurrency)
+
+            return "$symbol %.2f".format(converted)
         }
     }
 }
