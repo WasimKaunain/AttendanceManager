@@ -201,7 +201,7 @@ def download_worker_template(db: Session = Depends(get_db)):
 
     ws_roles = wb.create_sheet("roles")
 
-    roles = ["Electrician", "Fitter", "Mason", "Labourer", "Foreman", "Site Manager", "Engineer", "Other"]
+    roles = ["Electrician", "Fitter", "Mason", "Labourer", "Foreman", "Site Manager", "Engineer", "Technician", "Helper", "Site In-Charge", "Supervisor", "Other"]
 
     ws_roles.append(["role"])
 
@@ -298,6 +298,9 @@ def download_worker_template(db: Session = Depends(get_db)):
 
         # auto fill first site
         ws[f"E{row}"] = f'=IF(D{row}="","",INDEX(INDIRECT(SUBSTITUTE(D{row}," ","_")),1))'
+
+        # daily rate calculation
+        ws[f"I{row}"] = f'=IF(G{row}="permanent",IF(H{row}<>"",ROUND(H{row}/30,2),""),"")'
 
         # hourly rate
         ws[f"K{row}"] = f'=IF(AND(I{row}<>"",J{row}<>""),ROUND(I{row}/J{row},2),"")'

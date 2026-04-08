@@ -51,6 +51,17 @@ export default function WorkerFormDialog({
     }
   }, [form.daily_rate, form.daily_working_hours]);
 
+  // auto-calc daily rate from monthly salary (ONLY for permanent)
+  useEffect(() => {
+  if (form.type === "permanent") {
+    const ms = parseFloat(form.monthly_salary);
+    if (!isNaN(ms) && ms > 0) {
+      const dr = +(ms / 30).toFixed(2);
+      setForm((f) => ({ ...f, daily_rate: String(dr) }));
+    }
+  }
+  }, [form.monthly_salary, form.type]);
+
   if (!open) return null;
 
   const filteredSites = sites.filter(
@@ -65,20 +76,6 @@ export default function WorkerFormDialog({
     if (!form.project_id) newErrors.project_id = "Please select project";
     if (!form.site_id) newErrors.site_id = "Please select site";
 
-    // daily working hours required and >0
-    if (!form.daily_working_hours || parseFloat(form.daily_working_hours) <= 0) {
-      newErrors.daily_working_hours = "Daily working hours required and must be > 0";
-    }
-
-    if (form.type === "permanent") {
-      if (!form.daily_rate) newErrors.daily_rate = "Daily rate required";
-      if (!form.monthly_salary) newErrors.monthly_salary = "Monthly salary required";
-    }
-
-    if (form.type === "contract") {
-      if (!form.daily_rate) newErrors.daily_rate = "Daily rate required";
-      // hourly_rate will be auto-calculated from daily_rate/daily_working_hours
-    }
 
     setErrors(newErrors);
 
@@ -201,6 +198,10 @@ export default function WorkerFormDialog({
             <option value="foreman">Foreman</option>
             <option value="site_manager">Site Manager</option>
             <option value="engineer">Engineer</option>
+            <option value="technician">Technician</option>
+            <option value="helper">Helper</option>
+            <option value="site-in-charge">Site In-Charge</option>
+            <option value="supervisor">Supervisor</option>
             <option value="other">Other</option>
           </select>
 
@@ -209,21 +210,22 @@ export default function WorkerFormDialog({
             <option value="contract">Contract</option>
           </select>
 
+            {form.type === "permanent" && (
+              <>
+                <input type="number" placeholder="Monthly Salary" value={form.monthly_salary} onChange={(e) => setForm({ ...form, monthly_salary: e.target.value })} className="w-full border rounded p-2" />
+                {errors.monthly_salary && <p className="text-red-500 text-sm">{errors.monthly_salary}</p>}
+
+                <input type="number" placeholder="Daily Rate" value={form.daily_rate} onChange={(e) => setForm({ ...form, daily_rate: e.target.value })} className="w-full border rounded p-2" />
+                {errors.daily_rate && <p className="text-red-500 text-sm">{errors.daily_rate}</p>}
+              </>
+            )}
+
           <div className="grid grid-cols-1 gap-3">
             <div>
               <input type="number" placeholder="Daily Working Hours" value={form.daily_working_hours} onChange={(e) => setForm({ ...form, daily_working_hours: e.target.value })} className="w-full border rounded p-2" />
               {errors.daily_working_hours && <p className="text-red-500 text-sm">{errors.daily_working_hours}</p>}
             </div>
 
-            {form.type === "permanent" && (
-              <>
-                <input type="number" placeholder="Daily Rate" value={form.daily_rate} onChange={(e) => setForm({ ...form, daily_rate: e.target.value })} className="w-full border rounded p-2" />
-                {errors.daily_rate && <p className="text-red-500 text-sm">{errors.daily_rate}</p>}
-
-                <input type="number" placeholder="Monthly Salary" value={form.monthly_salary} onChange={(e) => setForm({ ...form, monthly_salary: e.target.value })} className="w-full border rounded p-2" />
-                {errors.monthly_salary && <p className="text-red-500 text-sm">{errors.monthly_salary}</p>}
-              </>
-            )}
 
             {form.type === "contract" && (
               <>
