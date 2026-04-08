@@ -34,6 +34,29 @@ from uuid import UUID as _UUID
 router = APIRouter(prefix="/mobile", tags=["Mobile"])
 
 
+def serialize_worker_mobile(w, role: str):
+    data = {
+        "id": w.id,
+        "full_name": w.full_name,
+        "mobile": w.mobile,
+        "role": w.role,
+        "type": w.type,
+        "status": w.status,
+        "joining_date": str(w.joining_date) if w.joining_date else None,
+        "photo_url": w.photo_url,
+        "shift_id": str(w.shift_id) if w.shift_id else None,
+    }
+
+    # 🔐 Role-based salary visibility
+    if role == "admin":
+        data.update({
+            "daily_rate": w.daily_rate,
+            "hourly_rate": w.hourly_rate,
+            "monthly_salary": w.monthly_salary,
+        })
+
+    return data
+
 def get_db():
     db = SessionLocal()
     try:
@@ -216,7 +239,7 @@ def get_site_recent_activity(user=Depends(require_mobile_user),db: Session = Dep
 def get_site_workers(search: str | None = Query(None),status: str | None = Query(None),user=Depends(require_mobile_user),db: Session = Depends(get_db)):
 
     site_id = get_site_id_or_raise(user)
-
+    role   = user.get("role")
     site = db.query(Site).filter(Site.id == site_id).first()
     if not site:
         raise HTTPException(400, "Invalid site")
@@ -249,21 +272,10 @@ def get_site_workers(search: str | None = Query(None),status: str | None = Query
         else:
             today_status = "absent"
 
-        result.append({
-            "id": w.id,
-            "full_name": w.full_name,
-            "mobile": w.mobile,
-            "role": w.role,
-            "type": w.type,
-            "status": w.status,
-            "joining_date": str(w.joining_date) if w.joining_date else None,
-            "photo_url": w.photo_url,
-            "today_status": today_status,
-            "shift_id": str(w.shift_id) if w.shift_id else None,
-            "daily_rate": w.daily_rate,
-            "hourly_rate": w.hourly_rate,
-            "monthly_salary": w.monthly_salary,
-        })
+        worker_data = serialize_worker_mobile(w, role)
+        worker_data["today_status"] = today_status
+
+        result.append(worker_data)
 
     return result
 
