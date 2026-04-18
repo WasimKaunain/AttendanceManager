@@ -60,55 +60,56 @@ class WorkerBase(BaseModel):
 # -----------------------------
 # Create Schema
 # -----------------------------
-@model_validator(mode="after")
-def validate_salary_logic(self):
-
-    # -----------------------------
-    # TYPE BASED VALIDATION
-    # -----------------------------
-
-    if self.type == "permanent":
-
-        # daily_working_hours REQUIRED
-        if self.daily_working_hours is None or self.daily_working_hours <= 0:
-            raise ValueError("daily_working_hours must be provided and > 0")
-
-        if not self.monthly_salary:
-            raise ValueError("Permanent worker must have monthly_salary")
-
-    else:  # contract
-
-        # daily_working_hours OPTIONAL
-        if self.daily_working_hours is not None and self.daily_working_hours <= 0:
-            raise ValueError("daily_working_hours must be > 0 if provided")
-
-        if self.monthly_salary:
-            object.__setattr__(self, 'monthly_salary', None)
-
-        if not self.daily_rate:
-            raise ValueError("Contract worker must have daily_rate")
-
-    # -----------------------------
-    # DERIVED FIELDS
-    # -----------------------------
-
-    # Only compute hourly_rate if working_hours exists
-    if (
-        (not self.hourly_rate or self.hourly_rate == 0)
-        and self.daily_rate
-        and self.daily_working_hours
-    ):
-        object.__setattr__(
-            self,
-            'hourly_rate',
-            round(self.daily_rate / self.daily_working_hours, 4)
-        )
-
-    # default OT multiplier
-    if not self.ot_multiplier:
-        object.__setattr__(self, 'ot_multiplier', 1.5)
-
-    return self
+class WorkerCreate(WorkerBase):
+    @model_validator(mode="after")
+    def validate_salary_logic(self):
+    
+        # -----------------------------
+        # TYPE BASED VALIDATION
+        # -----------------------------
+    
+        if self.type == "permanent":
+        
+            # daily_working_hours REQUIRED
+            if self.daily_working_hours is None or self.daily_working_hours <= 0:
+                raise ValueError("daily_working_hours must be provided and > 0")
+    
+            if not self.monthly_salary:
+                raise ValueError("Permanent worker must have monthly_salary")
+    
+        else:  # contract
+        
+            # daily_working_hours OPTIONAL
+            if self.daily_working_hours is not None and self.daily_working_hours <= 0:
+                raise ValueError("daily_working_hours must be > 0 if provided")
+    
+            if self.monthly_salary:
+                object.__setattr__(self, 'monthly_salary', None)
+    
+            if not self.daily_rate:
+                raise ValueError("Contract worker must have daily_rate")
+    
+        # -----------------------------
+        # DERIVED FIELDS
+        # -----------------------------
+    
+        # Only compute hourly_rate if working_hours exists
+        if (
+            (not self.hourly_rate or self.hourly_rate == 0)
+            and self.daily_rate
+            and self.daily_working_hours
+        ):
+            object.__setattr__(
+                self,
+                'hourly_rate',
+                round(self.daily_rate / self.daily_working_hours, 4)
+            )
+    
+        # default OT multiplier
+        if not self.ot_multiplier:
+            object.__setattr__(self, 'ot_multiplier', 1.5)
+    
+        return self
 
 
 # -----------------------------
