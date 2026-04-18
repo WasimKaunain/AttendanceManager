@@ -20,7 +20,7 @@ from app.models import project
 from app.models.attendance import AttendanceRecord
 from app.models.site import Site
 from app.models.payroll import PayrollEntry
-from app.schemas.worker import WorkerCreate, WorkerResponse, WorkerUpdate, ActionResponse, ForceDeleteRequest, ArchiveRequest
+from app.schemas.worker import WorkerCreate, WorkerResponse, WorkerUpdate, ActionResponse, ForceDeleteRequest, ArchiveRequest, WorkerBulkRequest
 from app.core.dependencies import require_admin
 from app.services.audit_service import log_action
 from app.services.r2 import generate_presigned_download_url, upload_file_to_r2, s3, R2_BUCKET
@@ -201,7 +201,7 @@ def download_worker_template(db: Session = Depends(get_db)):
 
     ws_roles = wb.create_sheet("roles")
 
-    roles = ["labour", "mason", "helper", "supervisor", "electrician"]
+    roles = ["Electrician", "Fitter", "Mason", "Labourer", "Foreman", "Site Manager", "Engineer", "Technician", "Helper", "Site In-Charge", "Supervisor", "Other"]
 
     ws_roles.append(["role"])
 
@@ -299,8 +299,14 @@ def download_worker_template(db: Session = Depends(get_db)):
         # auto fill first site
         ws[f"E{row}"] = f'=IF(D{row}="","",INDEX(INDIRECT(SUBSTITUTE(D{row}," ","_")),1))'
 
+        # daily rate calculation
+        ws[f"I{row}"] = f'=IF(G{row}="permanent",IF(H{row}<>"",ROUND(H{row}/30,2),""),"")'
+
         # hourly rate
-        ws[f"K{row}        ws[f"K{row}"] = f'=IF(AND(I{row}<>"",J{row}<>""),ROUND(I{row}/J{row},2),"")'-------------
+        ws[f"K{row}"] = f'=IF(AND(I{row}<>"",J{row}<>""),ROUND(I{row}/J{row},2),"")'
+
+
+    # -----------------------
     # export
     # -----------------------
 
@@ -542,8 +548,8 @@ def worker_attendance_insight(
 # --------------------------------------------------
 # PATCH / UPDATE WORKER
 # --------------------------------------------------
-@router.patch("/{w
-orker_id}", response_model=WorkerResponse)
+
+@router.patch("/{worker_id}", response_model=WorkerResponse)
 def patch_worker(
     worker_id: str,
     data: WorkerUpdate,
@@ -992,7 +998,14 @@ def delete_payroll_entry(
 
 
 @router.post("/bulk-validate")
-def bulk_validate_workers(rows: list[dict], db: Session = Depends(get_db)):
+def bulk_validate_workers(
+    payload: WorkerBulkRequest,
+    db: Session = Depends(get_db)
+):
+
+    rows = payload.rows
+    selected_project_id = payload.project_id
+    selected_site_id = payload.site_id
 
     if not isinstance(rows, list):
         raise HTTPException(400, "Expected a JSON array of rows")
@@ -1003,35 +1016,29 @@ def bulk_validate_workers(rows: list[dict], db: Session = Depends(get_db)):
     valid = []
     invalid = []
 
+    # Pre-fetch project/site if selected globally
+    selected_project = None
+    selected_site = None
+
+    if selected_project_id:
+        selected_project = db.query(Project).filter(
+            Project.id == selected_project_id,
+            Project.is_deleted == False
+        ).first()
+
+        if not selected_project:
+            raise HTTPException(400, "Selected project not found")
+
+        selected_site = db.query(Site).filter(
+            Site.id == selected_site_id,
+            Site.project_id == selected_project.id,
+            Site.is_deleted == False
+        ).first()
+
+        if not selected_site:
+            raise HTTPException(400, "Selected site not found for project")
+
     for idx, row in enumerate(rows):
-
-        try:
-
-            row = dict(row)
-
-            # Convert empty strings → None
-            for k, v in row.items():
-                if v == "":
-                    row[k] = None
-
-            # Force numeric fields to string
-            if row.get("mobile") is not None:
-                row["mobile"] = str(row["mobile"]).strip()
-
-            if row.get("id_number") is not None:
-                row["id_number"] = str(row["id_number"]).strip()
-
-            project_name = row.pop("project", None)
-            site_name = row.pop("site", None)
-
-            project = None
-            site = None
-
-            if project_name:
-                project = db.query(Project).filter(
-                    func.lower(Project.name) == project_name.lower(),
-                    Project.is_deleted == False
-       for idx, row in enumerate(rows):
 
         row_errors = []
 
@@ -1164,8 +1171,55 @@ def bulk_validate_workers(rows: list[dict], db: Session = Depends(get_db)):
                     "field": field,
                     "message": message
                 }]
-            })mber", ""))[-3:]
-            worker_id = f"EMP{last3_mobile}{last3_id}"
+            })
+
+    return {"valid": valid, "invalid": invalid}
+
+
+@router.post("/bulk-create")
+def bulk_create_workers(
+    payload: WorkerBulkRequest,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin),
+):
+
+    rows = payload.rows
+
+    if not isinstance(rows, list):
+        raise HTTPException(400, "Expected a JSON array of rows")
+
+    if len(rows) > MAX_BULK_ROWS:
+        raise HTTPException(400, f"Max {MAX_BULK_ROWS} rows allowed")
+
+    created = []
+    failed = []
+
+    for idx, row in enumerate(rows):
+
+        try:
+            data = WorkerCreate(**row).model_dump()
+
+        except ValidationError as e:
+            failed.append({
+                "index": idx,
+                "row": row,
+                "errors": e.errors()
+            })
+            continue
+
+        except Exception as e:
+            failed.append({
+                "index": idx,
+                "row": row,
+                "errors": [str(e)]
+            })
+            continue
+
+        try:
+
+            last3_mobile = str(data.get("mobile", ""))[-3:]
+            last3_id = str(data.get("id_number", ""))[-3:]
+            worker_id = f"E{last3_mobile}{last3_id}"
 
             existing = db.query(Worker).filter(
                 Worker.id == worker_id
@@ -1213,9 +1267,6 @@ def bulk_validate_workers(rows: list[dict], db: Session = Depends(get_db)):
             db.commit()
             db.refresh(worker)
 
-            # -----------------------------
-            # AUDIT LOG
-            # -----------------------------
             log_action(
                 db=db,
                 action="worker_create_bulk",
@@ -1227,11 +1278,11 @@ def bulk_validate_workers(rows: list[dict], db: Session = Depends(get_db)):
 
             created.append({
                 "index": idx,
-                "id": worker.id
+                "id": worker.id,
+                "name": worker.full_name,
             })
 
         except IntegrityError:
-
             db.rollback()
 
             failed.append({
@@ -1241,7 +1292,6 @@ def bulk_validate_workers(rows: list[dict], db: Session = Depends(get_db)):
             })
 
         except Exception as e:
-
             db.rollback()
 
             failed.append({
@@ -1250,9 +1300,6 @@ def bulk_validate_workers(rows: list[dict], db: Session = Depends(get_db)):
                 "errors": [str(e)]
             })
 
-    # -----------------------------
-    # OPTIONAL BULK SUMMARY LOG
-    # -----------------------------
     log_action(
         db=db,
         action="worker_bulk_import_summary",
