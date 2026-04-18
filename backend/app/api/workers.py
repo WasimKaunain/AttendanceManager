@@ -303,7 +303,7 @@ def download_worker_template(db: Session = Depends(get_db)):
         ws[f"I{row}"] = f'=IF(G{row}="permanent",IF(H{row}<>"",ROUND(H{row}/30,2),""),"")'
 
         # hourly rate
-        ws[f"K{row}"] = f'=IF(AND(I{row}<>"",J{row}<>""),ROUND(I{row}/J{row},2),"")'
+        ws[f"K{row}"] = f'=IF(OR(J{row}="",I{row}=""),"",ROUND(I{row}/J{row},2))'
 
 
     # -----------------------
