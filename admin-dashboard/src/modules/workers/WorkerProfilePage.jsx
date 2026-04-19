@@ -163,6 +163,14 @@ export default function WorkerProfilePage() {
   // -------------------------
   const totalDays = (summary?.present_days || 0) + (summary?.absent_days || 0) || 1;
 
+  // Payroll monthly earning estimate for chart axis (max-ish monthly earnings)
+  // Rule: hourly_rate * (daily_working_hours if set else 10) * 30
+  const estMonthlyEarning = (() => {
+    const hr = Number(worker?.hourly_rate || 0);
+    const dwh = Number(worker?.daily_working_hours || 10);
+    return hr * dwh * 30;
+  })();
+
   const attendancePercent = summary ? Math.min(100,((summary.present_days / totalDays) * 100).toFixed(0)): 0;
 
   const performanceScore = summary ? Math.min(100, (summary.total_hours / 200) * 100).toFixed(0): 0;
