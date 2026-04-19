@@ -160,7 +160,7 @@ export default function WorkerProfilePage() {
 
     //-------------------------
   //PERFORMANCE STATS CALCULATION
-  //-------------------------
+  // -------------------------
   const totalDays = (summary?.present_days || 0) + (summary?.absent_days || 0) || 1;
 
   const attendancePercent = summary ? Math.min(100,((summary.present_days / totalDays) * 100).toFixed(0)): 0;
@@ -492,17 +492,17 @@ const toggleMutation = useMutation({
 
                     <InfoItem
                       label="Monthly Salary"
-                      value={worker.type === "contract" ? "N/A" : `₹ ${worker.monthly_salary != null ? worker.monthly_salary.toLocaleString() : 0}`}
+                      value={worker.type === "contract" ? "N/A" : `SAR ${worker.monthly_salary != null ? worker.monthly_salary.toLocaleString() : 0}`}
                     />
 
                     <InfoItem
                       label="Hourly Rate"
-                      value={worker.hourly_rate != null ? `₹ ${worker.hourly_rate}` : '—'}
+                      value={worker.hourly_rate != null ? `SAR ${worker.hourly_rate}` : '—'}
                     />
 
                     <InfoItem
                       label="Daily Rate"
-                      value={worker.daily_rate != null ? `₹ ${worker.daily_rate}` : '—'}
+                      value={worker.daily_rate != null ? `SAR ${worker.daily_rate}` : '—'}
                     />
 
                     <InfoItem
@@ -560,7 +560,13 @@ const toggleMutation = useMutation({
                         <BarChart data={insight.monthly_trend} barSize={28}>
                           <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
                           <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-                          <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} unit="h" />
+                          <YAxis
+                            tick={{ fontSize: 11, fill: "#94a3b8" }}
+                            axisLine={false}
+                            tickLine={false}
+                            unit="h"
+                            domain={[0, 300]}
+                          />
                           <Tooltip
                             contentStyle={{ borderRadius: 12, border: "none", boxShadow: "0 4px 20px rgba(0,0,0,0.1)", fontSize: 12 }}
                             formatter={(v) => [`${v}h`, "Hours"]}
@@ -799,10 +805,10 @@ const toggleMutation = useMutation({
                       {[
                         { icon: <CalendarDays size={18} />, label: "Present Days",   value: `${payroll.present_days} days`,        color: "text-emerald-600", bg: "bg-emerald-50" },
                         { icon: <Clock size={18} />,        label: "Hours Worked",   value: `${payroll.total_hours}h`,              color: "text-indigo-600",  bg: "bg-indigo-50"  },
-                        { icon: <BadgeDollarSign size={18}/>,label:"Gross Earnings", value: `₹ ${payroll.gross.toLocaleString()}`,  color: "text-blue-600",    bg: "bg-blue-50"    },
-                        { icon: <CircleMinus size={18} />,  label: "Advances",       value: `₹ ${payroll.total_advances.toLocaleString()}`,   color: "text-red-500",    bg: "bg-red-50"    },
-                        { icon: <CircleMinus size={18} />,  label: "Deductions",     value: `₹ ${payroll.total_deductions.toLocaleString()}`, color: "text-orange-500", bg: "bg-orange-50" },
-                        { icon: <Gift size={18} />,         label: "Bonuses",        value: `₹ ${payroll.total_bonuses.toLocaleString()}`,    color: "text-teal-600",   bg: "bg-teal-50"   },
+                        { icon: <BadgeDollarSign size={18}/>,label:"Gross Earnings", value: `SAR ${payroll.gross.toLocaleString()}`,  color: "text-blue-600",    bg: "bg-blue-50"    },
+                        { icon: <CircleMinus size={18} />,  label: "Advances",       value: `SAR ${payroll.total_advances.toLocaleString()}`,   color: "text-red-500",    bg: "bg-red-50"    },
+                        { icon: <CircleMinus size={18} />,  label: "Deductions",     value: `SAR ${payroll.total_deductions.toLocaleString()}`, color: "text-orange-500", bg: "bg-orange-50" },
+                        { icon: <Gift size={18} />,         label: "Bonuses",        value: `SAR ${payroll.total_bonuses.toLocaleString()}`,    color: "text-teal-600",   bg: "bg-teal-50"   },
                       ].map((pill) => (
                         <div key={pill.label} className="backdrop-blur-xl bg-white/60 border border-white/40 rounded-2xl p-4 shadow-md flex items-center gap-3">
                           <div className={`${pill.bg} ${pill.color} p-2 rounded-xl`}>{pill.icon}</div>
@@ -822,7 +828,7 @@ const toggleMutation = useMutation({
                       <div className="min-w-0">
                         <p className="text-emerald-100 text-sm font-medium">Net Payable</p>
                         <p className="text-white text-2xl md:text-4xl font-extrabold mt-1">
-                          ₹ {Math.abs(payroll.net_payable).toLocaleString()}
+                          SAR {Math.abs(payroll.net_payable).toLocaleString()}
                         </p>
                         <p className="text-white/70 text-xs mt-1 truncate">
                           {payroll.gross} gross · −{payroll.total_advances + payroll.total_deductions} deducted · +{payroll.total_bonuses} bonus
@@ -865,7 +871,7 @@ const toggleMutation = useMutation({
                                 <div className="text-right">
                                   <p className={`text-sm font-bold
                                     ${e.entry_type === "bonus" ? "text-teal-600" : "text-red-500"}`}>
-                                    {e.entry_type === "bonus" ? "+" : "−"}₹ {e.amount.toLocaleString()}
+                                    {e.entry_type === "bonus" ? "+" : "−"}SAR {e.amount.toLocaleString()}
                                   </p>
                                   <p className="text-xs text-slate-400 dark:text-slate-500">{e.date}</p>
                                 </div>
@@ -892,10 +898,15 @@ const toggleMutation = useMutation({
                         <BarChart data={payroll.history} barSize={28}>
                           <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
                           <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-                          <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
+                          <YAxis
+                            tick={{ fontSize: 11, fill: "#94a3b8" }}
+                            axisLine={false}
+                            tickLine={false}
+                            domain={[0, Math.max(1000, Math.ceil(estMonthlyEarning / 500) * 500)]}
+                          />
                           <Tooltip
                             contentStyle={{ borderRadius: 12, border: "none", boxShadow: "0 4px 20px rgba(0,0,0,0.1)", fontSize: 12 }}
-                            formatter={(v, name) => [`₹ ${v}`, name === "gross" ? "Gross" : "Net"]}
+                            formatter={(v, name) => [`SAR ${v}`, name === "gross" ? "Gross" : "Net"]}
                           />
                           <Bar dataKey="gross" name="gross" radius={[4, 4, 0, 0]} fill="#c7d2fe" />
                           <Bar dataKey="net"   name="net"   radius={[4, 4, 0, 0]} fill="#6366f1" />
@@ -941,7 +952,7 @@ const toggleMutation = useMutation({
 
             {/* Amount */}
             <div>
-              <label className="text-xs text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wide">Amount (₹)</label>
+              <label className="text-xs text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wide">Amount (SAR)</label>
               <input
                 type="number"
                 min="1"

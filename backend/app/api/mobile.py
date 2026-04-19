@@ -7,7 +7,7 @@ from app.services.audit_service import log_action
 from app.services.geofence import is_within_geofence
 from app.services.face_service import is_same_person, cosine_similarity
 from app.services.debug_logger import log_face, log_geofence
-import uuid, shutil, os, json, pytz
+import uuid, shutil, os, json, pytz, math
 from datetime import datetime, date, timedelta, timezone
 from app.models.worker import Worker
 from app.models.site import Site
@@ -494,8 +494,10 @@ def check_in(
         raise HTTPException(400, "Invalid site")
     print(f"Valid site and Site name : {site.name}")
 
-    utc_now = datetime.now(timezone.utc)
-    local_time = utc_now.astimezone(pytz.timezone(site.timezone))
+    # Store timestamps as UTC-naive values because DB columns are `timestamp without time zone`.
+    # Using aware datetimes here can lead to inconsistent math when values round-trip through DB.
+    utc_now = datetime.utcnow()
+    local_time = utc_now.replace(tzinfo=pytz.utc).astimezone(pytz.timezone(site.timezone))
 
     existing = db.query(AttendanceRecord).filter(AttendanceRecord.worker_id == worker_id,AttendanceRecord.date == local_time.date()).first()
 
@@ -645,8 +647,9 @@ def check_out(
         print("FAIL: Invalid site")
         raise HTTPException(400, "Invalid site")
 
-    utc_now = datetime.now(timezone.utc)
-    local_time = utc_now.astimezone(pytz.timezone(site.timezone))
+    # Store timestamps as UTC-naive values because DB columns are `timestamp without time zone`.
+    utc_now = datetime.utcnow()
+    local_time = utc_now.replace(tzinfo=pytz.utc).astimezone(pytz.timezone(site.timezone))
 
     record = db.query(AttendanceRecord).filter(AttendanceRecord.worker_id == worker_id, AttendanceRecord.date == local_time.date()).first()
 
@@ -769,7 +772,7 @@ def check_out(
     try:
         if record.check_in_time and record.check_out_time:
             delta = record.check_out_time - record.check_in_time
-            total_hours = round(delta.total_seconds() / 3600, 2)
+            total_hours = math.floor(delta.total_seconds() / 3600)
         else:
             total_hours = 0
     except Exception:
@@ -780,7 +783,7 @@ def check_out(
     # compute overtime based on worker.daily_working_hours (nullable)
     dw_hours = getattr(worker, 'daily_working_hours', None) or 0
     overtime = max(0, total_hours - dw_hours)
-    record.overtime_hours = round(overtime, 2)
+    record.overtime_hours = overtime
 
     db.commit()
     db.refresh(record)
