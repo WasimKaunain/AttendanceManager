@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useLayoutEffect } from "react";
+import { useState, useEffect, useRef, useLayoutEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
 import api from "@/core/api/axios";
@@ -36,6 +36,19 @@ export default function FilterPanel({ reportType, filters, onChange }) {
   // single open selector key so only one dropdown is shown at a time
   const [openSelector, setOpenSelector] = useState(null);
 
+  // local search state for dropdown filtering
+  const [workerSearch, setWorkerSearch] = useState("");
+
+  const filteredWorkers = useMemo(() => {
+    const q = (workerSearch || "").trim().toLowerCase();
+    if (!q) return workers;
+    return (workers || []).filter((w) =>
+      String(w.full_name || "").toLowerCase().includes(q) ||
+      String(w.id || "").toLowerCase().includes(q) ||
+      String(w.mobile || "").toLowerCase().includes(q)
+    );
+  }, [workers, workerSearch]);
+
   // clear unrelated selections when reportType changes (only update if something actually changes)
   useEffect(() => {
     onChange((prev) => {
@@ -65,7 +78,7 @@ export default function FilterPanel({ reportType, filters, onChange }) {
   }, [reportType]);
 
   // Collapsible selector renders panel into a portal to avoid stacking context problems
-  function CollapsibleSelector({ keyName, label, items, selectedIds = [], onToggleItem, itemLabel, isOpen, onToggleOpen }) {
+  function CollapsibleSelector({ keyName, label, items, selectedIds = [], onToggleItem, itemLabel, isOpen, onToggleOpen, enableSearch = false, searchValue = "", onSearchChange }) {
     const selectedCount = Array.isArray(selectedIds) ? selectedIds.length : 0;
     const buttonRef = useRef(null);
     const [pos, setPos] = useState({ top: 0, left: 0, width: 0 });
@@ -88,12 +101,12 @@ export default function FilterPanel({ reportType, filters, onChange }) {
             onToggleOpen(keyName);
           }}
           aria-expanded={!!isOpen}
-          className="w-full flex items-center justify-between p-3 border rounded-xl bg-white dark:bg-slate-700 dark:border-slate-600"
+          className="w-full flex items-center justify-between p-3 border rounded-xl bg-white dark:bg-slate-700 dark:border-slate-600 hover:border-indigo-300 dark:hover:border-indigo-500 transition"
         >
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-slate-800 dark:text-slate-200">{label}</span>
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">{label}</span>
             {selectedCount > 0 && (
-              <span className="text-xs bg-indigo-100 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-300 px-2 py-0.5 rounded-full">{selectedCount}</span>
+              <span className="text-xs bg-indigo-100 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-300 px-2 py-0.5 rounded-full flex-shrink-0">{selectedCount}</span>
             )}
           </div>
           <svg
@@ -112,12 +125,22 @@ export default function FilterPanel({ reportType, filters, onChange }) {
               data-report-panel
               onClick={(e) => e.stopPropagation()}
               style={{ top: pos.top, left: pos.left, width: pos.width }}
-              className="fixed z-50 border dark:border-slate-600 p-3 rounded-xl bg-white dark:bg-slate-700 max-h-56 overflow-y-auto shadow-lg pointer-events-auto"
+              className="fixed z-50 border dark:border-slate-600 p-3 rounded-2xl bg-white dark:bg-slate-800 max-h-[22rem] overflow-y-auto shadow-2xl pointer-events-auto"
             >
-              <div className="space-y-2">
+              {enableSearch && (
+                <div className="mb-2">
+                  <input
+                    value={searchValue}
+                    onChange={(e) => onSearchChange?.(e.target.value)}
+                    placeholder="Search..."
+                    className="w-full text-sm px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white/80 dark:bg-slate-700/60 text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-indigo-300"
+                  />
+                </div>
+              )}
+              <div className="space-y-1">
                 {items && items.length > 0 ? (
                   items.map((it) => (
-                    <label key={it.id} className="flex items-center gap-2">
+                    <label key={it.id} className="flex items-center gap-2 px-2 py-1.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700/60">
                       <input
                         type="checkbox"
                         checked={Array.isArray(selectedIds) && selectedIds.includes(it.id)}
@@ -202,12 +225,20 @@ export default function FilterPanel({ reportType, filters, onChange }) {
             <CollapsibleSelector
               keyName="workers"
               label="Workers"
-              items={workers}
+              items={filteredWorkers}
               selectedIds={filters?.worker_ids}
               onToggleItem={(id) => handleToggle('worker_ids', id)}
-              itemLabel={(item) => item.full_name}
+              itemLabel={(item) => (
+                <div className="flex items-center justify-between gap-2 w-full">
+                  <span className="truncate">{item.full_name}</span>
+                  <span className="text-[11px] text-slate-400 flex-shrink-0">{item.id}</span>
+                </div>
+              )}
               isOpen={openSelector === 'workers'}
               onToggleOpen={(k) => setOpenSelector((prev) => (prev === k ? null : k))}
+              enableSearch
+              searchValue={workerSearch}
+              onSearchChange={setWorkerSearch}
             />
           </div>
         )}
@@ -250,16 +281,39 @@ export default function FilterPanel({ reportType, filters, onChange }) {
         {reportType === "attendance_workerwise" && (
           <>
             <div className="border dark:border-slate-600 p-3 rounded-xl bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 w-full">
+              <div className="text-sm font-medium mb-2">Filter Sites (optional)</div>
+              <CollapsibleSelector
+                keyName="sites_workerwise"
+                label="Sites"
+                items={sites}
+                selectedIds={filters?.site_ids}
+                onToggleItem={(id) => handleToggle('site_ids', id)}
+                itemLabel={(item) => item.name}
+                isOpen={openSelector === 'sites_workerwise'}
+                onToggleOpen={(k) => setOpenSelector((prev) => (prev === k ? null : k))}
+              />
+              <div className="text-xs text-slate-400 mt-2">If you select a site, the report will include only attendance where that site was used for check-in or check-out.</div>
+            </div>
+
+            <div className="border dark:border-slate-600 p-3 rounded-xl bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 w-full">
               <div className="text-sm font-medium mb-2">Select Workers</div>
               <CollapsibleSelector
                 keyName="workers_att"
                 label="Workers"
-                items={workers}
+                items={filteredWorkers}
                 selectedIds={filters?.worker_ids}
                 onToggleItem={(id) => handleToggle('worker_ids', id)}
-                itemLabel={(item) => item.full_name}
+                itemLabel={(item) => (
+                  <div className="flex items-center justify-between gap-2 w-full">
+                    <span className="truncate">{item.full_name}</span>
+                    <span className="text-[11px] text-slate-400 flex-shrink-0">{item.id}</span>
+                  </div>
+                )}
                 isOpen={openSelector === 'workers_att'}
                 onToggleOpen={(k) => setOpenSelector((prev) => (prev === k ? null : k))}
+                enableSearch
+                searchValue={workerSearch}
+                onSearchChange={setWorkerSearch}
               />
             </div>
 

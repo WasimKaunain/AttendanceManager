@@ -68,9 +68,14 @@ export default function ReportsPage() {
 
       case "attendance_workerwise": {
         const ids = Array.isArray(filters?.worker_ids) ? filters.worker_ids : [];
-        ids.forEach((id) =>
-          payloads.push({ report_type: activeTab, filters: buildSingleFilter("worker_id", id), format: finalFormat })
-        );
+        ids.forEach((id) => {
+          const f = buildSingleFilter("worker_id", id);
+          // optional: if a single site selected, pass it as site_id for server-side filtering
+          if (Array.isArray(filters?.site_ids) && filters.site_ids.length === 1) {
+            f.site_id = filters.site_ids[0];
+          }
+          payloads.push({ report_type: activeTab, filters: f, format: finalFormat });
+        });
         break;
       }
 

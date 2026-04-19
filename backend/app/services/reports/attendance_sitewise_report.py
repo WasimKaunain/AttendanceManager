@@ -32,13 +32,17 @@ class AttendanceSitewiseReportBuilder(BaseReportBuilder):
         if not site:
             raise Exception("Site not found")
 
-        # Fetch all attendance records for this site within the date range
+        # Fetch all attendance records for this site within the date range.
+        # Include records where this site handled either check-in OR check-out.
         records = (
             self.db.query(AttendanceRecord)
             .filter(
-                AttendanceRecord.check_in_site_id == site.id,
+                (
+                    (AttendanceRecord.check_in_site_id == site.id)
+                    | (AttendanceRecord.check_out_site_id == site.id)
+                ),
                 AttendanceRecord.date >= self.filters.from_date,
-                AttendanceRecord.date <= self.filters.to_date
+                AttendanceRecord.date <= self.filters.to_date,
             )
             .all()
         )
@@ -94,7 +98,8 @@ class AttendanceSitewiseReportBuilder(BaseReportBuilder):
             row = [worker.full_name]
             for d in date_list:
                 record = attendance_map.get((worker.id, d))
-                if record and record.status == "Checked_out":
+                # DB uses lowercase statuses (checked_in / checked_out)
+                if record and (record.status or "").lower() == "checked_out":
                     # Show a simple present marker; 'is_late' is displayed only when True
                     row.append("L" if record.is_late else "✔")
                 else:
