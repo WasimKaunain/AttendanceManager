@@ -793,78 +793,152 @@ def get_payroll(
     db: Session = Depends(get_db),
 ):
     """
-    Returns payroll summary for a given month:    - gross earnings (from attendance × rate)
+    Returns payroll summary for a given month:
+    - gross earnings (from attendance × rate)
     - advance/deduction/bonus entries
     - net payable
     - payment history (last 6 months)
+    - earnings history (last 6 months) for charts
     """
     from calendar import month_name as _month_name
+    import math
 
     worker = db.query(Worker).filter(Worker.id == worker_id).first()
     if not worker:
         raise HTTPException(404, "Worker not found")
 
     today = date.today()
-    y = year  or today.year
+    y = year or today.year
     m = month or today.month
     month_label = f"{_month_name[m]} {y}"
 
-    # ── Attendance for the month ─────────────────────────────────
-    records = db.query(AttendanceRecord).filter(
-        AttendanceRecord.worker_id == worker_id,
-        extract("year",  AttendanceRecord.date) == y,
-        extract("month", AttendanceRecord.date) == m,
-        AttendanceRecord.status == "checked_out",
-    ).all()
+    # ── Attendance for the month (finalized only) ───────────────────────────
+    records = (
+        db.query(AttendanceRecord)
+        .filter(
+            AttendanceRecord.worker_id == worker_id,
+            extract("year", AttendanceRecord.date) == y,
+            extract("month", AttendanceRecord.date) == m,
+            AttendanceRecord.status == "checked_out",
+        )
+        .all()
+    )
 
-    present_days  = len(records)
-    total_hours   = round(sum(r.total_hours or 0 for r in records), 2)
+    present_days = len(records)
+    total_hours = round(sum(r.total_hours or 0 for r in records), 2)
 
-    # ── Gross calculation ─────────────────────────────────────────
-    import math
+    # ── Gross calculation ───────────────────────────────────────────────────
     if worker.type == "contract":
-        rate       = worker.hourly_rate or 0
+        rate = worker.hourly_rate or 0
         rate_label = f"SAR {rate}/hr"
-        gross      = round(math.floor(total_hours or 0) * rate, 2)
+        # Business rule: floor integer hours at payroll level as well
+        gross = round(math.floor(total_hours or 0) * rate, 2)
     else:  # permanent
-        rate       = worker.daily_rate or 0
+        rate = worker.daily_rate or 0
         rate_label = f"SAR {rate}/day"
-        gross      = round(present_days * rate, 2)
+        gross = round(present_days * rate, 2)
 
-    # ── Deductions and Advances ─────────────────────────────────
-    deductions = db.query(PayrollEntry).filter(
-        PayrollEntry.worker_id == worker_id,
-        PayrollEntry.type.in_(["deduction", "advance"]),
-        PayrollEntry.status == "active",
-    ).all()
+    # ── Entries for selected month ──────────────────────────────────────────
+    month_entries = (
+        db.query(PayrollEntry)
+        .filter(
+            PayrollEntry.worker_id == worker_id,
+            PayrollEntry.year == y,
+            PayrollEntry.month == m,
+        )
+        .order_by(PayrollEntry.date.desc())
+        .all()
+    )
 
-    total_deductions = sum(d.amount for d in deductions)
+    total_advances = sum(e.amount for e in month_entries if e.entry_type == "advance")
+    total_deductions = sum(e.amount for e in month_entries if e.entry_type == "deduction")
+    total_bonuses = sum(e.amount for e in month_entries if e.entry_type == "bonus")
 
-    # ── Net Payable Calculation ─────────────────────────────────
-    net_payable = round(gross - total_deductions, 2)
+    net_payable = round(gross + total_bonuses - total_advances - total_deductions, 2)
 
-    # ── Payment History (last 6 months) ────────────────────────
-    payment_history = db.query(PayrollEntry).filter(
-        PayrollEntry.worker_id == worker_id,
-        PayrollEntry.type == "payment",
-        PayrollEntry.status == "active",
-    ).order_by(PayrollEntry.date.desc()).limit(6).all()
+    entries_formatted = []
+    for e in month_entries:
+        entries_formatted.append(
+            {
+                "id": str(e.id),
+                "entry_type": e.entry_type,
+                "amount": round(e.amount or 0, 2),
+                "date": e.date.isoformat() if e.date else None,
+                "note": e.note,
+                "created_by": e.created_by,
+            }
+        )
 
-    # Format payment history for response
+    # ── Payment history (if payments are stored as PayrollEntry rows) ───────
+    payment_history = (
+        db.query(PayrollEntry)
+        .filter(
+            PayrollEntry.worker_id == worker_id,
+            PayrollEntry.entry_type == "payment",
+        )
+        .order_by(PayrollEntry.date.desc())
+        .limit(6)
+        .all()
+    )
+
     payment_history_formatted = []
-    for payment in payment_history:
-        payment_date = payment.date.strftime("%Y-%m-%d")
-        payment_history_formatted.append({
-            "date": payment_date,
-            "amount": round(payment.amount, 2),
-            "method": payment.method,
-        })
+    for p in payment_history:
+        payment_history_formatted.append(
+            {
+                "date": p.date.isoformat() if p.date else None,
+                "amount": round(p.amount or 0, 2),
+                "method": None,
+            }
+        )
+
+    # ── Earnings history (last 6 months) for charts ─────────────────────────
+    earnings_history = []
+    for i in range(5, -1, -1):
+        yy = today.year
+        mm = today.month - i
+        while mm <= 0:
+            mm += 12
+            yy -= 1
+
+        month_records = (
+            db.query(AttendanceRecord)
+            .filter(
+                AttendanceRecord.worker_id == worker_id,
+                extract("year", AttendanceRecord.date) == yy,
+                extract("month", AttendanceRecord.date) == mm,
+                AttendanceRecord.status == "checked_out",
+            )
+            .all()
+        )
+
+        mdays = len(month_records)
+        mhours = sum(r.total_hours or 0 for r in month_records)
+
+        if worker.type == "contract":
+            mgross = round(math.floor(mhours or 0) * (worker.hourly_rate or 0), 2)
+        else:
+            mgross = round(mdays * (worker.daily_rate or 0), 2)
+
+        earnings_history.append(
+            {
+                "month": date(yy, mm, 1).strftime("%b %Y"),
+                "gross": mgross,
+                "net": mgross,
+            }
+        )
 
     return {
         "worker_id": worker_id,
         "month": month_label,
-        "gross_earnings": gross,
-        "deductions": total_deductions,
+        "present_days": present_days,
+        "total_hours": total_hours,
+        "rate_label": rate_label,
+        "gross": gross,
+        "total_advances": round(total_advances, 2),
+        "total_deductions": round(total_deductions, 2),
+        "total_bonuses": round(total_bonuses, 2),
         "net_payable": net_payable,
+        "entries": entries_formatted,
         "payment_history": payment_history_formatted,
+        "earnings_history": earnings_history,
     }
