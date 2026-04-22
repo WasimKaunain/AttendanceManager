@@ -5,7 +5,6 @@ from openpyxl.utils import get_column_letter
 from openpyxl.drawing.image import Image
 
 
-# Brand colours
 _HEADER_FILL  = "0B1F3A"
 _ALT_FILL     = "EEF4FB"
 
@@ -24,28 +23,29 @@ def generate_excel(report_data: dict) -> str:
 
     with pd.ExcelWriter(file_name, engine="openpyxl") as writer:
         sheet_name = "Report"
-        ws = writer.book.create_sheet(sheet_name)
+        ws = writer.book.active
+        ws.title = sheet_name
         writer.sheets[sheet_name] = ws
 
         # ─────────────────────────────────────────────
-        # 🟥 TITLE ROW
+        # 🟥 TITLE (LEFT ALIGNED FIXED)
         # ─────────────────────────────────────────────
         ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=total_columns)
 
         cell = ws.cell(row=1, column=1)
         cell.value = title
         cell.font = Font(size=18, bold=True)
-        cell.alignment = Alignment(horizontal="center", vertical="center")
+        cell.alignment = Alignment(horizontal="left", vertical="center")  # ✅ FIXED
 
-        ws.row_dimensions[1].height = 35
+        ws.row_dimensions[1].height = 30
 
         # ─────────────────────────────────────────────
-        # ⬜ BLANK ROW
+        # ⬜ SINGLE BLANK ROW (FIXED)
         # ─────────────────────────────────────────────
         ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=total_columns)
 
         # ─────────────────────────────────────────────
-        # 🟦 METADATA ROW (MERGED)
+        # 🟦 METADATA (MERGED)
         # ─────────────────────────────────────────────
         ws.merge_cells(start_row=3, start_column=1, end_row=3, end_column=total_columns)
 
@@ -60,25 +60,31 @@ def generate_excel(report_data: dict) -> str:
         meta_cell.value = meta_text
         meta_cell.alignment = Alignment(wrap_text=True, vertical="top")
 
-        ws.row_dimensions[3].height = 90
+        ws.row_dimensions[3].height = 85
 
         # ─────────────────────────────────────────────
-        # 🖼️ LOGO (RIGHT SIDE)
+        # 🖼️ LOGO (FIXED POSITION)
         # ─────────────────────────────────────────────
         try:
             logo = Image("Assets/AINTSOL_LOGO.png")
             logo.width = 120
             logo.height = 60
 
-            logo_col = get_column_letter(max(2, total_columns - 2))
+            # place near far-right column
+            logo_col = get_column_letter(total_columns)
             ws.add_image(logo, f"{logo_col}3")
-        except Exception:
-            pass  # safe fallback if logo missing
+        except Exception as e:
+            print("Logo load failed:", e)
 
         # ─────────────────────────────────────────────
-        # 📊 TABLE START
+        # ⬜ EXACTLY ONE BLANK ROW AFTER METADATA
         # ─────────────────────────────────────────────
-        start_row = 11
+        ws.merge_cells(start_row=4, start_column=1, end_row=4, end_column=total_columns)
+
+        # ─────────────────────────────────────────────
+        # 📊 TABLE START (FIXED POSITION)
+        # ─────────────────────────────────────────────
+        start_row = 5
 
         df = pd.DataFrame(rows, columns=headers)
         df.to_excel(writer, sheet_name=sheet_name, index=False, startrow=start_row - 1)
@@ -89,7 +95,7 @@ def generate_excel(report_data: dict) -> str:
         thin = Side(style="thin", color="C8D8EF")
         border = Border(left=thin, right=thin, top=thin, bottom=thin)
 
-        # Header styling
+        # Header
         for col in range(1, total_columns + 1):
             cell = ws.cell(row=start_row, column=col)
             cell.font = Font(bold=True, color="FFFFFF")
@@ -108,21 +114,19 @@ def generate_excel(report_data: dict) -> str:
                 cell.border = border
                 cell.alignment = Alignment(horizontal="center")
 
-                # 🔴 absent marking
-                if cell.value == "✖":
+                # 🔴 FIXED RED CROSS
+                if str(cell.value).strip() == "✖":
+                    cell.value = "✖"
                     cell.font = Font(color="FF0000", bold=True)
 
         # ─────────────────────────────────────────────
         # 📏 COLUMN WIDTHS
         # ─────────────────────────────────────────────
-        # Worker name
         ws.column_dimensions["A"].width = 25
 
-        # Date columns
         for col in range(2, total_columns - 2):
             ws.column_dimensions[get_column_letter(col)].width = 12
 
-        # Summary columns
         for col in range(total_columns - 2, total_columns + 1):
             ws.column_dimensions[get_column_letter(col)].width = 15
 
