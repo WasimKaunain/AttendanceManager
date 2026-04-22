@@ -39,7 +39,7 @@ def generate_report(
             db=db,
             report_type=request.report_type,
             filters=request.filters,
-            format=request.format   # 👈 ADD THIS
+            format=request.format   #pdf,excel
         )
 
         if request.format == "pdf":
