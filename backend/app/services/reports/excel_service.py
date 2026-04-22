@@ -2,105 +2,133 @@ import pandas as pd
 import uuid
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
+from openpyxl.drawing.image import Image
 
 
-# Brand colours (hex without #)
-_HEADER_FILL  = "0B1F3A"   # navy
-_ACCENT_FILL  = "E8911F"   # amber
-_ALT_FILL     = "EEF4FB"   # pale blue
-
-
-def _style_sheet(ws, header_row: int, n_cols: int, n_data_rows: int):
-    """Apply branded styling to the data table in a worksheet."""
-    thin = Side(style="thin", color="C8D8EF")
-    border = Border(left=thin, right=thin, top=thin, bottom=thin)
-
-    for col_idx in range(1, n_cols + 1):
-        cell = ws.cell(row=header_row, column=col_idx)
-        cell.font      = Font(bold=True, color="FFFFFF", size=9)
-        cell.fill      = PatternFill("solid", fgColor=_HEADER_FILL)
-        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-        cell.border    = border
-        # auto-width hint
-        col_letter = get_column_letter(col_idx)
-        ws.column_dimensions[col_letter].width = max(
-            14, len(str(cell.value or "")) + 4
-        )
-
-    for row_idx in range(header_row + 1, header_row + 1 + n_data_rows):
-        fill_hex = _ALT_FILL if (row_idx - header_row) % 2 == 0 else "FFFFFF"
-        for col_idx in range(1, n_cols + 1):
-            cell = ws.cell(row=row_idx, column=col_idx)
-            cell.fill      = PatternFill("solid", fgColor=fill_hex)
-            cell.alignment = Alignment(horizontal="center", vertical="center")
-            cell.border    = border
-            cell.font      = Font(size=8)
+# Brand colours
+_HEADER_FILL  = "0B1F3A"
+_ALT_FILL     = "EEF4FB"
 
 
 def generate_excel(report_data: dict) -> str:
     file_name = f"/tmp/report_{uuid.uuid4()}.xlsx"
 
-    title         = report_data.get("title", "Report")
-    metadata      = report_data.get("metadata", {})
-    table_section = report_data.get("table", {})
-    headers       = table_section.get("headers", [])
-    rows          = table_section.get("rows", [])
+    title    = report_data.get("title", "Report")
+    metadata = report_data.get("metadata", {})
+    table    = report_data.get("table", {})
 
-    # Convert all headers to strings (sitewise uses int day numbers)
-    str_headers = [str(h) for h in headers]
+    headers = [str(h) for h in table.get("headers", [])]
+    rows    = table.get("rows", [])
+
+    total_columns = len(headers)
 
     with pd.ExcelWriter(file_name, engine="openpyxl") as writer:
         sheet_name = "Report"
+        ws = writer.book.create_sheet(sheet_name)
+        writer.sheets[sheet_name] = ws
 
-        current_row = 0  # 0-based for startrow
+        # ─────────────────────────────────────────────
+        # 🟥 TITLE ROW
+        # ─────────────────────────────────────────────
+        ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=total_columns)
 
-        # ── Title row ────────────────────────────────────────────
-        title_df = pd.DataFrame([[title]], columns=[""])
-        title_df.to_excel(writer, sheet_name=sheet_name,
-                          index=False, header=False,
-                          startrow=current_row)
-        current_row += 2
+        cell = ws.cell(row=1, column=1)
+        cell.value = title
+        cell.font = Font(size=18, bold=True)
+        cell.alignment = Alignment(horizontal="center", vertical="center")
 
-        # ── Metadata section ─────────────────────────────────────
-        if metadata:
-            meta_df = pd.DataFrame(
-                list(metadata.items()),
-                columns=["Field", "Value"]
-            )
-            meta_df.to_excel(writer, sheet_name=sheet_name,
-                             index=False, startrow=current_row)
-            current_row += len(meta_df) + 3   # header + rows + gap
+        ws.row_dimensions[1].height = 35
 
-        # ── Data table ────────────────────────────────────────────
-        if str_headers:
-            # Ensure every row has the right number of columns
-            n_cols = len(str_headers)
-            safe_rows = []
-            for row in rows:
-                r = list(row)
-                # pad or trim
-                if len(r) < n_cols:
-                    r += [""] * (n_cols - len(r))
-                safe_rows.append(r[:n_cols])
+        # ─────────────────────────────────────────────
+        # ⬜ BLANK ROW
+        # ─────────────────────────────────────────────
+        ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=total_columns)
 
-            table_df = pd.DataFrame(safe_rows, columns=str_headers)
-            table_df.to_excel(writer, sheet_name=sheet_name,
-                              index=False, startrow=current_row)
+        # ─────────────────────────────────────────────
+        # 🟦 METADATA ROW (MERGED)
+        # ─────────────────────────────────────────────
+        ws.merge_cells(start_row=3, start_column=1, end_row=3, end_column=total_columns)
 
-            # Apply styling
-            ws = writer.sheets[sheet_name]
-            header_excel_row = current_row + 1   # openpyxl is 1-based
-            _style_sheet(ws, header_excel_row, n_cols, len(safe_rows))
+        meta_text = (
+            f"Site Name    : {metadata.get('site_name','')}\n"
+            f"Date Range   : {metadata.get('date_range','')}\n"
+            f"Total Workers: {metadata.get('total_workers','')}\n"
+            f"Generated At : {metadata.get('generated_at','')}"
+        )
 
-        # ── Global sheet tweaks ───────────────────────────────────
-        ws = writer.sheets[sheet_name]
+        meta_cell = ws.cell(row=3, column=1)
+        meta_cell.value = meta_text
+        meta_cell.alignment = Alignment(wrap_text=True, vertical="top")
 
-        # Style title cell
-        title_cell = ws.cell(row=1, column=1)
-        title_cell.font      = Font(bold=True, size=14, color=_HEADER_FILL)
-        title_cell.alignment = Alignment(horizontal="left")
+        ws.row_dimensions[3].height = 90
 
-        # Freeze pane at first data row of the table
-        ws.freeze_panes = ws.cell(row=current_row + 2, column=2)
+        # ─────────────────────────────────────────────
+        # 🖼️ LOGO (RIGHT SIDE)
+        # ─────────────────────────────────────────────
+        try:
+            logo = Image("Assets/AINTSOL_LOGO.png")
+            logo.width = 120
+            logo.height = 60
+
+            logo_col = get_column_letter(max(2, total_columns - 2))
+            ws.add_image(logo, f"{logo_col}3")
+        except Exception:
+            pass  # safe fallback if logo missing
+
+        # ─────────────────────────────────────────────
+        # 📊 TABLE START
+        # ─────────────────────────────────────────────
+        start_row = 11
+
+        df = pd.DataFrame(rows, columns=headers)
+        df.to_excel(writer, sheet_name=sheet_name, index=False, startrow=start_row - 1)
+
+        # ─────────────────────────────────────────────
+        # 🎨 STYLING
+        # ─────────────────────────────────────────────
+        thin = Side(style="thin", color="C8D8EF")
+        border = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+        # Header styling
+        for col in range(1, total_columns + 1):
+            cell = ws.cell(row=start_row, column=col)
+            cell.font = Font(bold=True, color="FFFFFF")
+            cell.fill = PatternFill("solid", fgColor=_HEADER_FILL)
+            cell.alignment = Alignment(horizontal="center")
+            cell.border = border
+
+        # Data rows
+        for row_idx in range(start_row + 1, start_row + 1 + len(rows)):
+            fill = _ALT_FILL if row_idx % 2 == 0 else "FFFFFF"
+
+            for col_idx in range(1, total_columns + 1):
+                cell = ws.cell(row=row_idx, column=col_idx)
+
+                cell.fill = PatternFill("solid", fgColor=fill)
+                cell.border = border
+                cell.alignment = Alignment(horizontal="center")
+
+                # 🔴 absent marking
+                if cell.value == "✖":
+                    cell.font = Font(color="FF0000", bold=True)
+
+        # ─────────────────────────────────────────────
+        # 📏 COLUMN WIDTHS
+        # ─────────────────────────────────────────────
+        # Worker name
+        ws.column_dimensions["A"].width = 25
+
+        # Date columns
+        for col in range(2, total_columns - 2):
+            ws.column_dimensions[get_column_letter(col)].width = 12
+
+        # Summary columns
+        for col in range(total_columns - 2, total_columns + 1):
+            ws.column_dimensions[get_column_letter(col)].width = 15
+
+        # ─────────────────────────────────────────────
+        # ❄️ FREEZE HEADER
+        # ─────────────────────────────────────────────
+        ws.freeze_panes = f"A{start_row + 1}"
 
     return file_name

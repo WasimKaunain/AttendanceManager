@@ -113,8 +113,11 @@ class AttendanceSitewiseReportBuilder(BaseReportBuilder):
                 if record and (record.status or "").lower() == "checked_out":
                     hours = record.total_hours or 0
                     total_hours += hours
-                    row.append("L" if record.is_late else "✔")
+
+                    # ✅ show hours instead of ✔
+                    row.append(round(hours, 1))
                 else:
+                    # ❌ absent
                     row.append("✖")
 
             total_hours = round(total_hours, 2)
@@ -128,34 +131,19 @@ class AttendanceSitewiseReportBuilder(BaseReportBuilder):
 
             rows.append(row)
 
-        # ---- COLUMN COUNT ----
-        total_columns = 1 + len(date_list) + 3
-
-        # ---- METADATA STRING (READY FOR MERGED CELL) ----
-        metadata_text = (
-            f"Site Name    : {site.name}\n"
-            f"Date Range   : {self.filters.from_date.strftime('%d/%m/%Y')} to {self.filters.to_date.strftime('%d/%m/%Y')}\n"
-            f"Total Workers: {len(workers)}\n"
-            f"Generated At : {datetime.utcnow().strftime('%d/%m/%Y %H:%M:%S')}"
-        )
-
-        # ---- WIDTH CONFIG (FOR EXCEL LAYER) ----
-        column_config = {
-            "worker_col_width": 25,
-            "date_col_width": 12,
-            "summary_col_width": 15,
-            "max_auto_width": 40
+        # ---- CLEAN METADATA ----
+        metadata = {
+            "site_name": site.name,
+            "date_range": f"{self.filters.from_date.strftime('%d/%m/%Y')} to {self.filters.to_date.strftime('%d/%m/%Y')}",
+            "total_workers": len(workers),
+            "generated_at": datetime.utcnow().strftime("%d/%m/%Y %H:%M:%S"),
         }
 
         return {
             "title": "ATTENDANCE SITEWISE REPORT",
-            "metadata": {
-                "text": metadata_text,
-                "total_columns": total_columns,
-            },
+            "metadata": metadata,
             "table": {
                 "headers": headers,
                 "rows": rows,
             },
-            "column_config": column_config
         }
