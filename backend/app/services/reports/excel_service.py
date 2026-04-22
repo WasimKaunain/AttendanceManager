@@ -1,3 +1,4 @@
+from csv import writer
 import pandas as pd
 import uuid
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -23,9 +24,14 @@ def generate_excel(report_data: dict) -> str:
 
     with pd.ExcelWriter(file_name, engine="openpyxl") as writer:
         sheet_name = "Report"
-        ws = writer.book.active
-        ws.title = sheet_name
+        # create sheet safely
+        ws = writer.book.create_sheet(title=sheet_name)
         writer.sheets[sheet_name] = ws
+        
+        # OPTIONAL: remove default sheet if exists
+        if "Sheet" in writer.book.sheetnames:
+            std = writer.book["Sheet"]
+            writer.book.remove(std)
 
         # ─────────────────────────────────────────────
         # 🟥 TITLE (LEFT ALIGNED FIXED)
