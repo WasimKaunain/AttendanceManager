@@ -1,6 +1,6 @@
 from csv import writer
 import pandas as pd
-import uuid
+import uuid,os
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.drawing.image import Image
@@ -71,14 +71,28 @@ def generate_excel(report_data: dict) -> str:
         # ─────────────────────────────────────────────
         # 🖼️ LOGO (FIXED POSITION)
         # ─────────────────────────────────────────────
-        try:
-            logo = Image("Assets/AINTSOL_LOGO.png")
-            logo.width = 120
-            logo.height = 60
 
-            # place near far-right column
-            logo_col = get_column_letter(total_columns)
-            ws.add_image(logo, f"{logo_col}3")
+        try:
+            # backend/app/services/reports → go to backend/
+            BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../"))
+        
+            # go OUT of backend → project root
+            PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, ".."))
+        
+            logo_path = os.path.join(PROJECT_ROOT, "Assets", "AINTSOL_LOGO.png")
+        
+            print("LOGO PATH:", logo_path)  # debug once
+        
+            if os.path.exists(logo_path):
+                logo = Image(logo_path)
+                logo.width = 120
+                logo.height = 60
+        
+                logo_col = get_column_letter(total_columns - 1)
+                ws.add_image(logo, f"{logo_col}3")
+            else:
+                print("Logo NOT found:", logo_path)
+        
         except Exception as e:
             print("Logo load failed:", e)
 
