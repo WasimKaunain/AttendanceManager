@@ -49,6 +49,7 @@ class SiteResponse(ORMBase, SiteBase):
     is_deleted : bool
     deleted_at: Optional[datetime] = None
     deleted_by: Optional[str] = None
+    updated_at: Optional[datetime] = None
 
 
 class ArchiveRequest(BaseModel):

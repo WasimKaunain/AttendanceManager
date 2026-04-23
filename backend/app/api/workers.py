@@ -570,6 +570,8 @@ def patch_worker(
     for key, value in update_data.items():
         setattr(worker, key, value)
 
+    worker.updated_at = datetime.utcnow()
+
     db.commit()
     db.refresh(worker)
 

@@ -17,6 +17,8 @@ class Project(Base):
     status = Column(String, default="active")  # inactive, completed, terminated
     start_date = Column(Date, default=date.today)
     end_date = Column(Date)
+
+    updated_at = Column(DateTime, nullable=True)
     is_deleted = Column(Boolean, nullable=False, default=False, server_default="false")  # soft delete flag
     deleted_at = Column(DateTime, nullable=True)
     deleted_by = Column(String, nullable=True)

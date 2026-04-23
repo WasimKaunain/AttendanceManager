@@ -192,6 +192,7 @@ def update_project(
         project.description = data.description
         project.client_name = data.client_name
         project.start_date = data.start_date
+        project.updated_at = datetime.utcnow()
 
         db.commit()
         db.refresh(project)

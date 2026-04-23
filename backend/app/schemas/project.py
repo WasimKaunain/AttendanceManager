@@ -48,3 +48,4 @@ class ProjectResponse(ProjectBase):
     is_deleted : bool
     deleted_at: Optional[datetime] = None
     deleted_by: Optional[str] = None
+    updated_at: Optional[datetime] = None

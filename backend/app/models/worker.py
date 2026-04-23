@@ -35,6 +35,7 @@ class Worker(Base):
     daily_working_hours = Column(Float, nullable=True, default=9.0)
     ot_multiplier = Column(Float, nullable=True, default=1)
 
+    updated_at = Column(DateTime, nullable=True)
     is_deleted = Column(Boolean, nullable=False, default=False, server_default="false")  # soft delete flag
     deleted_at = Column(DateTime, nullable=True)
     deleted_by = Column(String, nullable=True)

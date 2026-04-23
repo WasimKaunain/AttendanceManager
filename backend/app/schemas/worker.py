@@ -163,6 +163,7 @@ class WorkerResponse(ORMBase, WorkerBase):
     is_deleted: bool
     deleted_at: Optional[datetime] = None
     deleted_by: Optional[str] = None
+    updated_at: Optional[datetime] = None
 
 class ArchiveRequest(BaseModel):
     reason: str = Field(..., min_length=5)

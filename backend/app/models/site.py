@@ -21,6 +21,8 @@ class Site(Base):
     # polygon_coords: list of {lat, lng} dicts, used when boundary_type = "polygon"
     polygon_coords = Column(JSON, nullable=True)
     status = Column(String, default="active")
+
+    updated_at = Column(DateTime, nullable=True)
     is_deleted = Column(Boolean, nullable=False, default=False, server_default="false")  # soft delete flag
     deleted_at = Column(DateTime, nullable=True)
     deleted_by = Column(String, nullable=True)

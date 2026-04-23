@@ -109,9 +109,11 @@ def update_site(site_id: UUID, data: SiteUpdate, db: Session = Depends(get_db), 
 
     if not site:
         raise HTTPException(status_code=404, detail="Site not found")
+    
     update_data = data.dict(exclude_unset=True)
     for key, value in update_data.items():
         setattr(site, key, value)
+    site.updated_at = datetime.utcnow()
 
     db.commit()
     db.refresh(site)
