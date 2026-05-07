@@ -34,13 +34,13 @@ interface ApiService {
         @Body request: LoginRequest
     ): Response<LoginResponse>
 
-    // ── Admin site scope ─────────────────────────────────────────────────────
+    // ── Site scope (admin + site_incharge) ──────────────────────────────────
 
-    @GET("mobile/admin/sites")
-    suspend fun getAdminSites(): Response<List<AdminSite>>
+    @GET("mobile/v2/sites")
+    suspend fun getSitesV2(): Response<List<AdminSite>>
 
-    @POST("mobile/admin/select-site")
-    suspend fun selectAdminSite(
+    @POST("mobile/v2/select-site")
+    suspend fun selectSiteV2(
         @Body request: AdminSelectSiteRequest
     ): Response<AdminSelectSiteResponse>
 
@@ -122,4 +122,52 @@ interface ApiService {
         @Part("embedding") embedding: RequestBody,
         @Part photo: MultipartBody.Part
     ): Response<Any>
+
+    // ── Offline-first sync ───────────────────────────────────────────────────
+
+    @GET("mobile/sync/workers")
+    suspend fun syncWorkers(
+        @Query("updated_after") updatedAfter: String? = null,
+        @Query("include_embeddings") includeEmbeddings: Boolean = true
+    ): Response<com.attendcrew.app.data.model.offline.WorkersSyncResponse>
+
+    // Store locally verified attendance
+    @Multipart
+    @POST("mobile/offline/check-in")
+    suspend fun offlineCheckIn(
+        @Part("worker_id") workerId: RequestBody,
+        @Part("latitude") latitude: RequestBody,
+        @Part("longitude") longitude: RequestBody,
+        @Part("device_time_utc") deviceTimeUtc: RequestBody,
+        @Part("local_verified") localVerified: RequestBody,
+        @Part("similarity_score") similarityScore: RequestBody? = null,
+        @Part("threshold") threshold: RequestBody? = null,
+        @Part("device_attendance_id") deviceAttendanceId: RequestBody? = null,
+        @Part photo: MultipartBody.Part? = null
+    ): Response<Any>
+
+    @Multipart
+    @POST("mobile/offline/check-out")
+    suspend fun offlineCheckOut(
+        @Part("worker_id") workerId: RequestBody,
+        @Part("latitude") latitude: RequestBody,
+        @Part("longitude") longitude: RequestBody,
+        @Part("device_time_utc") deviceTimeUtc: RequestBody,
+        @Part("local_verified") localVerified: RequestBody,
+        @Part("similarity_score") similarityScore: RequestBody? = null,
+        @Part("threshold") threshold: RequestBody? = null,
+        @Part("device_attendance_id") deviceAttendanceId: RequestBody? = null,
+        @Part photo: MultipartBody.Part? = null
+    ): Response<Any>
+
+    @Multipart
+    @POST("mobile/offline/selfie")
+    suspend fun offlineUploadSelfie(
+        @Part("attendance_id") attendanceId: RequestBody,
+        @Part("mode") mode: RequestBody,
+        @Part photo: MultipartBody.Part
+    ): Response<Any>
+
+    @GET("mobile/sync/site")
+    suspend fun syncSite(): Response<com.attendcrew.app.data.model.offline.SiteSyncResponse>
 }

@@ -41,9 +41,12 @@ import androidx.core.content.ContextCompat
 import androidx.navigation.NavController
 import com.attendcrew.app.data.api.RetrofitInstance
 import com.attendcrew.app.data.local.TokenManager
+import com.attendcrew.app.data.local.db.WorkerSyncer
+import com.attendcrew.app.data.local.db.site.SiteSyncer
 import com.attendcrew.app.data.model.AdminSelectSiteRequest
 import com.attendcrew.app.data.model.AdminSite
 import com.attendcrew.app.utils.LocationHelper
+import com.attendcrew.app.work.WorkScheduler
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 
@@ -100,7 +103,8 @@ fun AdminSiteSelectionScreen(navController: NavController) {
             onResult = { lat, lng ->
                 scope.launch {
                     try {
-                        val response = RetrofitInstance.getApi(context).selectAdminSite(
+                        // V2 endpoint works for both admin and site_incharge.
+                        val response = RetrofitInstance.getApi(context).selectSiteV2(
                             AdminSelectSiteRequest(
                                 siteId = siteId,
                                 latitude = lat,
@@ -113,12 +117,20 @@ fun AdminSiteSelectionScreen(navController: NavController) {
                             val scopedToken = body.access_token
                             val payload = decodeJwtPayload(scopedToken)
                             val name = payload?.optString("name", null)
+                            val role = payload?.optString("role", null)
 
                             tokenManager.saveToken(scopedToken)
-                            tokenManager.saveRole("admin")
+                            role?.let { tokenManager.saveRole(it) }
                             tokenManager.saveSiteId(body.selectedSiteId)
                             tokenManager.saveSiteName(body.selectedSiteName)
                             name?.let { tokenManager.saveUserName(it) }
+
+                            // Prefetch site geofence + workers/embeddings for offline-first operation.
+                            SiteSyncer.syncCurrentSite(context)
+                            WorkerSyncer.syncWorkers(context, incremental = false)
+
+                            // Kick off background sync for any queued outbox items.
+                            WorkScheduler.enqueueOneTimeAttendanceSync(context)
 
                             Toast.makeText(context, "Site selected", Toast.LENGTH_SHORT).show()
                             goToDashboard()
@@ -172,14 +184,15 @@ fun AdminSiteSelectionScreen(navController: NavController) {
 
     LaunchedEffect(Unit) {
         val role = tokenManager.getRole()
-        if (role != "admin") {
+        if (role !in setOf("admin", "site_incharge")) {
             backToLogin(clearAuth = true)
             return@LaunchedEffect
         }
 
         isLoading = true
         try {
-            val response = RetrofitInstance.getApi(context).getAdminSites()
+            // V2 endpoint works for both roles.
+            val response = RetrofitInstance.getApi(context).getSitesV2()
             if (response.isSuccessful && response.body() != null) {
                 sites = response.body()!!
                 if (sites.isEmpty()) {
@@ -206,12 +219,12 @@ fun AdminSiteSelectionScreen(navController: NavController) {
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             Text(
-                text = "Select Active Site",
+                text = "Select Site",
                 style = MaterialTheme.typography.headlineSmall
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Choose a site and verify location to continue.",
+                text = "Select a site and verify your location to continue.",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodyMedium
             )

@@ -6,6 +6,9 @@ class LoginRequest(BaseModel):
     username: str
     password: str
     login_as: Optional[Literal["admin", "site_incharge"]] = None
+    # If true, server will not attach site_id/site_name in token for site_incharge.
+    # This keeps the currently deployed APK unaffected (it does not send this field).
+    unscoped_site_incharge: Optional[bool] = False
 
 
 class TokenResponse(BaseModel):

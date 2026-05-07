@@ -47,4 +47,6 @@ class FaceLog(Base):
     threshold        = Column(Float,  nullable=True)
     result           = Column(Boolean, nullable=False)  # True = PASS, False = FAIL
     embedding_length = Column(Integer, nullable=True)
+    selfie_object_key = Column(String, nullable=True)  # R2 object key for failed attempts
+
     notes            = Column(Text,   nullable=True)

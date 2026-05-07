@@ -255,14 +255,12 @@ fun DashboardScreen(navController: NavController) {
                         icon     = Icons.Default.FaceRetouchingNatural,
                         onClick  = { navController.navigate("face_enroll") }
                     )
-                    if (isAdmin) {
-                        ActionButtonWide(
-                            title = "Site List",
-                            subtitle = "Switch active site",
-                            icon = Icons.Default.Business,
-                            onClick = { navController.navigate("admin_site_selection") }
-                        )
-                    }
+                    ActionButtonWide(
+                        title = "Switch Site",
+                        subtitle = "Change active site",
+                        icon = Icons.Default.Business,
+                        onClick = { navController.navigate("admin_site_selection") }
+                    )
                 }
             }
 

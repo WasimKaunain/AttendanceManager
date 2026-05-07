@@ -8,7 +8,6 @@ const EMPTY_FORM = {
   username: "",
   password: "",
   role: "site_incharge",
-  site_id: "",
   status: "active",
 };
 
@@ -31,7 +30,6 @@ export default function UserFormDialog({ open, onClose, onSubmit, initialData })
   const [submitting, setSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  const [sites, setSites]     = useState([]);
   const [workers, setWorkers] = useState([]);
 
   // worker dropdown (only for site_incharge)
@@ -42,11 +40,11 @@ export default function UserFormDialog({ open, onClose, onSubmit, initialData })
   const isAdmin       = form.role === "admin";
   const isSiteIncharge = form.role === "site_incharge";
 
-  // Fetch sites + workers when dialog opens
+  // Fetch workers when dialog opens
   useEffect(() => {
     if (!open) return;
-    Promise.all([api.get("/sites"), api.get("/workers/")])
-      .then(([sR, wR]) => { setSites(sR.data); setWorkers(wR.data); })
+    api.get("/workers/")
+      .then((wR) => { setWorkers(wR.data); })
       .catch(console.error);
   }, [open]);
 
@@ -59,7 +57,6 @@ export default function UserFormDialog({ open, onClose, onSubmit, initialData })
         username:      initialData.username       || "",
         password:      "",
         role:          initialData.role           || "site_incharge",
-        site_id:       initialData.site_id        || "",
         status:        initialData.status         || "active",
       });
     } else {
@@ -77,7 +74,6 @@ export default function UserFormDialog({ open, onClose, onSubmit, initialData })
     setForm((prev) => ({
       ...prev,
       role:          newRole,
-      site_id:       "",
       email:         newRole === "site_incharge" ? "" : prev.email,
       employee_name: "",
       username:      "",
@@ -133,9 +129,6 @@ export default function UserFormDialog({ open, onClose, onSubmit, initialData })
     else if (form.password && form.password.length < 6)
       e.password = "Password must be at least 6 characters.";
 
-    if (isSiteIncharge && !form.site_id)
-      e.site_id = "Please select a site for Site In-Charge.";
-
     return e;
   };
 
@@ -166,8 +159,9 @@ export default function UserFormDialog({ open, onClose, onSubmit, initialData })
       return;
     }
 
-    const payload = { ...form };
-    if (isAdmin) payload.site_id = null;
+    // Always send site_id=null (both roles) for forward-compat behavior.
+    const payload = { ...form, site_id: null };
+
     if (!isAdmin) payload.email = payload.email || null;
     if (initialData && !payload.password) delete payload.password;
 
@@ -258,49 +252,49 @@ export default function UserFormDialog({ open, onClose, onSubmit, initialData })
                   </span>
                   {selectedWorker ? (
                     <X
-                      className="w-4 h-4 text-slate-400 hover:text-red-500 transition shrink-0"
-                      onClick={(e) => { e.stopPropagation(); handleClearWorker(); }}
+                      className="w-4 h-4 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                      onClick={(ev) => {
+                        ev.stopPropagation();
+                        handleClearWorker();
+                      }}
                     />
                   ) : (
-                    <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
+                    <ChevronDown className="w-4 h-4 text-slate-400" />
                   )}
                 </button>
 
                 {workerDropdownOpen && (
-                  <div className="absolute left-0 right-0 mt-1 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl shadow-xl z-50 overflow-hidden">
-                    <div className="p-2 border-b dark:border-slate-600">
+                  <div className="absolute z-10 mt-2 w-full rounded-xl border dark:border-slate-600 bg-white dark:bg-slate-800 shadow-xl overflow-hidden">
+                    <div className="p-2 border-b dark:border-slate-700">
                       <input
-                        autoFocus
-                        placeholder="Search by name or ID…"
+                        type="text"
+                        placeholder="Search by name or ID..."
                         value={workerSearch}
                         onChange={(e) => setWorkerSearch(e.target.value)}
-                        className="w-full px-3 py-1.5 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-black dark:bg-slate-600 dark:border-slate-500 dark:text-slate-100"
+                        className="w-full px-3 py-2 text-sm rounded-lg border dark:border-slate-600 bg-white dark:bg-slate-700 dark:text-slate-100 outline-none"
                       />
                     </div>
-                    <div className="max-h-48 overflow-y-auto">
+                    <div className="max-h-60 overflow-y-auto">
                       {filteredWorkers.length === 0 ? (
-                        <p className="text-xs text-slate-400 text-center py-4">No employees found</p>
+                        <p className="p-3 text-sm text-slate-500 dark:text-slate-400">No workers found.</p>
                       ) : (
                         filteredWorkers.map((w) => (
-                          <div
+                          <button
                             key={w.id}
+                            type="button"
                             onClick={() => handleSelectWorker(w)}
-                            className="flex items-center justify-between px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-600 cursor-pointer"
+                            className="w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700/60 transition"
                           >
-                            <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{w.full_name}</span>
-                            <span className="text-xs text-slate-400 font-mono">{w.id}</span>
-                          </div>
+                            <p className="text-sm font-medium text-slate-800 dark:text-slate-100">{w.full_name}</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">{w.id}</p>
+                          </button>
                         ))
                       )}
                     </div>
                   </div>
                 )}
               </div>
-              {selectedWorker && (
-                <p className="text-xs text-slate-400 mt-1 ml-1">
-                  Username auto-filled from Employee ID — you can edit it below.
-                </p>
-              )}
+              <FieldError msg={errors.employee_name} />
             </div>
           )}
 
@@ -310,28 +304,24 @@ export default function UserFormDialog({ open, onClose, onSubmit, initialData })
             <input
               name="username"
               type="text"
-              placeholder="Username"
+              placeholder={isAdmin ? "admin" : "EMP001"}
               value={form.username}
               onChange={handleChange}
               autoComplete="off"
               className={inputCls("username")}
+              disabled={isSiteIncharge && !!selectedWorker}
             />
-            {isAdmin && form.email && (
-              <p className="text-xs text-slate-400 mt-1 ml-1">
-                Suggested from email — you can edit it.
-              </p>
-            )}
             <FieldError msg={errors.username} />
           </div>
 
           {/* ── 4. PASSWORD ── */}
           <div>
-            <FieldLabel>{initialData ? "New Password (leave blank to keep)" : "Password"}</FieldLabel>
+            <FieldLabel>{initialData ? "New Password (optional)" : "Password"}</FieldLabel>
             <div className="relative">
               <input
                 name="password"
                 type={showPassword ? "text" : "password"}
-                placeholder={initialData ? "New password…" : "Password"}
+                placeholder={initialData ? "Leave blank to keep current" : "Enter password"}
                 value={form.password}
                 onChange={handleChange}
                 autoComplete="new-password"
@@ -339,9 +329,9 @@ export default function UserFormDialog({ open, onClose, onSubmit, initialData })
               />
               <button
                 type="button"
-                tabIndex={-1}
                 onClick={() => setShowPassword((v) => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                title={showPassword ? "Hide password" : "Show password"}
               >
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
@@ -349,26 +339,7 @@ export default function UserFormDialog({ open, onClose, onSubmit, initialData })
             <FieldError msg={errors.password} />
           </div>
 
-          {/* ── 5. SITE (only for site_incharge) ── */}
-          {isSiteIncharge && (
-            <div>
-              <FieldLabel>Assigned Site</FieldLabel>
-              <select
-                name="site_id"
-                value={form.site_id}
-                onChange={handleChange}
-                className={inputCls("site_id")}
-              >
-                <option value="">Select Site</option>
-                {sites.map((site) => (
-                  <option key={site.id} value={site.id}>{site.name}</option>
-                ))}
-              </select>
-              <FieldError msg={errors.site_id} />
-            </div>
-          )}
-
-          {/* ── 6. STATUS ── */}
+          {/* ── 5. STATUS ── */}
           <div>
             <FieldLabel>Status</FieldLabel>
             <select
@@ -387,18 +358,17 @@ export default function UserFormDialog({ open, onClose, onSubmit, initialData })
             <button
               type="button"
               onClick={onClose}
+              className="px-5 py-2 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition text-sm font-medium"
               disabled={submitting}
-              className="px-5 py-2 bg-gray-200 dark:bg-slate-600 dark:text-slate-200 rounded-xl hover:bg-gray-300 dark:hover:bg-slate-500 transition disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               type="submit"
+              className="px-5 py-2 rounded-xl bg-black text-white hover:bg-slate-900 transition text-sm font-medium flex items-center gap-2"
               disabled={submitting}
-              className="flex items-center gap-2 px-5 py-2 bg-black dark:bg-slate-100 dark:text-slate-900 text-white rounded-xl shadow-md hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed disabled:translate-y-0"
             >
-              {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-              {submitting ? "Saving…" : "Save"}
+              {submitting ? (<><Loader2 className="w-4 h-4 animate-spin" /> Saving...</>) : (initialData ? "Update" : "Create")}
             </button>
           </div>
         </form>

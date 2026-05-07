@@ -6,6 +6,9 @@ plugins {
     // 🔥 Firebase
     id("com.google.gms.google-services")
     id("com.google.firebase.crashlytics")
+
+    // Room
+    id("com.google.devtools.ksp")
 }
 
 import java.util.Properties
@@ -127,6 +130,27 @@ dependencies {
     // 🎨 Icons
     implementation("androidx.compose.material:material-icons-core")
     implementation("androidx.compose.material:material-icons-extended")
+
+    // 🗄️ Room (offline-first storage)
+    implementation("androidx.room:room-runtime:2.6.1")
+    implementation("androidx.room:room-ktx:2.6.1")
+    ksp("androidx.room:room-compiler:2.6.1")
+
+    // 🔁 WorkManager (background sync)
+    implementation("androidx.work:work-runtime-ktx:2.9.0")
+
+    // (optional) Kotlin serialization helpers (useful for storing small JSON blobs)
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
+
+    // 🔐 Encrypted Room (SQLCipher)
+    implementation("net.zetetic:android-database-sqlcipher:4.5.4")
+    implementation("androidx.sqlite:sqlite-ktx:2.4.0")
+
+    // 🔐 Android Keystore-backed encrypted prefs (stores SQLCipher passphrase)
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
+
+    // Removed unused Google HTTP client transport dependencies to avoid release resolution failures.
+
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

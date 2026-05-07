@@ -30,11 +30,17 @@ fun AppNavGraph(
         tokenManager.clearAll()
     }
 
+    fun resolvePostSplashDestination(): String {
+        if (!tokenManager.isLoggedIn()) return "login"
+        // If token exists but site is not selected yet (new flow), force site selection.
+        return if (tokenManager.getSiteId().isNullOrBlank()) "admin_site_selection" else "dashboard"
+    }
+
     NavHost(navController = navController, startDestination = "splash") {
         composable("splash") {
             SplashScreen(
                 onFinished = {
-                    val destination = if (tokenManager.isLoggedIn()) "dashboard" else "login"
+                    val destination = resolvePostSplashDestination()
                     navController.navigate(destination) {
                         popUpTo("splash") { inclusive = true }
                     }

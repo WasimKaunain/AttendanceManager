@@ -81,3 +81,8 @@
 -keepclassmembers,allowshrinking,allowobfuscation interface * {
     @retrofit2.http.* <methods>;
 }
+
+# ── Google HTTP client / Tink optional downloader path ────────────────────────
+-dontwarn com.google.api.client.**
+-dontwarn com.google.http-client.**
+-dontwarn org.joda.time.**

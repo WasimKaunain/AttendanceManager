@@ -42,9 +42,17 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavController
 import com.google.gson.Gson
 import com.attendcrew.app.data.api.RetrofitInstance
+import com.attendcrew.app.data.local.db.WorkerRepository
+import com.attendcrew.app.data.local.db.AttendanceOutboxRepository
+import com.attendcrew.app.data.local.db.AttendanceOutboxEntity
+import com.attendcrew.app.data.local.db.AppDatabase
 import com.attendcrew.app.utils.LocationHelper
 import com.attendcrew.app.utils.ml.FaceDetectorHelper
 import com.attendcrew.app.utils.ml.FaceEmbeddingManager
+import com.attendcrew.app.utils.ml.FaceMatcher
+import com.attendcrew.app.work.WorkScheduler
+import java.time.Instant
+import java.util.UUID
 import kotlinx.coroutines.*
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
@@ -52,6 +60,8 @@ import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.File
 import java.util.concurrent.Executors
+import com.attendcrew.app.data.local.db.site.SiteGeofenceDao
+import com.attendcrew.app.utils.GeoFenceLocalChecker
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CameraScreen — entry point
@@ -576,6 +586,8 @@ private suspend fun enrollFace(context: Context, bitmap: Bitmap, workerId: Strin
     }
 }
 
+private const val LOCAL_MATCH_THRESHOLD_DEFAULT = 0.62f
+
 private suspend fun attendanceAction(
     context: Context,
     bitmap: Bitmap,
@@ -587,28 +599,131 @@ private suspend fun attendanceAction(
         onResult = { lat, lon ->
             CoroutineScope(Dispatchers.IO).launch {
                 try {
-                    val faceDetector  = FaceDetectorHelper()
-                    val faceBitmap    = faceDetector.detectFace(bitmap) ?: bitmap
-                    val embedding     = FaceEmbeddingManager.getEmbedding(faceBitmap)
-                    val embeddingJson = Gson().toJson(embedding.toList())
-                    val file          = compressImage(context, bitmap)
+                    val faceDetector = FaceDetectorHelper()
+                    val faceBitmap = faceDetector.detectFace(bitmap) ?: bitmap
+                    val probeEmbedding = FaceEmbeddingManager.getEmbedding(faceBitmap)
 
-                    val api          = RetrofitInstance.getApi(context)
-                    val embBody      = embeddingJson.toRequestBody("text/plain".toMediaTypeOrNull())
-                    val reqFile      = file.asRequestBody("image/jpeg".toMediaTypeOrNull())
-                    val photoPart    = MultipartBody.Part.createFormData("photo", file.name, reqFile)
-                    val workerIdBody = workerId.trim().toRequestBody("text/plain".toMediaTypeOrNull())
-                    val latBody      = lat.toString().toRequestBody("text/plain".toMediaTypeOrNull())
-                    val lonBody      = lon.toString().toRequestBody("text/plain".toMediaTypeOrNull())
+                    // 1) Local face verification (offline)
+                    val workerRepo = WorkerRepository(context)
+                    val targetId = workerId.trim().toIntOrNull()
+                        ?: run {
+                            cont.resume("Invalid worker id", null)
+                            return@launch
+                        }
+                    val target = workerRepo.getById(targetId)
 
-                    val resp = if (mode == "checkin")
-                        api.checkIn(workerIdBody, latBody, lonBody, embBody, photoPart)
-                    else
-                        api.checkOut(workerIdBody, latBody, lonBody, embBody, photoPart)
+                    val threshold = LOCAL_MATCH_THRESHOLD_DEFAULT
+                    val (faceOk, similarity) = if (target?.embedding != null) {
+                        val sim = FaceMatcher.cosineSimilarity(probeEmbedding, target.embedding)
+                        Pair(sim >= threshold, sim)
+                    } else {
+                        Pair(false, null)
+                    }
 
-                    if (resp.isSuccessful) cont.resume(null, null)
-                    else cont.resume(parseError(resp.errorBody()?.string()), null)
-                } catch (e: Exception) { cont.resume("Error: ${e.message}", null) }
+                    // Prepare common outbox fields (we enqueue on both pass/fail)
+                    val outbox = AttendanceOutboxRepository(context)
+                    val deviceAttendanceId = UUID.randomUUID().toString()
+                    val nowUtc = Instant.now().toString()
+                    val photoFile = compressImage(context, bitmap)
+
+                    if (!faceOk) {
+                        // Enqueue failure attempt so backend can write face_logs + store failed selfie
+                        outbox.enqueue(
+                            AttendanceOutboxEntity(
+                                deviceAttendanceId = deviceAttendanceId,
+                                workerId = targetId,
+                                mode = mode,
+                                latitude = lat,
+                                longitude = lon,
+                                deviceTimeUtc = nowUtc,
+                                localVerified = false,
+                                similarityScore = similarity,
+                                threshold = threshold,
+                                photoPath = photoFile.absolutePath,
+                                status = "new"
+                            )
+                        )
+                        WorkScheduler.enqueueOneTimeAttendanceSync(context)
+
+                        cont.resume(
+                            if (target?.embedding == null) "Face not enrolled for this worker." else "Face verification failed.",
+                            null
+                        )
+                        return@launch
+                    }
+
+                    // 2) Local geofence verification (fully offline)
+                    val tokenManager = com.attendcrew.app.data.local.TokenManager(context)
+                    val siteId = tokenManager.getSiteId()
+                    if (siteId.isNullOrBlank()) {
+                        cont.resume("No site selected. Please login/select site again.", null)
+                        return@launch
+                    }
+
+                    val db = AppDatabase.getInstance(context)
+                    val siteGeo = db.siteGeofenceDao().get(siteId)
+                    if (siteGeo == null) {
+                        cont.resume("Site geofence not cached yet. Please connect to internet once.", null)
+                        return@launch
+                    }
+
+                    val (inside, _) = GeoFenceLocalChecker.isInside(
+                        workerLat = lat,
+                        workerLng = lon,
+                        boundaryType = siteGeo.boundaryType,
+                        siteLat = siteGeo.latitude,
+                        siteLng = siteGeo.longitude,
+                        radiusM = siteGeo.radiusM,
+                        polygonJson = siteGeo.polygonJson
+                    )
+
+                    if (!inside) {
+                        // Enqueue failure attempt as well (auditing + failed selfie)
+                        outbox.enqueue(
+                            AttendanceOutboxEntity(
+                                deviceAttendanceId = deviceAttendanceId,
+                                workerId = targetId,
+                                mode = mode,
+                                latitude = lat,
+                                longitude = lon,
+                                deviceTimeUtc = nowUtc,
+                                localVerified = false,
+                                similarityScore = similarity,
+                                threshold = threshold,
+                                photoPath = photoFile.absolutePath,
+                                status = "new"
+                            )
+                        )
+                        WorkScheduler.enqueueOneTimeAttendanceSync(context)
+
+                        cont.resume("Outside geofence. Move inside the site boundary.", null)
+                        return@launch
+                    }
+
+                    // 3) Local checks passed -> show success immediately
+                    cont.resume(null, null)
+
+                    // 4) Enqueue outbox + photo and sync in background
+                    outbox.enqueue(
+                        AttendanceOutboxEntity(
+                            deviceAttendanceId = deviceAttendanceId,
+                            workerId = targetId,
+                            mode = mode,
+                            latitude = lat,
+                            longitude = lon,
+                            deviceTimeUtc = nowUtc,
+                            localVerified = true,
+                            similarityScore = similarity,
+                            threshold = threshold,
+                            photoPath = photoFile.absolutePath,
+                            status = "new"
+                        )
+                    )
+
+                    WorkScheduler.enqueueOneTimeAttendanceSync(context)
+                } catch (e: Exception) {
+                    cont.resume("Error: ${e.message}", null)
+                }
             }
         },
         onFailure = { cont.resume("Could not get location. Please enable GPS.", null) }

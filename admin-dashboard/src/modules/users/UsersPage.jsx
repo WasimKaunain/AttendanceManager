@@ -65,7 +65,7 @@ function DeleteConfirmDialog({ open, onConfirm, onCancel }) {
 }
 
 // ── User Card ──────────────────────────────────────────
-function UserCard({ user, sitesMap, canEdit, revealedPasswords, toggleReveal, setSelectedUser, setOpen, setDeleteTargetId }) {
+function UserCard({ user, canEdit, revealedPasswords, toggleReveal, setSelectedUser, setOpen, setDeleteTargetId }) {
   return (
     <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 md:p-6 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 hover:scale-[1.02]">
       {/* Employee Name */}
@@ -85,12 +85,6 @@ function UserCard({ user, sitesMap, canEdit, revealedPasswords, toggleReveal, se
       }`}>
         {user.role === "admin" ? "Admin" : "Site In-Charge"}
       </span>
-
-      {/* Site */}
-      <p className="text-sm text-gray-500 dark:text-slate-400 mb-2">
-        <strong>Site:</strong>{" "}
-        {user.site_id ? (sitesMap[user.site_id] || user.site_id) : "Not Assigned"}
-      </p>
 
       {/* Status */}
       <p className="text-sm dark:text-slate-300 mb-2">
@@ -138,13 +132,12 @@ function UserCard({ user, sitesMap, canEdit, revealedPasswords, toggleReveal, se
             <Pencil size={18} />
           </button>
         ) : (
-          <Pencil
-            size={18}
-            className="text-slate-300 dark:text-slate-600 cursor-not-allowed"
-            title="You cannot edit another admin's profile"
-          />
+          <span className="text-xs text-slate-400 flex items-center gap-1">
+            <ShieldCheck className="w-4 h-4" /> Protected
+          </span>
         )}
-        {user.role !== "admin" && (
+
+        {canEdit(user) && (
           <button
             onClick={() => setDeleteTargetId(user.id)}
             className="text-red-600 hover:text-red-800 transition"
@@ -160,7 +153,7 @@ function UserCard({ user, sitesMap, canEdit, revealedPasswords, toggleReveal, se
 
 // ── Main Page ──────────────────────────────────────────
 export default function UsersPage() {
-  const { users, sitesMap, loading, addUser, editUser, removeUser } = useUsers();
+  const { users, loading, addUser, editUser, removeUser } = useUsers();
   const { user: currentUser } = useAuth();   // logged-in admin's own profile
   const [open, setOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
@@ -292,7 +285,6 @@ export default function UsersPage() {
                     <UserCard
                       key={user.id}
                       user={user}
-                      sitesMap={sitesMap}
                       canEdit={canEdit}
                       revealedPasswords={revealedPasswords}
                       toggleReveal={toggleReveal}
@@ -315,7 +307,6 @@ export default function UsersPage() {
                 <UserCard
                   key={user.id}
                   user={user}
-                  sitesMap={sitesMap}
                   canEdit={canEdit}
                   revealedPasswords={revealedPasswords}
                   toggleReveal={toggleReveal}

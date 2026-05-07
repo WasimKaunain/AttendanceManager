@@ -29,15 +29,9 @@ def login(data: LoginRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     if data.login_as and user.role != data.login_as:
-        raise HTTPException(
-            status_code=403,
-            detail=f"This account is not allowed for '{data.login_as}' login"
-        )
+        raise HTTPException(status_code=403,detail=f"This account is not allowed for '{data.login_as}' login")
 
-    token_data = {
-        "sub": str(user.id),
-        "role": user.role,
-    }
+    token_data = {"sub": str(user.id),"role": user.role,}
 
     # Include display name if available
     if hasattr(user, "employee_name") and user.employee_name:
@@ -47,13 +41,21 @@ def login(data: LoginRequest, db: Session = Depends(get_db)):
 
     site_name = None
 
-    # Only add site context if exists (site_incharge)
-    if hasattr(user, "site_id") and user.site_id:
-        token_data["site_id"] = str(user.site_id)
-        site = db.query(Site).filter(Site.id == user.site_id).first()
-        if site:
-            site_name = site.name
-            token_data["site_name"] = site_name
+    # Backward compatible behavior:
+    # - Old APK expects site_incharge tokens to contain site_id.
+    # Forward behavior (new APK):
+    # - site_incharge should NOT be bound to a site; site selection happens later.
+    # We keep old behavior unless client explicitly opts in by sending `unscoped_site_incharge=true`.
+    unscoped = bool(getattr(data, "unscoped_site_incharge", False))
+
+    if not unscoped:
+        # Only add site context if exists (legacy site_incharge)
+        if hasattr(user, "site_id") and user.site_id:
+            token_data["site_id"] = str(user.site_id)
+            site = db.query(Site).filter(Site.id == user.site_id).first()
+            if site:
+                site_name = site.name
+                token_data["site_name"] = site_name
 
     token = create_access_token(token_data)
 

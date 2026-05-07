@@ -19,6 +19,7 @@ def log_face(
     result: bool,
     embedding_length: int = 0,
     notes: str = "",
+    selfie_object_key: str | None = None,
 ) -> None:
     """Insert one row into face_logs. Silently ignores DB errors."""
     try:
@@ -33,6 +34,7 @@ def log_face(
             threshold=threshold,
             result=result,
             embedding_length=embedding_length,
+            selfie_object_key=selfie_object_key,
             notes=notes,
         ))
         db.commit()

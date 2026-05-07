@@ -180,7 +180,9 @@ fun LoginScreen(navController: NavController) {
                                     LoginRequest(
                                         username = username.trim(),
                                         password = password,
-                                        loginAs = role.apiValue
+                                        loginAs = role.apiValue,
+                                        // New APK behavior: do not bind site_incharge to a site at login.
+                                        unscopedSiteIncharge = (role == LoginRole.SITE_INCHARGE)
                                     )
                                 )
 
@@ -201,17 +203,13 @@ fun LoginScreen(navController: NavController) {
                                         return@launch
                                     }
 
-                                    val siteId = body.site_id ?: payload?.optString("site_id", null)
-                                    val siteName = body.site_name ?: payload?.optString("site_name", null)
-
+                                    // New flow: save token + role, then require site selection like admin.
                                     tokenManager.saveToken(token)
                                     tokenManager.saveRole("site_incharge")
-                                    siteId?.let { tokenManager.saveSiteId(it) }
-                                    siteName?.let { tokenManager.saveSiteName(it) }
                                     userName?.let { tokenManager.saveUserName(it) }
 
                                     Toast.makeText(context, "Login successful", Toast.LENGTH_SHORT).show()
-                                    goToDashboard()
+                                    goToAdminSiteSelection()
                                 } else {
                                     if (apiRole != "admin") {
                                         Toast.makeText(context, "Selected role mismatch", Toast.LENGTH_SHORT).show()

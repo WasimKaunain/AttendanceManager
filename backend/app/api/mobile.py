@@ -29,6 +29,7 @@ from app.schemas.mobile import (
 from app.services.image_service import save_compressed_attendance_image, format_site_folder
 from app.services.r2 import upload_file_to_r2, generate_presigned_download_url
 from app.services.worker_photo_service import resolve_worker_profile_photo_key
+from app.services.image_service_failed import save_compressed_failed_face_image
 from uuid import UUID as _UUID
 
 router = APIRouter(prefix="/mobile", tags=["Mobile"])
@@ -118,6 +119,88 @@ def admin_select_site(data: AdminSelectSiteRequest,user=Depends(require_admin),d
     return {
         "access_token": scoped_token,
         "role": "admin",
+        "selected_site_id": str(site.id),
+        "selected_site_name": site.name,
+    }
+
+
+# --------------------------------------------------
+# V2 SITE SELECTION (admin + site_incharge, no user.site_id required)
+# --------------------------------------------------
+from app.core.dependencies import require_mobile_user_unscoped
+
+
+@router.get("/v2/sites", response_model=list[MobileSiteOption])
+def get_mobile_sites_v2(user=Depends(require_mobile_user_unscoped), db: Session = Depends(get_db)):
+    """List active sites (for both admin and site_incharge).
+
+    This endpoint is for the new APK flow where site_incharge is not bound to a site.
+    """
+    sites = (
+        db.query(Site)
+        .filter(Site.status == "active", Site.is_deleted == False)
+        .order_by(Site.name.asc())
+        .all()
+    )
+    return sites
+
+
+@router.post("/v2/select-site", response_model=AdminSelectSiteResponse)
+def select_site_v2(
+    data: AdminSelectSiteRequest,
+    user=Depends(require_mobile_user_unscoped),
+    db: Session = Depends(get_db),
+):
+    """Validate geofence and return a scoped JWT containing selected_site_id.
+
+    Backward compatible: also includes site_id/site_name in token.
+    """
+    site = (
+        db.query(Site)
+        .filter(
+            Site.id == data.site_id,
+            Site.status == "active",
+            Site.is_deleted == False,
+        )
+        .first()
+    )
+
+    if not site:
+        raise HTTPException(status_code=404, detail="Active site not found")
+
+    inside, _, _ = is_within_geofence(
+        data.latitude,
+        data.longitude,
+        site.latitude,
+        site.longitude,
+        site.geofence_radius,
+        boundary_type=getattr(site, "boundary_type", "circle"),
+        polygon_coords=getattr(site, "polygon_coords", None),
+    )
+
+    if not inside:
+        raise HTTPException(status_code=403, detail="Outside geofence for selected site")
+
+    role = user.get("role")
+    if role not in {"admin", "site_incharge"}:
+        raise HTTPException(status_code=403, detail="Invalid role")
+
+    token_data = {
+        "sub": user.get("sub"),
+        "role": role,
+        "name": user.get("name") or ("Admin" if role == "admin" else "Site Incharge"),
+        "selected_site_id": str(site.id),
+        "selected_site_name": site.name,
+        # Backward compatibility
+        "site_id": str(site.id),
+        "site_name": site.name,
+    }
+
+    scoped_token = create_access_token(token_data)
+
+    return {
+        "access_token": scoped_token,
+        "role": role,
         "selected_site_id": str(site.id),
         "selected_site_name": site.name,
     }
@@ -798,6 +881,469 @@ def check_out(
     )
 
     return record
+
+
+# --------------------------------------------------
+# OFFLINE-FIRST SYNC ENDPOINTS (do not break old APK)
+# --------------------------------------------------
+
+@router.get("/sync/workers")
+def mobile_sync_workers(
+    updated_after: str | None = Query(None, description="ISO datetime; return workers updated after this timestamp"),
+    include_embeddings: bool = Query(True),
+    user=Depends(require_mobile_user),
+    db: Session = Depends(get_db),
+):
+    """Return worker list for Room bootstrap (optionally including face_embedding).
+
+    - Does NOT change existing /mobile/workers behavior.
+    - Admin/site_incharge can fetch all active, non-deleted workers (cross-site).
+    """
+    q = db.query(Worker).filter(Worker.status == "active", Worker.is_deleted == False)
+
+    if updated_after:
+        try:
+            dt = datetime.fromisoformat(updated_after.replace("Z", "+00:00"))
+            # store updated_at as naive UTC in DB; compare using naive if tz-aware provided
+            if dt.tzinfo is not None:
+                dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+            q = q.filter(Worker.updated_at.isnot(None), Worker.updated_at > dt)
+        except Exception:
+            pass
+
+    workers = q.order_by(Worker.full_name.asc()).all()
+
+    def _serialize(w: Worker) -> dict:
+        data = {
+            "id": w.id,
+            "full_name": w.full_name,
+            "mobile": w.mobile,
+            "status": w.status,
+            "updated_at": w.updated_at.isoformat() if w.updated_at else None,
+        }
+        if include_embeddings:
+            data["face_embedding"] = w.face_embedding
+        return data
+
+    return {
+        "count": len(workers),
+        "workers": [_serialize(w) for w in workers],
+    }
+
+
+@router.post("/offline/check-in", response_model=MobileAttendanceResponse)
+def offline_check_in(
+    worker_id: str = Form(...),
+    latitude: float = Form(...),
+    longitude: float = Form(...),
+    device_time_utc: str = Form(...),
+    local_verified: bool = Form(...),
+    similarity_score: float | None = Form(None),
+    threshold: float | None = Form(None),
+    device_attendance_id: str | None = Form(None),
+    photo: UploadFile | None = File(None),
+    user=Depends(require_mobile_user),
+    db: Session = Depends(get_db),
+):
+    """Store a locally-verified check-in (no server-side face verification).
+
+    Rules:
+    - If local_verified is False => do NOT create attendance record.
+      Only write fail attempt to face_logs (auditing), then return 403.
+    - Geofence is still validated server-side.
+    - Photo is optional (can be uploaded later via /offline/selfie).
+    """
+
+    site_id = get_site_id_or_raise(user)
+    site = db.query(Site).filter(Site.id == site_id).first()
+    if not site:
+        raise HTTPException(400, "Invalid site")
+
+    worker = db.query(Worker).filter(Worker.id == worker_id, Worker.is_deleted == False).first()
+    if not worker:
+        raise HTTPException(404, "Worker not found")
+
+    # Parse device time
+    try:
+        dt = datetime.fromisoformat(device_time_utc.replace("Z", "+00:00"))
+        if dt.tzinfo is not None:
+            utc_now = dt.astimezone(timezone.utc).replace(tzinfo=None)
+        else:
+            # assume already UTC-naive
+            utc_now = dt
+    except Exception:
+        # fallback on server time (still UTC-naive)
+        utc_now = datetime.utcnow()
+
+    local_time = utc_now.replace(tzinfo=pytz.utc).astimezone(pytz.timezone(site.timezone))
+
+    # Audit local fail (no attendance record)
+    if not local_verified:
+        selfie_key = None
+        if photo is not None:
+            temp_path = f"/tmp/{uuid.uuid4()}.jpg"
+            with open(temp_path, "wb") as buffer:
+                shutil.copyfileobj(photo.file, buffer)
+            try:
+                # Store failed attempt selfie separately for Media Repository review
+                selfie_key = save_compressed_failed_face_image(
+                    temp_path=temp_path,
+                    site_name=format_site_folder(site.name),
+                    worker_id=str(worker.id),
+                    event_type="offline_check_in",
+                    timezone_str=site.timezone,
+                )
+            finally:
+                try:
+                    os.remove(temp_path)
+                except Exception:
+                    pass
+
+        log_face(
+            event_type="offline_check_in",
+            worker_id=str(worker.id) if worker else str(worker_id),
+            worker_name=worker.full_name if worker else "Unknown",
+            site_id=str(site.id),
+            site_name=site.name,
+            similarity_score=similarity_score or 0.0,
+            threshold=threshold or 0.0,
+            result=False,
+            embedding_length=0,
+            notes="local_verified=false; attendance not created",
+            selfie_object_key=selfie_key,
+        )
+        raise HTTPException(status_code=403, detail="Local verification failed")
+
+    # Still validate geofence server-side
+    inside, distance_m, poly_pts = is_within_geofence(
+        latitude,
+        longitude,
+        site.latitude,
+        site.longitude,
+        site.geofence_radius,
+        boundary_type=getattr(site, "boundary_type", "circle"),
+        polygon_coords=getattr(site, "polygon_coords", None),
+    )
+    log_geofence(
+        event_type="offline_check_in",
+        worker_id=str(worker.id),
+        worker_name=worker.full_name,
+        site_id=str(site.id),
+        site_name=site.name,
+        boundary_type=site.boundary_type,
+        site_lat=site.latitude,
+        site_lng=site.longitude,
+        worker_lat=latitude,
+        worker_lng=longitude,
+        distance_m=distance_m,
+        radius_m=site.geofence_radius,
+        polygon_points=poly_pts,
+        result=inside,
+        notes=f"device_attendance_id={device_attendance_id}",
+    )
+    if not inside:
+        raise HTTPException(403, "Outside geofence")
+
+    # Prevent duplicate check-in for the same local date
+    existing = db.query(AttendanceRecord).filter(
+        AttendanceRecord.worker_id == worker_id,
+        AttendanceRecord.date == local_time.date(),
+    ).first()
+    if existing:
+        raise HTTPException(400, "Already checked in today")
+
+    # Face pass audit log (optional)
+    log_face(
+        event_type="offline_check_in",
+        worker_id=str(worker.id),
+        worker_name=worker.full_name,
+        site_id=str(site.id),
+        site_name=site.name,
+        similarity_score=float(similarity_score) if similarity_score is not None else 0.0,
+        threshold=float(threshold) if threshold is not None else float(os.getenv("THRESHOLD", 0.75)),
+        result=True,
+        embedding_length=0,
+        notes=f"device_local_verification_passed device_attendance_id={device_attendance_id}",
+    )
+
+    selfie_key = None
+    if photo is not None:
+        temp_path = f"/tmp/{uuid.uuid4()}.jpg"
+        with open(temp_path, "wb") as buffer:
+            shutil.copyfileobj(photo.file, buffer)
+
+        site_folder = format_site_folder(site.name)
+        selfie_key = save_compressed_attendance_image(
+            temp_path=temp_path,
+            site_name=site_folder,
+            worker_id=worker.id,
+            mode="Checkin",
+            timezone_str=site.timezone,
+        )
+        try:
+            os.remove(temp_path)
+        except Exception:
+            pass
+
+    record = AttendanceRecord(
+        worker_id=worker_id,
+        check_in_site_id=site.id,
+        project_id=site.project_id,
+        date=local_time.date(),
+        check_in_time=utc_now,
+        check_in_lat=latitude,
+        check_in_lng=longitude,
+        check_in_selfie_url=selfie_key,
+        status="checked_in",
+        geofence_valid=True,
+    )
+
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+
+    log_action(
+        db=db,
+        action="offline_check_in",
+        entity_type="attendance",
+        entity_id=str(record.id),
+        details=f"Offline check-in stored worker={worker.id} site={site.name} device_attendance_id={device_attendance_id}",
+        **_audit_mobile(user),
+    )
+
+    return record
+
+
+@router.post("/offline/check-out", response_model=MobileAttendanceResponse)
+def offline_check_out(
+    worker_id: str = Form(...),
+    latitude: float = Form(...),
+    longitude: float = Form(...),
+    device_time_utc: str = Form(...),
+    local_verified: bool = Form(...),
+    similarity_score: float | None = Form(None),
+    threshold: float | None = Form(None),
+    device_attendance_id: str | None = Form(None),
+    photo: UploadFile | None = File(None),
+    user=Depends(require_mobile_user),
+    db: Session = Depends(get_db),
+):
+    """Store a locally-verified check-out (no server-side face verification).
+
+    - If local_verified is False => do NOT update attendance record.
+      Only write fail attempt to face_logs and return 403.
+    - Geofence is still validated.
+    """
+
+    site_id = get_site_id_or_raise(user)
+    site = db.query(Site).filter(Site.id == site_id).first()
+    if not site:
+        raise HTTPException(400, "Invalid site")
+
+    worker = db.query(Worker).filter(Worker.id == worker_id, Worker.is_deleted == False).first()
+    if not worker:
+        raise HTTPException(404, "Worker not found")
+
+    try:
+        dt = datetime.fromisoformat(device_time_utc.replace("Z", "+00:00"))
+        if dt.tzinfo is not None:
+            utc_now = dt.astimezone(timezone.utc).replace(tzinfo=None)
+        else:
+            utc_now = dt
+    except Exception:
+        utc_now = datetime.utcnow()
+
+    local_time = utc_now.replace(tzinfo=pytz.utc).astimezone(pytz.timezone(site.timezone))
+
+    if not local_verified:
+        selfie_key = None
+        if photo is not None:
+            temp_path = f"/tmp/{uuid.uuid4()}.jpg"
+            with open(temp_path, "wb") as buffer:
+                shutil.copyfileobj(photo.file, buffer)
+            try:
+                selfie_key = save_compressed_failed_face_image(
+                    temp_path=temp_path,
+                    site_name=format_site_folder(site.name),
+                    worker_id=str(worker.id),
+                    event_type="offline_check_out",
+                    timezone_str=site.timezone,
+                )
+            finally:
+                try:
+                    os.remove(temp_path)
+                except Exception:
+                    pass
+
+        log_face(
+            event_type="offline_check_out",
+            worker_id=str(worker.id) if worker else str(worker_id),
+            worker_name=worker.full_name if worker else "Unknown",
+            site_id=str(site.id),
+            site_name=site.name,
+            similarity_score=similarity_score or 0.0,
+            threshold=threshold or 0.0,
+            result=False,
+            embedding_length=0,
+            notes="local_verified=false; attendance not updated",
+            selfie_object_key=selfie_key,
+        )
+        raise HTTPException(status_code=403, detail="Local verification failed")
+
+    record = db.query(AttendanceRecord).filter(
+        AttendanceRecord.worker_id == worker_id,
+        AttendanceRecord.date == local_time.date(),
+    ).first()
+
+    if not record or not record.check_in_time:
+        raise HTTPException(400, "No check-in found")
+
+    if record.check_out_time:
+        raise HTTPException(400, "Already checked out")
+
+    log_face(
+        event_type="offline_check_out",
+        worker_id=str(worker.id),
+        worker_name=worker.full_name,
+        site_id=str(site.id),
+        site_name=site.name,
+        similarity_score=float(similarity_score) if similarity_score is not None else 0.0,
+        threshold=float(threshold) if threshold is not None else float(os.getenv("THRESHOLD", 0.75)),
+        result=True,
+        embedding_length=0,
+        notes=f"device_local_verification_passed device_attendance_id={device_attendance_id}",
+    )
+
+    selfie_key = None
+    if photo is not None:
+        temp_path = f"/tmp/{uuid.uuid4()}.jpg"
+        with open(temp_path, "wb") as buffer:
+            shutil.copyfileobj(photo.file, buffer)
+
+        site_folder = format_site_folder(site.name)
+        selfie_key = save_compressed_attendance_image(
+            temp_path=temp_path,
+            site_name=site_folder,
+            worker_id=worker.id,
+            mode="Checkout",
+            timezone_str=site.timezone,
+        )
+        try:
+            os.remove(temp_path)
+        except Exception:
+            pass
+
+    record.check_out_site_id = site.id
+    record.check_out_time = utc_now
+    record.check_out_lat = latitude
+    record.check_out_lng = longitude
+    if selfie_key:
+        record.check_out_selfie_url = selfie_key
+    record.status = "checked_out"
+    record.geofence_valid = True
+
+    try:
+        if record.check_in_time and record.check_out_time:
+            delta = record.check_out_time - record.check_in_time
+            total_hours = math.floor(delta.total_seconds() / 3600)
+        else:
+            total_hours = 0
+    except Exception:
+        total_hours = 0
+
+    record.total_hours = total_hours
+
+    dw_hours = getattr(worker, "daily_working_hours", None) or 0
+    record.overtime_hours = max(0, total_hours - dw_hours)
+
+    db.commit()
+    db.refresh(record)
+
+    log_action(
+        db=db,
+        action="offline_check_out",
+        entity_type="attendance",
+        entity_id=str(record.id),
+        details=f"Offline check-out stored worker={worker.id} site={site.name} device_attendance_id={device_attendance_id}",
+        **_audit_mobile(user),
+    )
+
+    return record
+
+
+@router.post("/offline/selfie")
+def offline_upload_selfie(
+    attendance_id: str = Form(..., description="Server attendance id (UUID)"),
+    mode: str = Form(..., description="Checkin|Checkout"),
+    photo: UploadFile = File(...),
+    user=Depends(require_mobile_user),
+    db: Session = Depends(get_db),
+):
+    """Upload selfie later for an already-created attendance record."""
+
+    site_id = get_site_id_or_raise(user)
+    site = db.query(Site).filter(Site.id == site_id).first()
+    if not site:
+        raise HTTPException(400, "Invalid site")
+
+    record = db.query(AttendanceRecord).filter(AttendanceRecord.id == attendance_id).first()
+    if not record:
+        raise HTTPException(404, "Attendance not found")
+
+    # Store under current site's folder (manager current site)
+    site_folder = format_site_folder(site.name)
+
+    temp_path = f"/tmp/{uuid.uuid4()}.jpg"
+    with open(temp_path, "wb") as buffer:
+        shutil.copyfileobj(photo.file, buffer)
+
+    object_key = save_compressed_attendance_image(
+        temp_path=temp_path,
+        site_name=site_folder,
+        worker_id=record.worker_id,
+        mode=mode,
+        timezone_str=site.timezone,
+    )
+
+    try:
+        os.remove(temp_path)
+    except Exception:
+        pass
+
+    if mode.lower() == "checkin":
+        record.check_in_selfie_url = object_key
+    else:
+        record.check_out_selfie_url = object_key
+
+    db.commit()
+
+    return {"message": "Selfie uploaded", "object_key": object_key}
+
+
+# --------------------------------------------------
+# GEOFENCE SYNC ENDPOINT (for offline caching)
+# --------------------------------------------------
+@router.get("/sync/site")
+def sync_site(user=Depends(require_mobile_user), db: Session = Depends(get_db)):
+    site_id = get_site_id_or_raise(user)
+
+    site = db.query(Site).filter(Site.id == site_id, Site.is_deleted == False).first()
+    if not site:
+        raise HTTPException(status_code=404, detail="Site not found")
+
+    return {
+        "site": {
+            "id": str(site.id),
+            "name": site.name,
+            "boundary_type": getattr(site, "boundary_type", "circle"),
+            "latitude": site.latitude,
+            "longitude": site.longitude,
+            "geofence_radius": site.geofence_radius,
+            "polygon_coords": getattr(site, "polygon_coords", None),
+            "timezone": site.timezone,
+            "updated_at": site.updated_at.isoformat() if getattr(site, "updated_at", None) else None,
+        }
+    }
 
 
 
