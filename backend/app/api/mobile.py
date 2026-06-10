@@ -457,7 +457,7 @@ def get_worker_attendance(
     if not worker:
         raise HTTPException(404, "Worker not found")
 
-        query = (db.query(AttendanceRecord).filter(AttendanceRecord.worker_id == worker_id))
+    query = (db.query(AttendanceRecord).filter(AttendanceRecord.worker_id == worker_id))
 
     if date_from:
         try:
