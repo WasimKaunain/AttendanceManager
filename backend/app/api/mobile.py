@@ -1045,7 +1045,7 @@ def offline_check_in(
         raise HTTPException(403, "Outside geofence")
 
     if device_attendance_id:
-    existing_device = (db.query(AttendanceRecord).filter(AttendanceRecord.device_attendance_id == device_attendance_id).first())
+        existing_device = (db.query(AttendanceRecord).filter(AttendanceRecord.device_attendance_id == device_attendance_id).first())
 
     if existing_device:
         return existing_device
