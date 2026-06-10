@@ -25,6 +25,7 @@ class AttendanceRecord(Base):
 
     check_in_selfie_url = Column(String)
     check_out_selfie_url = Column(String)
+    device_attendance_id = Column(String, nullable=True, unique=True)
 
     status = Column(String)
     is_late = Column(Boolean, nullable=True, default=None)

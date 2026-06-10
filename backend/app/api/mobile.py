@@ -1044,6 +1044,12 @@ def offline_check_in(
     if not inside:
         raise HTTPException(403, "Outside geofence")
 
+    if device_attendance_id:
+    existing_device = (db.query(AttendanceRecord).filter(AttendanceRecord.device_attendance_id == device_attendance_id).first())
+
+    if existing_device:
+        return existing_device
+
     # Prevent duplicate check-in for the same local date
     existing = db.query(AttendanceRecord).filter(
         AttendanceRecord.worker_id == worker_id,
@@ -1094,6 +1100,7 @@ def offline_check_in(
         check_in_lat=latitude,
         check_in_lng=longitude,
         check_in_selfie_url=selfie_key,
+        device_attendance_id=device_attendance_id,
         status="checked_in",
         geofence_valid=True,
     )
@@ -1190,10 +1197,7 @@ def offline_check_out(
         )
         raise HTTPException(status_code=403, detail="Local verification failed")
 
-    record = db.query(AttendanceRecord).filter(
-        AttendanceRecord.worker_id == worker_id,
-        AttendanceRecord.date == local_time.date(),
-    ).first()
+    record = db.query(AttendanceRecord).filter(AttendanceRecord.worker_id == worker_id,AttendanceRecord.date == local_time.date(),).first()
 
     if not record or not record.check_in_time:
         raise HTTPException(400, "No check-in found")

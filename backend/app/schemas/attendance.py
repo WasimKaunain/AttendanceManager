@@ -24,6 +24,8 @@ class AttendanceResponse(ORMBase):
     check_in_selfie_url: Optional[str] = None
     check_out_selfie_url: Optional[str] = None
 
+    device_attendance_id: Optional[str] = None
+
     total_hours: Optional[float] = None
     overtime_hours: Optional[float] = None
 
