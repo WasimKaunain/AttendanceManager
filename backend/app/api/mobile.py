@@ -444,7 +444,67 @@ def get_site_attendance(
 
     return result
 
+@router.get("/workers/{worker_id}/attendance")
+def get_worker_attendance(
+    worker_id: str,
+    date_from: str | None = Query(None),
+    date_to: str | None = Query(None),
+    user=Depends(require_mobile_user),
+    db: Session = Depends(get_db)
+):
+    worker = (db.query(Worker).filter(Worker.id == worker_id).first())
 
+    if not worker:
+        raise HTTPException(404, "Worker not found")
+
+        query = (db.query(AttendanceRecord).filter(AttendanceRecord.worker_id == worker_id))
+
+    if date_from:
+        try:
+            query = query.filter(AttendanceRecord.date >= date.fromisoformat(date_from))
+        except ValueError:
+            pass
+
+    if date_to:
+        try:
+            query = query.filter(AttendanceRecord.date <= date.fromisoformat(date_to))
+        except ValueError:
+            pass
+
+    query = query.order_by(AttendanceRecord.date.desc(), AttendanceRecord.check_in_time.desc())
+    rows = query.all()
+
+    result = []
+
+    for r in rows:
+
+        site_id = (r.check_in_site_id or r.check_out_site_id)
+
+        site = (db.query(Site).filter(Site.id == site_id).first())
+
+        timezone = (site.timezone if site else "Asia/Kolkata")
+
+        obj = serialize_attendance(r, timezone)
+
+        result.append({
+            "id": str(r.id),
+            "worker_id": r.worker_id,
+            "worker_name": worker.full_name,
+            "date": str(obj.date),
+            "check_in_time":
+                obj.check_in_time.strftime("%I:%M %p")
+                if obj.check_in_time else None,
+            "check_out_time":
+                obj.check_out_time.strftime("%I:%M %p")
+                if obj.check_out_time else None,
+            "status": obj.status,
+            "total_hours":
+                round(obj.total_hours, 1)
+                if obj.total_hours else None,
+            "geofence_valid": r.geofence_valid,
+        })
+
+    return result
 
 # --------------------------------------------------
 # ENROLL FACE
