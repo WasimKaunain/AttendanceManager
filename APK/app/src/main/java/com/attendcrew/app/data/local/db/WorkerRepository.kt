@@ -8,8 +8,10 @@ class WorkerRepository(context: Context) {
 
     suspend fun upsertAll(workers: List<WorkerEntity>) = dao.upsertAll(workers)
     suspend fun getAll() = dao.getAll()
-    suspend fun getById(workerId: Int) = dao.getById(workerId)
+    suspend fun getById(workerId: String) = dao.getById(workerId)
     suspend fun clearAll() = dao.clearAll()
     suspend fun count() = dao.count()
     suspend fun getMaxUpdatedAt() = dao.getMaxUpdatedAt()
+
+    suspend fun getUnenrolledWorkers() = dao.getUnenrolledWorkers()
 }

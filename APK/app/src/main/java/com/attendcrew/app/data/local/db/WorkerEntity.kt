@@ -15,7 +15,7 @@ import androidx.room.PrimaryKey
 data class WorkerEntity(
     @PrimaryKey
     @ColumnInfo(name = "workerId")
-    val workerId: Int,
+    val workerId: String,
 
     @ColumnInfo(name = "fullName")
     val fullName: String,

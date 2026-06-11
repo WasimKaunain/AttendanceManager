@@ -16,7 +16,7 @@ object GeoFenceLocalChecker {
         radiusM: Double?,
         polygonJson: String?
     ): Pair<Boolean, Double?> {
-        return if (boundaryType.lowercase() == "polygon") {
+        return if (boundaryType.equals("polygon", ignoreCase = true)) {
             val pts = parsePolygon(polygonJson)
             val inside = pointInPolygon(Point(workerLat, workerLng), pts)
             Pair(inside, null)

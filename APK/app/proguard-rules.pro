@@ -84,5 +84,27 @@
 
 # ── Google HTTP client / Tink optional downloader path ────────────────────────
 -dontwarn com.google.api.client.**
--dontwarn com.google.http-client.**
+-dontwarn com.google.api.client.**
+-dontwarn com.google.api.client.http.**
 -dontwarn org.joda.time.**
+
+# ── SQLCipher (CRITICAL: prevent mNativeHandle obfuscation) ───────────────────
+-keep class net.sqlcipher.** { *; }
+-keep class net.sqlcipher.database.** { *; }
+-keep class net.sqlcipher.database.SQLiteDatabase {
+    long mNativeHandle;
+}
+-keep interface net.sqlcipher.database.* { *; }
+-keepclassmembers class net.sqlcipher.database.* {
+    *** *;
+}
+-dontwarn net.sqlcipher.**
+
+# R8 Missing Classes Fix
+-dontwarn javax.naming.**
+-dontwarn javax.servlet.**
+-dontwarn org.apache.avalon.**
+-dontwarn org.apache.log.**
+-dontwarn org.apache.log4j.**
+-dontwarn org.ietf.jgss.**
+

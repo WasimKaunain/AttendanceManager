@@ -5,7 +5,7 @@ import kotlin.math.sqrt
 object FaceMatcher {
 
     data class MatchResult(
-        val bestWorkerId: Int?,
+        val bestWorkerId: String?,
         val bestSimilarity: Float,
         val threshold: Float,
         val passed: Boolean
@@ -31,10 +31,10 @@ object FaceMatcher {
 
     fun bestMatch(
         probe: FloatArray,
-        candidates: List<Pair<Int, FloatArray>>,
+        candidates: List<Pair<String, FloatArray>>,
         threshold: Float
     ): MatchResult {
-        var bestId: Int? = null
+        var bestId: String? = null
         var best = -1f
         for ((id, emb) in candidates) {
             val sim = cosineSimilarity(probe, emb)

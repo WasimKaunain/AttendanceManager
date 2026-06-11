@@ -4,6 +4,7 @@ import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -19,240 +20,295 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.attendcrew.app.data.api.RetrofitInstance
 import com.attendcrew.app.data.model.WorkerResponse
+import com.attendcrew.app.ui.components.AppCard
+import com.attendcrew.app.ui.components.AppEmptyState
+import com.attendcrew.app.ui.components.AppPrimaryButton
+import com.attendcrew.app.ui.components.AppSectionTitle
+import com.attendcrew.app.ui.components.AppTextField
 import com.attendcrew.app.ui.theme.*
 import kotlinx.coroutines.launch
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
+import com.attendcrew.app.data.local.db.siteworker.SiteWorkerRepository
+import com.attendcrew.app.data.local.db.siteworker.SiteWorkerEntity
+import androidx.compose.ui.res.painterResource
+import com.attendcrew.app.R
+import androidx.compose.foundation.Image
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 
 @Composable
 fun WorkersScreen(
     navController: NavController,
     mode: String
 ) {
-    var workers     by remember { mutableStateOf<List<WorkerResponse>>(emptyList()) }
-    var searchQuery by remember { mutableStateOf("") }
-    var isLoading   by remember { mutableStateOf(false) }
-
-    val scope   = rememberCoroutineScope()
     val context = LocalContext.current
+    var workers by remember {mutableStateOf<List<SiteWorkerEntity>>(emptyList())}
+    var searchQuery by remember { mutableStateOf("") }
+    var isLoading by remember { mutableStateOf(false) }
+    val repository = remember {SiteWorkerRepository(context)}
+    val scope = rememberCoroutineScope()
 
-    fun fetchWorkers() {
+
+    fun loadWorkers() {
         scope.launch {
+
             isLoading = true
+
             try {
-                val api = RetrofitInstance.getApi(context)
-                if (mode == "enroll") {
-                    val response = api.getSiteWorkers(
-                        search = searchQuery.ifBlank { null },
-                        status = "active"
-                    )
-                    if (response.isSuccessful) {
-                        workers = (response.body() ?: emptyList()).map { siteWorker ->
-                            WorkerResponse(
-                                id = siteWorker.id,
-                                full_name = siteWorker.full_name,
-                                mobile = siteWorker.mobile,
-                                site_id = null,
-                                status = siteWorker.status,
-                                photo_url = siteWorker.photo_url
-                            )
-                        }
-                    } else {
-                        Toast.makeText(context, "Failed to load workers", Toast.LENGTH_SHORT).show()
-                    }
-                } else {
-                    val response = api.getWorkers(search = searchQuery.ifBlank { null })
-                    if (response.isSuccessful) {
-                        workers = response.body() ?: emptyList()
-                    } else {
-                        Toast.makeText(context, "Failed to load workers", Toast.LENGTH_SHORT).show()
-                    }
+
+                var result = repository.getFiltered(search = searchQuery.ifBlank { null },status = "active")
+                if (mode == "enroll")
+                {
+                    result = result.filter {it.photoUrl.isNullOrBlank()}
                 }
-            } catch (e: Exception) {
-                Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                workers = result
+
             } finally {
                 isLoading = false
             }
         }
     }
 
-    LaunchedEffect(Unit) { fetchWorkers() }
+    LaunchedEffect(mode)
+    {
+        loadWorkers()
+    }
+
+    LaunchedEffect(searchQuery) {
+        loadWorkers()
+    }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(AppBackground)
+        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
     ) {
+        val heroRes =when(mode)
+        {
+            "checkin" -> R.drawable.hero_checkin
+            "checkout" -> R.drawable.hero_checkout
+            "enroll" -> R.drawable.hero_enroll
+            else -> R.drawable.hero_workers
+        }
 
-        // ── Header ────────────────────────────────────────────────────────────
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Brush.linearGradient(listOf(AppPrimary, AppPrimaryLight)))
-                .padding(horizontal = 20.dp, vertical = 28.dp)
-        ) {
-            Column {
-                Text(
-                    text = when (mode) {
-                        "enroll"  -> "Face Enrollment"
-                        "checkin" -> "Check In"
-                        else      -> "Check Out"
-                    },
-                    style = MaterialTheme.typography.headlineSmall.copy(
-                        fontWeight = FontWeight.Bold, color = AppOnPrimary
+        // ── Header ───────────────────────────────────────────────────────────
+        val headerTitle = when (mode) {
+            "enroll" -> "Face Enrollment"
+            "checkin" -> "Check In"
+            else -> "Check Out"
+        }
+
+        Box(modifier = Modifier.fillMaxWidth().height(260.dp)
+        )
+        {
+                Image(
+                    painter = painterResource(heroRes),
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+
+            Column(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(
+                        start = 24.dp,
+                        top = 110.dp,
+                        end = 120.dp
                     )
-                )
-                Spacer(Modifier.height(2.dp))
+            ) {
+
                 Text(
-                    text  = "Select a worker to continue",
-                    style = MaterialTheme.typography.bodyMedium.copy(color = AppOnPrimary.copy(alpha = 0.8f))
+                    text = headerTitle,
+                    color = Color.White,
+                    style = MaterialTheme.typography.headlineLarge,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Spacer(Modifier.height(8.dp))
+
+                Text(
+                    text = "Select a worker to continue",
+                    color = Color.White,
+                    style = MaterialTheme.typography.titleMedium
+                )
+            }
+
+            Surface(
+                modifier = Modifier.align(Alignment.TopEnd).padding(top = 56.dp,end = 18.dp).clickable {navController.popBackStack()},
+                shape = CircleShape,
+                color = Color.White.copy(alpha = 0.18f)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back",
+                    tint = Color.White,
+                    modifier = Modifier.padding(12.dp).size(24.dp)
                 )
             }
         }
 
-        // ── Search Card ───────────────────────────────────────────────────────
-        Card(
-            modifier  = Modifier.fillMaxWidth().padding(16.dp),
-            shape     = RoundedCornerShape(16.dp),
-            colors    = CardDefaults.cardColors(containerColor = AppSurface),
-            elevation = CardDefaults.cardElevation(2.dp)
-        ) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
-                    value         = searchQuery,
+        Spacer(Modifier.height(14.dp))
+
+        // ── Search ───────────────────────────────────────────────────────────
+        ElevatedCard(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+            shape = RoundedCornerShape(24.dp),
+            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 6.dp)
+        )
+        {
+            Column(
+                modifier = Modifier.padding(16.dp)
+            ) {
+
+                AppTextField(
+                    value = searchQuery,
                     onValueChange = { searchQuery = it },
-                    label         = { Text("Search by name, mobile or ID") },
-                    leadingIcon   = { Icon(Icons.Default.Search, null, tint = AppTextSecondary) },
-                    modifier      = Modifier.fillMaxWidth(),
-                    singleLine    = true,
-                    shape         = RoundedCornerShape(12.dp)
+                    label = "Search Worker",
+                    placeholder = "Name, ID or mobile",
+                    leadingIcon = Icons.Default.Search
                 )
-                Button(
-                    onClick  = { fetchWorkers() },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape    = RoundedCornerShape(12.dp),
-                    colors   = ButtonDefaults.buttonColors(containerColor = AppPrimary)
-                ) { Text("Search") }
             }
         }
 
-        // ── Worker List ───────────────────────────────────────────────────────
-        if (isLoading) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = AppPrimary)
-            }
-        } else if (workers.isEmpty()) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Default.PeopleOutline, null, tint = AppTextSecondary, modifier = Modifier.size(48.dp))
-                    Spacer(Modifier.height(8.dp))
-                    Text("No workers found", style = MaterialTheme.typography.bodyLarge.copy(color = AppTextSecondary))
+        Spacer(Modifier.height(12.dp))
+
+        // ── List / states ─────────────────────────────────────────────────────
+        when {
+            isLoading -> {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                 }
             }
-        } else {
-            LazyColumn(contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp)) {
-                items(workers) { worker ->
-                    val encodedName = URLEncoder.encode(worker.full_name, StandardCharsets.UTF_8.toString())
-                    WorkerPickerItem(
-                        worker = worker,
-                        showPendingMarker = mode == "enroll"
-                    ) {
-                        when (mode) {
-                            "enroll"  -> navController.navigate("camera_enroll/${worker.id}/$encodedName")
-                            "checkin" -> navController.navigate("camera_checkin/${worker.id}/$encodedName")
-                            else      -> navController.navigate("camera_checkout/${worker.id}/$encodedName")
+
+            workers.isEmpty() -> {
+                AppEmptyState(
+                    title = "No workers found",
+                    message = "Try searching with a different keyword.",
+                    icon = Icons.Default.PeopleOutline,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            else -> {
+                LazyColumn(
+                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp)
+                ) {
+                    items(workers) { worker ->
+                        val encodedName = URLEncoder.encode(worker.fullName, StandardCharsets.UTF_8.toString())
+                        WorkerActionRow(worker = worker,mode = mode)
+                        {
+                            when (mode) { "enroll" -> navController.navigate("camera_enroll/${worker.id}/$encodedName")
+
+                                "checkin" -> navController.navigate("camera_checkin/${worker.id}/$encodedName")
+
+                                else -> navController.navigate("camera_checkout/${worker.id}/$encodedName")
+                            }
                         }
+                        Spacer(Modifier.height(6.dp))
                     }
-                    Spacer(Modifier.height(8.dp))
                 }
             }
         }
     }
 }
 
-// ── Worker Picker Row Card ────────────────────────────────────────────────────
-
 @Composable
-fun WorkerPickerItem(
-    worker: WorkerResponse,
-    showPendingMarker: Boolean,
+fun WorkerActionRow(
+    worker: SiteWorkerEntity,
+    mode: String,
     onClick: () -> Unit
-) {
-    val isEnrollmentPending = showPendingMarker && worker.photo_url.isNullOrBlank()
+)
+
+{
+    val isEnrollmentPending = worker.photoUrl.isNullOrBlank()
+
+    val initials = worker.fullName.split(" ").take(2).joinToString("") {it.first().uppercase()}
+
+    val isFacePending = worker.photoUrl.isNullOrBlank()
 
     Card(
-        modifier  = Modifier.fillMaxWidth().clickable { onClick() },
-        shape     = RoundedCornerShape(14.dp),
-        colors    = CardDefaults.cardColors(containerColor = AppSurface),
-        elevation = CardDefaults.cardElevation(2.dp)
-    ) {
-        Row(
-            modifier          = Modifier.fillMaxWidth().padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            // Avatar circle
-            Box(
-                modifier         = Modifier.size(46.dp).clip(CircleShape).background(AppPrimary.copy(alpha = 0.1f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text  = worker.full_name.firstOrNull()?.uppercase() ?: "?",
-                    style = MaterialTheme.typography.titleMedium.copy(color = AppPrimary, fontWeight = FontWeight.Bold)
-                )
+        modifier = Modifier.fillMaxWidth().clickable { onClick() },
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp
+        )
+    )
+    {
+        val actionText = when(mode)
+            {
+                "enroll" -> "Enroll"
+                "checkin" -> "Check In"
+                else -> "Check Out"
             }
+        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 6.dp),verticalAlignment = Alignment.CenterVertically,horizontalArrangement = Arrangement.spacedBy(10.dp))
+        {
+            Surface(shape = RoundedCornerShape(18.dp),color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f))
+            {
+                Box(modifier = Modifier.size(40.dp),contentAlignment = Alignment.Center)
+                {
+                    Text(
+                        text = initials.ifBlank { "?" },
+                        style = MaterialTheme.typography.titleMedium.copy(color = MaterialTheme.colorScheme.primary,fontWeight = FontWeight.Bold
+                        )
+                    )
+                }
+            }
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            )
+            {
+                Text(
+                    text = worker.fullName,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
 
-            // Info
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Text(worker.full_name, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold, color = AppTextPrimary))
-                    if (isEnrollmentPending) {
-                        Icon(
-                            imageVector = Icons.Default.WarningAmber,
-                            contentDescription = "Face enrollment pending",
-                            tint = Color(0xFFF59F00),
-                            modifier = Modifier.size(16.dp)
+                Text(
+                    text = worker.id,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                if (!worker.role.isNullOrBlank()) {
+
+                    Spacer(Modifier.height(2.dp))
+
+                    Surface(
+                        shape = RoundedCornerShape(50),
+                        color = Color(0xFFEFF6FF)
+                    ) {
+                        Text(
+                            worker.role,
+                            modifier = Modifier.padding(horizontal = 10.dp,vertical = 2.dp),
+                            color = Color(0xFF1D4ED8),
+                            style = MaterialTheme.typography.labelSmall
                         )
                     }
                 }
-                Text("ID: ${worker.id}", style = MaterialTheme.typography.bodySmall.copy(color = AppTextSecondary, fontSize = 11.sp))
-                Text("📱 ${worker.mobile}", style = MaterialTheme.typography.bodySmall.copy(color = AppTextSecondary, fontSize = 11.sp))
-                if (isEnrollmentPending) {
-                    Text(
-                        text = "Face enrollment pending",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            color = Color(0xFFB7791F),
-                            fontWeight = FontWeight.Medium
-                        )
-                    )
+            }
+            Surface(
+                shape = RoundedCornerShape(50),
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)
+            )
+            {
+                Row(modifier = Modifier.padding(horizontal = 12.dp,vertical = 4.dp),verticalAlignment = Alignment.CenterVertically)
+                {
+                    Text(actionText,color = MaterialTheme.colorScheme.primary,style = MaterialTheme.typography.labelMedium)
+                    Spacer(Modifier.width(4.dp))
+                    Icon(Icons.Default.ArrowForward,null,modifier = Modifier.size(14.dp),tint = MaterialTheme.colorScheme.primary)
                 }
             }
-
-            // Status badge
-            if (worker.status != null) {
-                val badgeColor = if (worker.status == "active") AppPresent else AppInactive
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(50))
-                        .background(badgeColor.copy(alpha = 0.12f))
-                        .padding(horizontal = 10.dp, vertical = 4.dp)
-                ) {
-                    Text(
-                        text  = worker.status.replaceFirstChar { it.uppercase() },
-                        style = MaterialTheme.typography.labelSmall.copy(color = badgeColor, fontWeight = FontWeight.SemiBold)
-                    )
-                }
-            }
-
-            Icon(Icons.Default.ChevronRight, null, tint = AppTextSecondary, modifier = Modifier.size(18.dp))
         }
     }
+
+
 }

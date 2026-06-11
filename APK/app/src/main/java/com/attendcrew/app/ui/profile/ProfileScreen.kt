@@ -15,9 +15,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -25,6 +27,14 @@ import androidx.navigation.NavController
 import com.attendcrew.app.data.local.AppPreferences
 import com.attendcrew.app.data.local.CurrencyOption
 import com.attendcrew.app.data.local.TokenManager
+import com.attendcrew.app.ui.components.AppCard
+import com.attendcrew.app.ui.components.AppSectionTitle
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
+import com.attendcrew.app.R
+import androidx.compose.foundation.Image
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextAlign
 
 @Composable
 fun ProfileScreen(
@@ -32,168 +42,253 @@ fun ProfileScreen(
     isDarkTheme: Boolean,
     onThemeToggle: (Boolean) -> Unit
 ) {
-    val context     = LocalContext.current
-    val prefs       = remember { AppPreferences(context) }
-    val tokenMgr    = remember { TokenManager(context) }
+    val context = LocalContext.current
+    val prefs = remember { AppPreferences(context) }
+    val tokenMgr = remember { TokenManager(context) }
 
-    val userName  = remember { tokenMgr.getUserName() ?: "Site In-charge" }
-    val userRole  = remember { tokenMgr.getRole()?.replace("_", " ")?.replaceFirstChar { it.uppercase() } ?: "Site In-charge" }
-    val siteName  = remember { tokenMgr.getSiteName() ?: tokenMgr.getSiteId() ?: "—" }
-
-    var currency        by remember { mutableStateOf(prefs.currency) }
+    val userName = remember { tokenMgr.getUserName() ?: "Site In-charge" }
+    val userRole = remember {
+        tokenMgr.getRole()?.replace("_", " ")?.replaceFirstChar { it.uppercase() } ?: "Site In-charge"
+    }
+    val siteName = remember { tokenMgr.getSiteName() ?: tokenMgr.getSiteId() ?: "—" }
+    var currency by remember { mutableStateOf(prefs.currency) }
     var showCurrencyDlg by remember { mutableStateOf(false) }
     var showBiometricDlg by remember { mutableStateOf(false) }
-    var showPrivacyDlg  by remember { mutableStateOf(false) }
-    var showTermsDlg    by remember { mutableStateOf(false) }
+    var showPrivacyDlg by remember { mutableStateOf(false) }
+    var showTermsDlg by remember { mutableStateOf(false) }
     var showDisclaimerDlg by remember { mutableStateOf(false) }
     var showLicensesDlg by remember { mutableStateOf(false) }
-    var showLogoutDlg   by remember { mutableStateOf(false) }
+    var showLogoutDlg by remember { mutableStateOf(false) }
 
     val scrollState = rememberScrollState()
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .verticalScroll(scrollState)
-    ) {
-        // ── Header ────────────────────────────────────────────────────────────
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.primary)
-                .padding(top = 52.dp, bottom = 28.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Box(
-                    modifier = Modifier
-                        .size(72.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.2f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector        = Icons.Filled.Person,
-                        contentDescription = null,
-                        tint               = MaterialTheme.colorScheme.onPrimary,
-                        modifier           = Modifier.size(44.dp)
-                    )
-                }
-                Spacer(Modifier.height(12.dp))
-                Text(userName,  color = MaterialTheme.colorScheme.onPrimary, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(4.dp))
-                Text(userRole,  color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f), fontSize = 13.sp)
-                Spacer(Modifier.height(2.dp))
-                Text(siteName,  color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.6f), fontSize = 12.sp)
+        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).verticalScroll(scrollState))
+    {
+        // ── Header (match other screens) ─────────────────────────────────────
+        Box(modifier = Modifier.fillMaxWidth().height(260.dp))
+        {
+                Image(
+                    painter = painterResource(R.drawable.hero_profile),
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop)
+
+            Column(
+                modifier = Modifier.align(Alignment.TopStart).padding(start = 24.dp,top = 110.dp,end = 120.dp)
+            ) {
+                Text(text = "Profile",color = Color.White,style = MaterialTheme.typography.headlineLarge,fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(8.dp))
+                Text(text = "Manage your account & preferences",color = Color.White,style = MaterialTheme.typography.titleMedium)
             }
         }
 
-        Spacer(Modifier.height(16.dp))
+        Card(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).offset(y = (-40).dp),
+            shape = RoundedCornerShape(28.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+        ) {
+            Row(modifier = Modifier.padding(20.dp),verticalAlignment = Alignment.CenterVertically)
+            {
+                Surface(
+                    shape = CircleShape,color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)
+                ) {
+                    Box(modifier = Modifier.size(64.dp),contentAlignment = Alignment.Center)
+                    {
+                        Text(userName.take(1).uppercase(),style = MaterialTheme.typography.headlineSmall,fontWeight = FontWeight.Bold,color = MaterialTheme.colorScheme.primary)
+                    }
+                }
 
-        // ── Preferences ───────────────────────────────────────────────────────
-        SectionHeader("Preferences")
+                Spacer(Modifier.width(16.dp))
 
-        SettingsSwitchRow(
-            icon    = if (isDarkTheme) Icons.Filled.DarkMode else Icons.Outlined.LightMode,
-            title   = "Dark Mode",
-            subtitle = if (isDarkTheme) "Dark theme active" else "Light theme active",
-            checked = isDarkTheme,
-            onToggle = {
-                onThemeToggle(it)
-                prefs.isDarkTheme = it
+                Column {
+                    Text(userName,style = MaterialTheme.typography.titleLarge,fontWeight = FontWeight.Bold)
+                    Text(userRole,color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(siteName,color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
+        }
+
+        Spacer(Modifier.height((-20).dp))
+
+        // ── Preferences ──────────────────────────────────────────────────────
+        AppSectionTitle("App Preferences", modifier = Modifier.padding(horizontal = 20.dp))
+        Spacer(Modifier.height(10.dp))
+
+        ElevatedCard(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+            shape = RoundedCornerShape(24.dp),
+            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 6.dp))
+        {
+            SettingsSwitchRow(
+                icon = if (isDarkTheme) Icons.Filled.DarkMode else Icons.Outlined.LightMode,
+                title = "Dark Mode",
+                subtitle = if (isDarkTheme) "Dark theme active" else "Light theme active",
+                checked = isDarkTheme,
+                onToggle = {
+                    onThemeToggle(it)
+                    prefs.isDarkTheme = it
+                }
+            )
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+
+            SettingsClickRow(
+                icon = Icons.Outlined.AttachMoney,
+                title = "Currency",
+                subtitle = "${AppPreferences.symbolFor(currency)}  •  $currency",
+                onClick = { showCurrencyDlg = true }
+            )
+        }
+
+        Spacer(Modifier.height(14.dp))
+
+
+        // ── Privacy & Biometrics ─────────────────────────────────────────────
+        AppSectionTitle("Privacy & Security", modifier = Modifier.padding(horizontal = 20.dp))
+        Spacer(Modifier.height(10.dp))
+
+        ElevatedCard(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            shape = RoundedCornerShape(24.dp),
+            elevation = CardDefaults.elevatedCardElevation(
+                defaultElevation = 6.dp
+            )
+        ) {
+            SettingsClickRow(
+                icon = Icons.Outlined.Fingerprint,
+                title = "Biometric Data Notice",
+                subtitle = "Face recognition data handling",
+                onClick = { showBiometricDlg = true }
+            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+            SettingsClickRow(
+                icon = Icons.Outlined.PrivacyTip,
+                title = "Privacy Policy",
+                subtitle = "Data protection and user rights",
+                onClick = { showPrivacyDlg = true }
+            )
+        }
+
+        Spacer(Modifier.height(14.dp))
+
+        // ── Legal ───────────────────────────────────────────────────────────-
+        AppSectionTitle("Legal & Compliance", modifier = Modifier.padding(horizontal = 20.dp))
+        Spacer(Modifier.height(10.dp))
+
+        ElevatedCard(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            shape = RoundedCornerShape(24.dp),
+            elevation = CardDefaults.elevatedCardElevation(
+                defaultElevation = 6.dp
+            )
         )
+        {
+            SettingsClickRow(
+                icon = Icons.Outlined.Gavel,
+                title = "Terms of Use",
+                subtitle = "Usage terms and responsibilities",
+                onClick = { showTermsDlg = true }
+            )
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
+            )
+            SettingsClickRow(
+                icon = Icons.Outlined.Info,
+                title = "Disclaimer",
+                subtitle = "Important legal information",
+                onClick = { showDisclaimerDlg = true }
+            )
+        }
 
-        SettingsClickRow(
-            icon     = Icons.Outlined.AttachMoney,
-            title    = "Currency",
-            subtitle = "$currency  ·  ${AppPreferences.symbolFor(currency)}",
-            onClick  = { showCurrencyDlg = true }
-        )
+        Spacer(Modifier.height(14.dp))
 
-        Spacer(Modifier.height(8.dp))
+        // ── About ───────────────────────────────────────────────────────────-
+        AppSectionTitle("About", modifier = Modifier.padding(horizontal = 20.dp))
+        Spacer(Modifier.height(10.dp))
 
-        // ── Account (read-only for Site In-charge) ────────────────────────────
-        SectionHeader("Account")
+            ElevatedCard(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                shape = RoundedCornerShape(24.dp),
+                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 6.dp
+                )
+            )
+            {
+                SettingsInfoRow(Icons.Outlined.Business,"Application","AttendCrew")
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+                SettingsInfoRow(Icons.Outlined.AppSettingsAlt,"Version","1.2.0")
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
 
-        SettingsInfoRow(Icons.Outlined.Person,       "Name",      userName)
-        SettingsInfoRow(Icons.Outlined.Badge,        "Role",      userRole)
-        SettingsInfoRow(Icons.Outlined.LocationCity, "Site",      siteName)
+                SettingsClickRow(
+                icon = Icons.Outlined.Description,
+                title = "Open Source Licenses",
+                subtitle = "Third-party libraries and acknowledgements",
+                onClick = { showLicensesDlg = true }
+            )
+        }
 
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(14.dp))
 
-        // ── Privacy & Biometrics ──────────────────────────────────────────────
-        SectionHeader("Privacy & Biometrics")
+        // ── Session ─────────────────────────────────────────────────────────-
+        AppSectionTitle("Sign Out", modifier = Modifier.padding(horizontal = 20.dp))
+        Spacer(Modifier.height(10.dp))
 
-        SettingsClickRow(
-            icon     = Icons.Outlined.Fingerprint,
-            title    = "Biometric Data Notice",
-            subtitle = "How we collect & use face data",
-            onClick  = { showBiometricDlg = true }
-        )
+                ElevatedCard(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    shape = RoundedCornerShape(24.dp),
+                    colors = CardDefaults.elevatedCardColors(containerColor = Color(0xFFFFF1F2)),
+                    elevation = CardDefaults.elevatedCardElevation(defaultElevation = 6.dp)
+                )
+                {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().clickable {showLogoutDlg = true}.padding(horizontal = 20.dp,vertical = 18.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    )
+                    {
+                        Icon(imageVector = Icons.Outlined.Logout,contentDescription = null,tint = Color(0xFFDC2626),modifier = Modifier.size(22.dp))
+                        Spacer(Modifier.width(16.dp))
+                        Column(
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(text = "Logout",style = MaterialTheme.typography.bodyLarge,fontWeight = FontWeight.SemiBold,color = Color(0xFFDC2626))
+                            Text(text = "Sign out of your account",style = MaterialTheme.typography.bodySmall,color = Color(0xFF991B1B))
+                        }
 
-        SettingsClickRow(
-            icon     = Icons.Outlined.PrivacyTip,
-            title    = "Privacy Policy",
-            subtitle = "Data protection & your rights",
-            onClick  = { showPrivacyDlg = true }
-        )
+                        Icon(imageVector = Icons.Default.ChevronRight,contentDescription = null,tint = Color(0xFFDC2626))
+                    }
+                }
+                Spacer(Modifier.height(20.dp))
 
-        Spacer(Modifier.height(8.dp))
+                Text(
+                    text = "AttendCrew v1.0.0",
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall
+                )
 
-        // ── Legal ─────────────────────────────────────────────────────────────
-        SectionHeader("Legal")
+                Spacer(Modifier.height(6.dp))
 
-        SettingsClickRow(
-            icon     = Icons.Outlined.Gavel,
-            title    = "Terms of Use",
-            subtitle = "Conditions of using this app",
-            onClick  = { showTermsDlg = true }
-        )
+                Text(
+                    text = "Construction Workforce Management",
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    style = MaterialTheme.typography.labelSmall
+                )
 
-        SettingsClickRow(
-            icon     = Icons.Outlined.Info,
-            title    = "Disclaimer",
-            subtitle = "Liability and accuracy notice",
-            onClick  = { showDisclaimerDlg = true }
-        )
-
-        Spacer(Modifier.height(8.dp))
-
-        // ── About ─────────────────────────────────────────────────────────────
-        SectionHeader("About")
-
-        SettingsInfoRow(Icons.Outlined.AppSettingsAlt, "Version", "1.0.0")
-
-        SettingsClickRow(
-            icon     = Icons.Outlined.Description,
-            title    = "Open Source Licenses",
-            subtitle = "ML Kit, TensorFlow Lite, Retrofit…",
-            onClick  = { showLicensesDlg = true }
-        )
-
-        Spacer(Modifier.height(8.dp))
-
-        // ── Session ───────────────────────────────────────────────────────────
-        SectionHeader("Session")
-
-        SettingsClickRow(
-            icon     = Icons.Outlined.Logout,
-            title    = "Logout",
-            subtitle = "Sign out of your account",
-            titleColor = MaterialTheme.colorScheme.error,
-            onClick  = { showLogoutDlg = true }
-        )
-
-        Spacer(Modifier.height(32.dp))
+        Spacer(Modifier.height(28.dp))
     }
 
-    // ── Dialogs ───────────────────────────────────────────────────────────────
+    // ── Dialogs (unchanged) ─────────────────────────────────────────────────-
 
     if (showCurrencyDlg) {
         CurrencyDialog(
-            current  = currency,
+            current = currency,
             onSelect = { selected ->
                 currency = selected
                 prefs.currency = selected
@@ -205,9 +300,9 @@ fun ProfileScreen(
 
     if (showBiometricDlg) {
         InfoDialog(
-            title     = "Biometric Data Notice",
+            title = "Biometric Data Notice",
             onDismiss = { showBiometricDlg = false },
-            content   = """
+            content = """
 This app collects facial biometric data (face embeddings) solely for attendance verification.
 
 What we collect:
@@ -232,9 +327,9 @@ By using this app you acknowledge and consent to the above.
 
     if (showPrivacyDlg) {
         InfoDialog(
-            title     = "Privacy Policy",
+            title = "Privacy Policy",
             onDismiss = { showPrivacyDlg = false },
-            content   = """
+            content = """
 Attendance Manager is committed to protecting your privacy.
 
 Data collected:
@@ -258,9 +353,9 @@ Contact:
 
     if (showTermsDlg) {
         InfoDialog(
-            title     = "Terms of Use",
+            title = "Terms of Use",
             onDismiss = { showTermsDlg = false },
-            content   = """
+            content = """
 By using Attendance Manager you agree to the following terms:
 
 1. Authorised use only — This app is for use by authorised personnel of your organisation only.
@@ -278,9 +373,9 @@ By using Attendance Manager you agree to the following terms:
 
     if (showDisclaimerDlg) {
         InfoDialog(
-            title     = "Disclaimer",
+            title = "Disclaimer",
             onDismiss = { showDisclaimerDlg = false },
-            content   = """
+            content = """
 Accuracy:
 Face recognition technology is not 100% accurate. In rare cases, verification may fail for legitimate workers due to lighting, camera angle, or appearance changes.
 
@@ -298,9 +393,9 @@ The app requires an active internet connection. The developers are not responsib
 
     if (showLicensesDlg) {
         InfoDialog(
-            title     = "Open Source Licenses",
+            title = "Open Source Licenses",
             onDismiss = { showLicensesDlg = false },
-            content   = """
+            content = """
 This app uses the following open source libraries:
 
 • ML Kit Face Detection — Google LLC (Apache 2.0)
@@ -331,26 +426,21 @@ This app uses the following open source libraries:
     }
 
     if (showLogoutDlg) {
-        AlertDialog(
-            onDismissRequest = { showLogoutDlg = false },
-            icon    = { Icon(Icons.Filled.Logout, null, tint = MaterialTheme.colorScheme.error) },
-            title   = { Text("Logout") },
-            text    = { Text("Are you sure you want to sign out?") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        tokenMgr.clearAll()
-                        showLogoutDlg = false
-                        navController.navigate("login") {
-                            popUpTo(0) { inclusive = true }
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                ) { Text("Logout") }
+        ConfirmDialog(
+            title = "Logout",
+            message = "Are you sure you want to logout?",
+            confirmText = "Logout",
+            confirmColor = MaterialTheme.colorScheme.error,
+            onConfirm = {
+                showLogoutDlg = false
+                // Keep existing behavior
+                tokenMgr.clearAll()
+                navController.navigate("login") {
+                    popUpTo(0)
+                    launchSingleTop = true
+                }
             },
-            dismissButton = {
-                OutlinedButton(onClick = { showLogoutDlg = false }) { Text("Cancel") }
-            }
+            onDismiss = { showLogoutDlg = false }
         )
     }
 }
@@ -499,7 +589,33 @@ private fun CurrencyRow(option: CurrencyOption, selected: Boolean, onClick: () -
 }
 
 // ── Generic scrollable info dialog ───────────────────────────────────────────
+// ── Confirmation Dialog ─────────────────────────────────────────────
 
+@Composable
+private fun ConfirmDialog(
+    title: String,
+    message: String,
+    confirmText: String,
+    confirmColor: Color,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = { Text(message) },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text(confirmText, color = confirmColor)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
 @Composable
 private fun InfoDialog(title: String, content: String, onDismiss: () -> Unit) {
     Dialog(onDismissRequest = onDismiss) {

@@ -42,6 +42,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavController
 import com.google.gson.Gson
 import com.attendcrew.app.data.api.RetrofitInstance
+import com.attendcrew.app.data.local.db.AttendanceRepository
 import com.attendcrew.app.data.local.db.WorkerRepository
 import com.attendcrew.app.data.local.db.AttendanceOutboxRepository
 import com.attendcrew.app.data.local.db.AttendanceOutboxEntity
@@ -62,6 +63,8 @@ import java.io.File
 import java.util.concurrent.Executors
 import com.attendcrew.app.data.local.db.site.SiteGeofenceDao
 import com.attendcrew.app.utils.GeoFenceLocalChecker
+import android.util.Log
+import java.time.LocalDate
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CameraScreen — entry point
@@ -371,6 +374,7 @@ private fun AttendanceCameraScreen(
 
                 vibrate(context)
                 isUploading = true
+                Log.d("MODE_DEBUG", "CameraScreen mode = $mode")
                 val errorMsg = attendanceAction(context, bmp, workerId, mode)
                 withContext(Dispatchers.Main) {
                     isUploading = false
@@ -588,13 +592,12 @@ private suspend fun enrollFace(context: Context, bitmap: Bitmap, workerId: Strin
 
 private const val LOCAL_MATCH_THRESHOLD_DEFAULT = 0.62f
 
-private suspend fun attendanceAction(
-    context: Context,
-    bitmap: Bitmap,
-    workerId: String,
-    mode: String
-): String? = suspendCancellableCoroutine { cont ->
+private suspend fun attendanceAction(context: Context,bitmap: Bitmap,workerId: String,mode: String): String? = suspendCancellableCoroutine { cont ->
     val locationHelper = LocationHelper(context)
+    Log.d(
+        "MODE_DEBUG",
+        "attendanceAction called mode=$mode worker=$workerId"
+    )
     locationHelper.getCurrentLocation(
         onResult = { lat, lon ->
             CoroutineScope(Dispatchers.IO).launch {
@@ -605,20 +608,60 @@ private suspend fun attendanceAction(
 
                     // 1) Local face verification (offline)
                     val workerRepo = WorkerRepository(context)
-                    val targetId = workerId.trim().toIntOrNull()
-                        ?: run {
-                            cont.resume("Invalid worker id", null)
-                            return@launch
-                        }
+                    val targetId = workerId.trim()
+
+                    if (targetId.isBlank()) {
+                        cont.resume("Invalid worker id", null)
+                        return@launch
+                    }
+
                     val target = workerRepo.getById(targetId)
 
+                    val attendanceRepo = AttendanceRepository(context)
+
+                    val today = LocalDate.now().toString()
+
+                    val todayAttendance = attendanceRepo.getAttendanceForDay(targetId,today)
+
+                    if (mode == "checkin" && todayAttendance?.checkInTime != null)
+                        {
+                            cont.resume("Worker already checked in today.",null)
+                            return@launch
+                        }
+
+                    if (mode == "checkout")
+                        {
+                            if (todayAttendance == null || todayAttendance.checkInTime == null)
+                            {
+                                    cont.resume("No check-in found for today.",null)
+                                    return@launch
+                            }
+
+                            if (todayAttendance.checkOutTime != null)
+                            {
+                                cont.resume("Worker already checked out today.",null)
+                                return@launch
+                            }
+                        }
+
                     val threshold = LOCAL_MATCH_THRESHOLD_DEFAULT
-                    val (faceOk, similarity) = if (target?.embedding != null) {
-                        val sim = FaceMatcher.cosineSimilarity(probeEmbedding, target.embedding)
+
+                    val (faceOk, similarity) = if (target?.embedding != null)
+                    {
+
+                        val sim = FaceMatcher.cosineSimilarity(probeEmbedding,target.embedding)
+
+                        android.util.Log.d("FACE_MATCH","worker=$targetId similarity=$sim threshold=$threshold")
+
                         Pair(sim >= threshold, sim)
-                    } else {
+
+                    }
+                    else
+                    {
+                        android.util.Log.d("FACE_MATCH","worker=$targetId embedding missing")
                         Pair(false, null)
                     }
+
 
                     // Prepare common outbox fields (we enqueue on both pass/fail)
                     val outbox = AttendanceOutboxRepository(context)
@@ -628,6 +671,10 @@ private suspend fun attendanceAction(
 
                     if (!faceOk) {
                         // Enqueue failure attempt so backend can write face_logs + store failed selfie
+                        android.util.Log.d(
+                            "MODE_DEBUG",
+                            "Saving outbox mode=$mode worker=$targetId"
+                        )
                         outbox.enqueue(
                             AttendanceOutboxEntity(
                                 deviceAttendanceId = deviceAttendanceId,
@@ -678,6 +725,10 @@ private suspend fun attendanceAction(
                     )
 
                     if (!inside) {
+                        android.util.Log.d(
+                            "MODE_DEBUG",
+                            "Saving outbox mode=$mode worker=$targetId"
+                        )
                         // Enqueue failure attempt as well (auditing + failed selfie)
                         outbox.enqueue(
                             AttendanceOutboxEntity(
@@ -700,10 +751,7 @@ private suspend fun attendanceAction(
                         return@launch
                     }
 
-                    // 3) Local checks passed -> show success immediately
-                    cont.resume(null, null)
-
-                    // 4) Enqueue outbox + photo and sync in background
+                    // 3) Enqueue outbox + photo and sync in background
                     outbox.enqueue(
                         AttendanceOutboxEntity(
                             deviceAttendanceId = deviceAttendanceId,
@@ -719,8 +767,12 @@ private suspend fun attendanceAction(
                             status = "new"
                         )
                     )
-
                     WorkScheduler.enqueueOneTimeAttendanceSync(context)
+
+                    // 4) Stored in Outbox -> show success immediately
+                    cont.resume(null, null)
+                    android.util.Log.d("MODE_DEBUG","Saving outbox mode=$mode worker=$targetId")
+
                 } catch (e: Exception) {
                     cont.resume("Error: ${e.message}", null)
                 }

@@ -8,21 +8,36 @@ import androidx.room.TypeConverters
 import com.attendcrew.app.data.local.db.site.SiteGeofenceDao
 import com.attendcrew.app.data.local.db.site.SiteGeofenceEntity
 import net.sqlcipher.database.SupportFactory
+import com.attendcrew.app.data.local.db.siteworker.SiteWorkerDao
+import com.attendcrew.app.data.local.db.siteworker.SiteWorkerEntity
+import com.attendcrew.app.data.local.db.dashboard.DashboardDao
+import com.attendcrew.app.data.local.db.dashboard.DashboardStatsEntity
+import com.attendcrew.app.data.local.db.dashboard.WeeklyDayEntity
+import com.attendcrew.app.data.local.db.dashboard.RecentActivityEntity
 
 @Database(
     entities = [
         WorkerEntity::class,
+        AttendanceEntity::class,
         AttendanceOutboxEntity::class,
-        SiteGeofenceEntity::class
+        SiteGeofenceEntity::class,
+        SiteWorkerEntity::class,
+        DashboardStatsEntity::class,
+        WeeklyDayEntity::class,
+        RecentActivityEntity::class
     ],
-    version = 3,
+    version = 7,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun workerDao(): WorkerDao
+
+    abstract fun attendanceDao(): AttendanceDao
     abstract fun attendanceOutboxDao(): AttendanceOutboxDao
     abstract fun siteGeofenceDao(): SiteGeofenceDao
+    abstract fun siteWorkerDao(): SiteWorkerDao
+    abstract fun dashboardDao(): DashboardDao
 
     companion object {
         @Volatile
@@ -35,8 +50,13 @@ abstract class AppDatabase : RoomDatabase() {
         }
 
         private fun buildDb(context: Context): AppDatabase {
-            // Ensure SQLCipher native libs are loaded
-            net.sqlcipher.database.SQLiteDatabase.loadLibs(context)
+            // Load SQLCipher libs only when database is actually needed
+            try {
+                net.sqlcipher.database.SQLiteDatabase.loadLibs(context)
+            } catch (e: Exception) {
+                android.util.Log.e("AppDatabase", "SQLCipher load error: ${e.message}", e)
+                throw e
+            }
 
             val passphrase = DbKeyManager.getOrCreatePassphrase(context)
             val factory = SupportFactory(passphrase)

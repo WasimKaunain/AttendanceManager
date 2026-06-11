@@ -12,34 +12,46 @@ import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import com.attendcrew.app.data.local.db.AttendanceSyncer
 import java.io.File
 
-class AttendanceSyncWorker(
-    appContext: Context,
-    params: WorkerParameters
-) : CoroutineWorker(appContext, params) {
-
-    override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
+class AttendanceSyncWorker(appContext: Context,params: WorkerParameters) : CoroutineWorker(appContext, params)
+{
+    override suspend fun doWork(): Result = withContext(Dispatchers.IO)
+    {
         val repo = AttendanceOutboxRepository(applicationContext)
         val api = RetrofitInstance.getApi(applicationContext)
 
         val items = repo.pending(limit = 20)
+        items.forEach {android.util.Log.d("OUTBOX_DEBUG","id=${it.id} mode=${it.mode} status=${it.status}")}
         if (items.isEmpty()) return@withContext Result.success()
 
-        for (item in items) {
+        for (item in items)
+        {
             val attempt = item.attemptCount + 1
             try {
                 repo.mark(item.id, status = "in_flight", error = null, attemptCount = attempt)
 
+                android.util.Log.d("MODE_DEBUG","Uploading outbox id=${item.id} mode=${item.mode} worker=${item.workerId}")
                 val resp = uploadItem(api, item)
 
-                if (resp.isSuccessful) {
-                    // If we uploaded a file from disk, delete it after success.
-                    item.photoPath?.let { path ->
-                        runCatching { File(path).delete() }
-                    }
+                if (resp.isSuccessful)
+                {
+                    android.util.Log.d("OUTBOX_SYNC", "Deleting id=${item.id}")
+
                     repo.delete(item.id)
-                } else {
+
+                    android.util.Log.d("OUTBOX_SYNC", "Deleted id=${item.id}")
+                    android.util.Log.d("OUTBOX_SYNC","Remaining pending = ${repo.pending(100).size}")
+
+                    item.photoPath?.let { path ->
+                        runCatching { File(path).delete() }}
+
+                    // Refresh local attendance cache immediately
+                    runCatching {AttendanceSyncer.syncAttendance(applicationContext)}
+
+                }
+                else {
                     val err = "${resp.code()} ${resp.message()}"
                     repo.mark(item.id, status = "failed", error = err, attemptCount = attempt)
                     // For 4xx, don't retry endlessly.

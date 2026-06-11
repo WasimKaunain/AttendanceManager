@@ -14,6 +14,12 @@ plugins {
 import java.util.Properties
 import java.io.FileInputStream
 
+repositories {
+    google()
+    mavenCentral()
+    maven { url = uri("https://jitpack.io") }
+}
+
 val keystorePropertiesFile = rootProject.file("local.properties")
 val keystoreProperties = Properties().apply {
     if (keystorePropertiesFile.exists()) {
@@ -25,12 +31,13 @@ android {
     namespace = "com.attendcrew.app"
     compileSdk = 36
 
+
     defaultConfig {
         applicationId = "com.attendcrew.app"
         minSdk = 23
         targetSdk = 35
-        versionCode = 4
-        versionName = "1.0.0"
+        versionCode = 8
+        versionName = "1.2.0"
         manifestPlaceholders["adIdEnabled"] = "false" // Disable Ad ID collection for Firebase Analytics
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -81,6 +88,7 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
             excludes += "META-INF/INDEX.LIST"
             excludes += "META-INF/io.netty.versions.properties"
+            excludes += "META-INF/DEPENDENCIES"
         }
     }
 }
@@ -142,14 +150,19 @@ dependencies {
     // (optional) Kotlin serialization helpers (useful for storing small JSON blobs)
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
 
-    // 🔐 Encrypted Room (SQLCipher)
+    // 🔐 Encrypted Room (SQLCipher) - using stable version
     implementation("net.zetetic:android-database-sqlcipher:4.5.4")
     implementation("androidx.sqlite:sqlite-ktx:2.4.0")
 
     // 🔐 Android Keystore-backed encrypted prefs (stores SQLCipher passphrase)
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
-    // Removed unused Google HTTP client transport dependencies to avoid release resolution failures.
+    // 🌐 Google HTTP Client dependencies (required for Tink)
+    implementation("com.google.http-client:google-http-client:1.43.3")
+    implementation("com.google.http-client:google-http-client-android:1.43.3")
+
+    // ⏰ Joda Time (required for Tink and Google client libraries)
+    implementation("joda-time:joda-time:2.12.5")
 
 
     testImplementation(libs.junit)

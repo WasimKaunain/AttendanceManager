@@ -5,6 +5,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface AttendanceOutboxDao {
@@ -23,4 +24,10 @@ interface AttendanceOutboxDao {
 
     @Query("DELETE FROM attendance_outbox WHERE id = :id")
     suspend fun deleteById(id: Long)
+
+    @Query("DELETE FROM attendance_outbox")
+    suspend fun clearAll()
+
+    @Query("""SELECT COUNT(*) FROM attendance_outbox WHERE status IN ('new','failed','in_flight')""")
+    fun observePendingCount(): Flow<Int>
 }

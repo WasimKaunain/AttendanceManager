@@ -12,7 +12,7 @@ interface WorkerDao {
     suspend fun upsertAll(workers: List<WorkerEntity>)
 
     @Query("SELECT * FROM workers WHERE workerId = :workerId LIMIT 1")
-    suspend fun getById(workerId: Int): WorkerEntity?
+    suspend fun getById(workerId: String): WorkerEntity?
 
     @Query("SELECT * FROM workers")
     suspend fun getAll(): List<WorkerEntity>
@@ -25,4 +25,7 @@ interface WorkerDao {
 
     @Query("SELECT COUNT(*) FROM workers")
     suspend fun count(): Int
+
+    @Query(""" SELECT * FROM workers WHERE embedding IS NULL OR embedding = '' """)
+    suspend fun getUnenrolledWorkers(): List<WorkerEntity>
 }

@@ -20,7 +20,7 @@ data class AttendanceOutboxEntity(
     val deviceAttendanceId: String,
 
     @ColumnInfo(name = "workerId")
-    val workerId: Int,
+    val workerId: String,
 
     /** "checkin" | "checkout" */
     @ColumnInfo(name = "mode")

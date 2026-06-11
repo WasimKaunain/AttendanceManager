@@ -86,6 +86,18 @@ interface ApiService {
         @Query("sort_order") sortOrder: String? = null
     ): Response<List<AttendanceRecord>>
 
+    @GET("mobile/workers/{workerId}/attendance")
+    suspend fun getWorkerAttendance(
+        @Path("workerId")
+        workerId: String,
+
+        @Query("date_from")
+        dateFrom: String? = null,
+
+        @Query("date_to")
+        dateTo: String? = null
+    ): Response<List<AttendanceRecord>>
+
     // ── Geofence ──────────────────────────────────────────────────────────────
 
     @POST("mobile/verify-geofence")

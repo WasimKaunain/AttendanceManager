@@ -1,6 +1,8 @@
 package com.attendcrew.app.ui.attendance
 
-import android.widget.Toast
+import com.attendcrew.app.data.local.db.AttendanceRepository
+import com.attendcrew.app.data.local.db.AttendanceEntity
+import com.attendcrew.app.data.local.db.AttendanceSyncer
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -17,10 +19,16 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.attendcrew.app.data.api.RetrofitInstance
 import com.attendcrew.app.data.model.AttendanceRecord
+import com.attendcrew.app.ui.components.AppCard
+import com.attendcrew.app.ui.components.AppEmptyState
+import com.attendcrew.app.ui.components.AppPrimaryButton
+import com.attendcrew.app.ui.components.AppSecondaryButton
+import com.attendcrew.app.ui.components.AppSectionTitle
+import com.attendcrew.app.ui.components.AppTextField
 import com.attendcrew.app.ui.components.SectionHeader
 import com.attendcrew.app.ui.components.StatusBadge
 import com.attendcrew.app.ui.theme.*
@@ -32,190 +40,265 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import com.attendcrew.app.R
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AttendanceTabScreen(navController: NavController) {
 
     val context = LocalContext.current
-    val scope   = rememberCoroutineScope()
+    val repository = remember {AttendanceRepository(context)}
+    val scope = rememberCoroutineScope()
+    var isLoading by remember { mutableStateOf(true) }
+    var isRefreshing by remember { mutableStateOf(false) }
+    var showFilters by remember { mutableStateOf(false) }
 
-    var records      by remember { mutableStateOf<List<AttendanceRecord>>(emptyList()) }
-    var isLoading    by remember { mutableStateOf(true) }
-    var showFilters  by remember { mutableStateOf(false) }
+    var workerName by remember { mutableStateOf("") }
+    var dateFrom by remember { mutableStateOf("") }
+    var dateTo by remember { mutableStateOf("") }
+    var sortOrder by remember { mutableStateOf("desc") }
+    var initialSyncDone by remember {mutableStateOf(false)}
+    val records by repository.observeFiltered(workerName.ifBlank { null },dateFrom.ifBlank { null },dateTo.ifBlank { null }).collectAsState(initial = emptyList())
 
-    // Filter state
-    var workerName   by remember { mutableStateOf("") }
-    var dateFrom     by remember { mutableStateOf("") }
-    var dateTo       by remember { mutableStateOf("") }
-    var sortOrder    by remember { mutableStateOf("desc") }
 
-    fun fetchAttendance() {
+    fun loadAttendance() {
         scope.launch {
+
             isLoading = true
+
             try {
-                val resp = RetrofitInstance.getApi(context).getSiteAttendance(
-                    workerName = workerName.ifBlank { null },
-                    dateFrom   = dateFrom.ifBlank { null },
-                    dateTo     = dateTo.ifBlank { null },
-                    sortOrder  = sortOrder
-                )
-                if (resp.isSuccessful) records = resp.body() ?: emptyList()
-                else Toast.makeText(context, "Failed to load attendance", Toast.LENGTH_SHORT).show()
-            } catch (e: Exception) {
-                Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+
+                var result = repository.getFiltered(workerName = workerName.ifBlank { null },dateFrom = dateFrom.ifBlank { null },dateTo = dateTo.ifBlank { null })
+                result.forEach {
+                    android.util.Log.d("ATT_TAB","id=${it.id} worker=${it.workerId} date=${it.date}")
+                }
+                result =
+                    if (sortOrder == "asc")
+                        result.sortedBy { it.date }
+                    else
+                        result.sortedByDescending { it.date }
+
             } finally {
                 isLoading = false
             }
         }
     }
 
-    LaunchedEffect(Unit) { fetchAttendance() }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(AppBackground)
-    ) {
-
-        // ── Header ────────────────────────────────────────────────────────────
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Brush.linearGradient(listOf(AppPrimary, AppPrimaryLight)))
-                .padding(horizontal = 20.dp, vertical = 28.dp)
-        ) {
-            Column {
-                Text("Attendance", style = MaterialTheme.typography.labelLarge.copy(color = AppOnPrimary.copy(alpha = 0.75f)))
-                Text(
-                    "${records.size} records",
-                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold, color = AppOnPrimary)
-                )
-            }
-            IconButton(
-                onClick  = { showFilters = !showFilters },
-                modifier = Modifier.align(Alignment.CenterEnd)
-            ) {
-                Icon(
-                    if (showFilters) Icons.Default.Close else Icons.Default.FilterList,
-                    contentDescription = "Filter",
-                    tint = AppOnPrimary
-                )
+    fun refreshAttendance() {
+        scope.launch {
+            isRefreshing = true
+            try {
+                AttendanceSyncer.syncAttendance(context)
+                loadAttendance()
+            } finally {
+                isRefreshing = false
             }
         }
+    }
 
-        // ── Filter Panel ──────────────────────────────────────────────────────
-        if (showFilters) {
-            Card(
-                modifier  = Modifier.fillMaxWidth().padding(16.dp),
-                shape     = RoundedCornerShape(16.dp),
-                colors    = CardDefaults.cardColors(containerColor = AppSurface),
-                elevation = CardDefaults.cardElevation(2.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    LaunchedEffect(Unit) {
 
-                    SectionHeader("Filters")
+        if (repository.count() == 0) {
+            AttendanceSyncer.syncAttendance(context)
+        }
+    }
 
-                    OutlinedTextField(
-                        value         = workerName,
-                        onValueChange = { workerName = it },
-                        label         = { Text("Worker Name") },
-                        leadingIcon   = { Icon(Icons.Default.Person, null, tint = AppTextSecondary) },
-                        modifier      = Modifier.fillMaxWidth(),
-                        singleLine    = true,
-                        shape         = RoundedCornerShape(12.dp)
+    LaunchedEffect(Unit) {
+        loadAttendance()
+    }
+
+    PullToRefreshBox(isRefreshing = isRefreshing,onRefresh = { refreshAttendance() })
+    {
+    Column(modifier = Modifier.fillMaxSize())
+    {
+        // ── Header ───────────────────────────────────────────────────────────
+        Box(modifier = Modifier.fillMaxWidth().height(260.dp))
+        {
+                Image(
+                    painter = painterResource(R.drawable.hero_attendance),
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            Column(
+                modifier = Modifier.align(Alignment.TopStart).padding(start = 24.dp,top = 110.dp,end = 120.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp))
+            {
+
+                Text(text = "Attendance",color = Color.White,style = MaterialTheme.typography.labelLarge,fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(8.dp))
+                Text(text = "Track worker check-ins & check-outs",color = Color.White.copy(alpha = 0.85f),style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.height(12.dp))
+
+                Surface(
+                    shape = RoundedCornerShape(50),color = Color.White.copy(alpha = 0.18f)) {
+                    Text(
+                        text = "${records.size} Records",
+                        modifier = Modifier.padding(horizontal = 12.dp,vertical = 6.dp),
+                        color = Color.White,
+                        style = MaterialTheme.typography.labelMedium
                     )
+                }
+            }
 
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        OutlinedTextField(
-                            value         = dateFrom,
-                            onValueChange = { dateFrom = it },
-                            label         = { Text("From (YYYY-MM-DD)") },
-                            modifier      = Modifier.weight(1f),
-                            singleLine    = true,
-                            shape         = RoundedCornerShape(12.dp)
-                        )
-                        OutlinedTextField(
-                            value         = dateTo,
-                            onValueChange = { dateTo = it },
-                            label         = { Text("To (YYYY-MM-DD)") },
-                            modifier      = Modifier.weight(1f),
-                            singleLine    = true,
-                            shape         = RoundedCornerShape(12.dp)
-                        )
-                    }
-
-                    // Sort order
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text("Sort:", style = MaterialTheme.typography.bodyMedium.copy(color = AppTextSecondary))
-                        FilterChip(
-                            selected = sortOrder == "desc",
-                            onClick  = { sortOrder = "desc" },
-                            label    = { Text("Newest First") }
-                        )
-                        FilterChip(
-                            selected = sortOrder == "asc",
-                            onClick  = { sortOrder = "asc" },
-                            label    = { Text("Oldest First") }
-                        )
-                    }
-
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(
-                            onClick   = {
-                                workerName = ""; dateFrom = ""; dateTo = ""; sortOrder = "desc"
-                                fetchAttendance()
-                            },
-                            modifier  = Modifier.weight(1f),
-                            shape     = RoundedCornerShape(12.dp)
-                        ) { Text("Clear") }
-
-                        Button(
-                            onClick  = { fetchAttendance() },
-                            modifier = Modifier.weight(1f),
-                            shape    = RoundedCornerShape(12.dp)
-                        ) { Text("Apply") }
-                    }
+            Surface(
+                modifier = Modifier.align(Alignment.TopEnd).padding(top = 56.dp,end = 18.dp),
+                shape = CircleShape,color = Color.White.copy(alpha = 0.18f))
+            {
+                IconButton(onClick = {showFilters = !showFilters})
+                {
+                    Icon(
+                        imageVector =
+                            if (showFilters)
+                                Icons.Default.Close
+                            else
+                                Icons.Default.FilterList,contentDescription = null,tint = Color.White
+                    )
                 }
             }
         }
 
-        // ── Records List ──────────────────────────────────────────────────────
-        if (isLoading) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = AppPrimary)
-            }
-        } else if (records.isEmpty()) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Default.EventNote, null, tint = AppTextSecondary, modifier = Modifier.size(48.dp))
-                    Spacer(Modifier.height(8.dp))
-                    Text("No attendance records", style = MaterialTheme.typography.bodyLarge.copy(color = AppTextSecondary))
-                }
-            }
-        } else {
-            LazyColumn(contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 100.dp)) {
-                items(records) { record ->
-                    val encodedName = URLEncoder.encode(record.worker_name, StandardCharsets.UTF_8.toString())
-                    val normalizedStatus = record.status?.trim()?.lowercase(Locale.US)
-                    val canDirectCheckout =
-                        normalizedStatus == "checked_in" &&
-                        record.check_out_time.isNullOrBlank() &&
-                        isTodayAttendanceDate(record.date)
+        Spacer(Modifier.height(14.dp))
 
-                    AttendanceCard(
-                        record = record,
-                        showDirectCheckout = canDirectCheckout,
-                        onDirectCheckout = {
-                            navController.navigate("camera_checkout/${record.worker_id}/$encodedName")
+        // ── Filter panel ─────────────────────────────────────────────────────
+            AnimatedVisibility(visible = showFilters)
+            {
+                ElevatedCard(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    shape = RoundedCornerShape(24.dp),
+                    colors = CardDefaults.elevatedCardColors(containerColor = Color(0xFFFFFBF5)),
+                    elevation = CardDefaults.elevatedCardElevation(defaultElevation = 8.dp))
+                {
+                    Column(
+                        modifier = Modifier.padding(20.dp))
+                    {
+
+                        Text(text = "Filters",style = MaterialTheme.typography.titleMedium,fontWeight = FontWeight.SemiBold)
+                        Row(modifier = Modifier.fillMaxWidth(),horizontalArrangement = Arrangement.SpaceBetween,verticalAlignment = Alignment.CenterVertically)
+                        {
+                            Text(text = "Refine Attendance Records",style = MaterialTheme.typography.bodyMedium,color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+                            TextButton(
+                                onClick = {
+                                    workerName = ""
+                                    dateFrom = ""
+                                    dateTo = ""
+                                    sortOrder = "desc"}
+                            ) {
+                                Text("Clear")
+                            }
                         }
-                    )
-                    Spacer(Modifier.height(8.dp))
+
+                        Spacer(Modifier.height(8.dp))
+
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+
+                        Spacer(Modifier.height(16.dp))
+
+                        AppTextField(value = workerName,onValueChange = { workerName = it },label = "Worker Name",leadingIcon = Icons.Default.Person)
+                        Spacer(Modifier.height(12.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp))
+                        {
+                            AppTextField(
+                                value = dateFrom,
+                                onValueChange = { dateFrom = it },
+                                label = "From",
+                                placeholder = "YYYY-MM-DD",
+                                modifier = Modifier.weight(1f),
+                                leadingIcon = Icons.Default.CalendarMonth
+                            )
+
+                            AppTextField(
+                                value = dateTo,
+                                onValueChange = { dateTo = it },
+                                label = "To",
+                                placeholder = "YYYY-MM-DD",
+                                modifier = Modifier.weight(1f),
+                                leadingIcon = Icons.Default.CalendarMonth
+                            )
+                        }
+                        Spacer(Modifier.height(12.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically,horizontalArrangement = Arrangement.spacedBy(8.dp))
+                        {
+                            Text("Sort",style = MaterialTheme.typography.bodyMedium,color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            FilterChip(selected = sortOrder == "desc",onClick = { sortOrder = "desc" },label = { Text("Newest") })
+                            FilterChip(selected = sortOrder == "asc",onClick = { sortOrder = "asc" },label = { Text("Oldest") })
+                        }
+
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            AppSecondaryButton(
+                                text = "Clear",
+                                onClick = {
+                                    workerName = ""
+                                    dateFrom = ""
+                                    dateTo = ""
+                                    sortOrder = "desc"
+                                    loadAttendance()},
+                                modifier = Modifier.weight(1f),
+                                enabled = !isLoading
+                            )
+                            AppPrimaryButton(
+                                text = "Apply Filters",
+                                onClick = {
+                                    loadAttendance()
+                                    showFilters = false
+                                          },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+
+        // ── Records list ─────────────────────────────────────────────────────
+        when {
+            isLoading -> {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                }
+            }
+
+            records.isEmpty() -> {
+                AppEmptyState(
+                    title = "No attendance records",
+                    message = "If you just started, records will appear here after check-in/out.",
+                    icon = Icons.Default.EventNote,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            else -> {
+                LazyColumn(
+                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 100.dp)
+                ) {
+                    items(records) { record ->
+                        val encodedName = URLEncoder.encode(record.workerName, StandardCharsets.UTF_8.toString())
+                        val normalizedStatus = record.status?.trim()?.lowercase(Locale.US)
+                        val canDirectCheckout =
+                            normalizedStatus == "checked_in" &&
+                                record.checkOutTime.isNullOrBlank() &&
+                                isTodayAttendanceDate(record.date)
+
+                        AttendanceCard(
+                            record = record,
+                            showDirectCheckout = canDirectCheckout,
+                            onDirectCheckout = {
+                                navController.navigate("camera_checkout/${record.workerId}/$encodedName")
+                            }
+                        )
+                        Spacer(Modifier.height(10.dp))
+                    }
                 }
             }
         }
+    }
     }
 }
 
@@ -266,96 +349,128 @@ private fun dateToIso(date: Date): String {
 
 @Composable
 fun AttendanceCard(
-    record: AttendanceRecord,
+    record: AttendanceEntity,
     showDirectCheckout: Boolean,
     onDirectCheckout: () -> Unit
 ) {
 
-    val statusColor = when (record.status) {
-        "checked_out" -> AppPresent
-        "checked_in"  -> AppCheckedOut
-        "absent"      -> AppAbsent
-        else          -> AppInactive
-    }
-    val statusLabel = when (record.status) {
-        "checked_out" -> "Checked Out"
-        "checked_in"  -> "Checked In"
-        "absent"      -> "Absent"
-        else          -> record.status ?: "—"
+    val normalized = record.status?.trim()?.lowercase(Locale.US)
+
+    val statusColor = when (normalized)
+    {
+
+        "checked_out" -> Color(0xFF1D4ED8)
+
+        "checked_in" -> Color(0xFFF59E0B)
+
+        "absent" -> Color(0xFFDC2626)
+
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
 
+    val statusLabel = when (normalized) {
+        "checked_out" -> "Checked Out"
+        "checked_in" -> "Checked In"
+        "absent" -> "Absent"
+        else -> record.status ?: "—"
+    }
+    val formattedDate =
+        try {java.time.LocalDate.parse(record.date).format(java.time.format.DateTimeFormatter.ofPattern("dd MMM yyyy"))}
+        catch (_: Exception) {record.date}
+
     Card(
-        modifier  = Modifier.fillMaxWidth(),
-        shape     = RoundedCornerShape(14.dp),
-        colors    = CardDefaults.cardColors(containerColor = AppSurface),
-        elevation = CardDefaults.cardElevation(2.dp)
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
 
-            // Top row: name + status badge
-            Row(
-                modifier      = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text  = record.worker_name,
-                        style = MaterialTheme.typography.titleSmall.copy(
-                            fontWeight = FontWeight.SemiBold, color = AppTextPrimary
-                        )
-                    )
-                    Text(
-                        text  = record.worker_id,
-                        style = MaterialTheme.typography.bodySmall.copy(color = AppTextSecondary, fontSize = 11.sp)
-                    )
-                }
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    if (showDirectCheckout) {
-                        IconButton(
-                            onClick = onDirectCheckout,
-                            modifier = Modifier
-                                .size(34.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(Color(0xFFE3F2FD))
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.ArrowForward,
-                                contentDescription = "Go to checkout",
-                                tint = AppPrimary
-                            )
+            Row(modifier = Modifier.fillMaxWidth(),verticalAlignment = Alignment.CenterVertically)
+            {
+                Row(modifier = Modifier.weight(1f),verticalAlignment = Alignment.CenterVertically,horizontalArrangement = Arrangement.spacedBy(12.dp))
+                {
+
+                    val initials = record.workerName.split(" ").filter { it.isNotBlank() }.take(2).joinToString("") {it.first().uppercase()}.ifBlank { "?" }
+
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)) {
+                        Box(modifier = Modifier.size(52.dp),contentAlignment = Alignment.Center) {
+                            Text(initials,color = MaterialTheme.colorScheme.primary,fontWeight = FontWeight.Bold)
                         }
                     }
-                    StatusBadge(statusLabel, statusColor)
+                    Column(modifier = Modifier.weight(1f))
+                    {
+                        Text(
+                            text = record.workerName,
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold,color = MaterialTheme.colorScheme.onSurface),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = record.workerId,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically,horizontalArrangement = Arrangement.spacedBy(8.dp))
+                {
+                    if (showDirectCheckout) {
+                        Surface(
+                            onClick = onDirectCheckout,
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)
+                        )
+                        {
+                            Icon(
+                                imageVector = Icons.Default.Logout,
+                                contentDescription = null,
+                                modifier = Modifier.padding(10.dp).size(18.dp),
+                                tint = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+
+                    StatusBadge(label = statusLabel, color = statusColor)
                 }
             }
 
-            Spacer(Modifier.height(10.dp))
-            HorizontalDivider(color = AppDivider, thickness = 1.dp)
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(12.dp))
 
             // Date + times row
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                AttendanceInfoChip(Icons.Default.CalendarToday, record.date)
-
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically)
+            {
+                AttendanceInfoChip(Icons.Default.CalendarMonth,formattedDate)
+                Spacer(Modifier.weight(1f))
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    record.check_in_time?.let  { AttendanceInfoChip(Icons.Default.Login,  it, AppPresent) }
-                    record.check_out_time?.let { AttendanceInfoChip(Icons.Default.Logout, it, AppAbsent) }
+                    record.checkInTime?.let  { AttendanceInfoChip(Icons.Default.Login,  it, AppPresent) }
+                    record.checkOutTime?.let { AttendanceInfoChip(Icons.Default.Logout, it, AppAbsent) }
                 }
             }
 
             // Hours + late
-            if (record.total_hours != null || record.is_late == true) {
+            if (record.totalHours != null || record.isLate == true)
+            {
                 Spacer(Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    record.total_hours?.let {
-                        AttendanceInfoChip(Icons.Default.Schedule, "%.1f hrs".format(it))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp))
+                {
+                    record.totalHours?.let {
+                        Surface(
+                            shape = RoundedCornerShape(50),
+                            color = Color(0xFFEFF6FF)
+                        ) {
+                            Row(modifier = Modifier.padding(horizontal = 10.dp,vertical = 5.dp),verticalAlignment = Alignment.CenterVertically)
+                            {
+                                Icon(Icons.Default.Schedule,null,tint = Color(0xFF2563EB),modifier = Modifier.size(14.dp))
+
+                                Spacer(Modifier.width(4.dp))
+
+                                Text("%.1f hrs".format(it),color = Color(0xFF2563EB),style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
                     }
-                    if (record.is_late == true) {
-                        StatusBadge("Late", AppAbsent)
-                    }
+                    if (record.isLate == true) {StatusBadge("Late", AppAbsent)}
                 }
             }
         }

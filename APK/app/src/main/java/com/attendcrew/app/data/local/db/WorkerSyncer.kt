@@ -33,6 +33,17 @@ object WorkerSyncer {
 
             val entities = body.workers.map { it.toEntity() }
             repo.upsertAll(entities)
+
+            // DEBUG LOGS
+            val allWorkers = repo.getAll()
+
+            allWorkers.forEach {
+                android.util.Log.d(
+                    "ROOM_WORKER",
+                    "id=${it.workerId}, embSize=${it.embedding?.size}"
+                )
+            }
+
             entities.size
         }
     }

@@ -4,36 +4,63 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
 
 private val LightColorScheme = lightColorScheme(
-    primary            = AppPrimary,
-    onPrimary          = AppOnPrimary,
-    primaryContainer   = AppPrimaryLight.copy(alpha = 0.15f),
-    onPrimaryContainer = AppPrimaryDark,
-    background         = AppBackground,
-    onBackground       = AppTextPrimary,
-    surface            = AppSurface,
-    onSurface          = AppTextPrimary,
-    surfaceVariant     = AppSurfaceVariant,
-    onSurfaceVariant   = AppTextSecondary,
-    outline            = AppDivider,
-    outlineVariant     = Color(0xFFE5E7EB),
+    primary = BrandPrimary,
+    onPrimary = LightSurface,
+
+    secondary = BrandSecondary,
+    onSecondary = LightSurface,
+
+    background = LightBackground,
+    onBackground = TextPrimaryLight,
+
+    surface = LightSurface,
+    onSurface = TextPrimaryLight,
+
+    surfaceVariant = LightSurface2,
+    onSurfaceVariant = TextSecondaryLight,
+
+    primaryContainer = BrandPrimary.copy(alpha = 0.12f),
+    onPrimaryContainer = BrandPrimaryDark,
+
+    secondaryContainer = BrandSecondary.copy(alpha = 0.14f),
+    onSecondaryContainer = TextPrimaryLight,
+
+    outline = LightOutline,
+    outlineVariant = LightOutline.copy(alpha = 0.75f),
+
+    error = StatusError,
+    onError = LightSurface,
 )
 
 private val DarkColorScheme = darkColorScheme(
-    primary            = DarkPrimary,
-    onPrimary          = DarkOnPrimary,
-    primaryContainer   = Color(0xFF1E2A5E),
-    onPrimaryContainer = DarkPrimary,
-    background         = DarkBackground,
-    onBackground       = Color(0xFFEBEDF5),
-    surface            = DarkSurface,
-    onSurface          = Color(0xFFEBEDF5),
-    surfaceVariant     = DarkSurfaceVariant,
-    onSurfaceVariant   = Color(0xFF8B92B2),
-    outline            = Color(0xFF252A40),
-    outlineVariant     = Color(0xFF1E2235),
+    primary = BrandPrimary,
+    onPrimary = DarkBackground,
+
+    secondary = BrandSecondary,
+    onSecondary = DarkBackground,
+
+    background = DarkBackground,
+    onBackground = TextPrimaryDark,
+
+    surface = DarkSurface,
+    onSurface = TextPrimaryDark,
+
+    surfaceVariant = DarkSurface2,
+    onSurfaceVariant = TextSecondaryDark,
+
+    primaryContainer = BrandPrimary.copy(alpha = 0.20f),
+    onPrimaryContainer = TextPrimaryDark,
+
+    secondaryContainer = BrandSecondary.copy(alpha = 0.20f),
+    onSecondaryContainer = TextPrimaryDark,
+
+    outline = DarkOutline,
+    outlineVariant = DarkOutline.copy(alpha = 0.75f),
+
+    error = StatusError,
+    onError = DarkBackground,
 )
 
 @Composable
@@ -43,7 +70,7 @@ fun AttendanceManagerTheme(
 ) {
     MaterialTheme(
         colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme,
-        typography  = Typography,
-        content     = content
+        typography = Typography,
+        content = content
     )
 }

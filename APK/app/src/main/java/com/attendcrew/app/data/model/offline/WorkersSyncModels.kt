@@ -9,7 +9,7 @@ data class WorkersSyncResponse(
 )
 
 data class SyncWorker(
-    val id: Int,
+    val id: String,
 
     @SerializedName("full_name")
     val fullName: String,
