@@ -945,7 +945,7 @@ def get_payroll(
         "earnings_history": earnings_history,
     }
 
-    @router.post("/{worker_id}/payroll/entries")
+@router.post("/{worker_id}/payroll/entries")
 def add_payroll_entry(
     worker_id: str,
     payload: dict = Body(...),
