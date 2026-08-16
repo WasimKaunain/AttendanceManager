@@ -2,7 +2,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from fastapi import FastAPI
-from app.api import auth, projects, sites, workers, attendance, shifts, dashboard, audit_logs, geocode, users, mobile, reports, media_repository,timezone
+from app.api import auth, projects, sites, workers, attendance, shifts, dashboard, audit_logs, geocode, users, mobile, reports, media_repository,timezone,diagnostics
 from fastapi.middleware.cors import CORSMiddleware
 app = FastAPI(title="Attendance Manager API")
 
@@ -36,6 +36,7 @@ app.include_router(mobile.router)
 app.include_router(reports.router)
 app.include_router(media_repository.router)
 app.include_router(timezone.router)
+app.include_router(diagnostics.router)
 
 @app.get("/")
 def health():

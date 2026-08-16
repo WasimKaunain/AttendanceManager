@@ -473,7 +473,6 @@ def get_worker_attendance(
 
     query = query.order_by(AttendanceRecord.date.desc(), AttendanceRecord.check_in_time.desc())
     rows = query.all()
-
     result = []
 
     for r in rows:

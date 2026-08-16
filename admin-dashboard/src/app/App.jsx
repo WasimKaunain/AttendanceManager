@@ -17,6 +17,11 @@ import Users from "../modules/users/UsersPage";
 import AdministrationPage from "../modules/administration/AdministrationPage";
 import DataManagementPage from "../modules/data_management/DataManagementPage";
 import MediaRepositoryPage from "../modules/media_repository/MediaRepositoryPage";
+import DiagnosticsPage from "../modules/diagnostics/DiagnosticsPage";
+import FaceRecognitionLogsPage from "../modules/diagnostics/FaceRecognitionLogsPage";
+import GeofenceLogsPage from "../modules/diagnostics/GeofenceLogsPage";
+import SystemHealthPage from "../modules/diagnostics/SystemHealthPage";
+import ApiErrorLogsPage from "../modules/diagnostics/ApiErrorLogsPage";
 import ProtectedRoute from "../core/auth/ProtectedRoute";
 
 export default function App() {
@@ -160,6 +165,51 @@ export default function App() {
           element={
             <ProtectedRoute roles={["admin"]}>
               <MediaRepositoryPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/diagnostics"
+          element={
+            <ProtectedRoute roles={["admin"]}>
+              <DiagnosticsPage />
+            </ProtectedRoute>
+          }
+        />
+        
+        <Route
+          path="/diagnostics/face-logs"
+          element={
+            <ProtectedRoute roles={["admin"]}>
+              <FaceRecognitionLogsPage />
+            </ProtectedRoute>
+          }
+        />
+        
+        <Route
+          path="/diagnostics/geofence-logs"
+          element={
+            <ProtectedRoute roles={["admin"]}>
+              <GeofenceLogsPage />
+            </ProtectedRoute>
+          }
+        />
+        
+        <Route
+          path="/diagnostics/system-health"
+          element={
+            <ProtectedRoute roles={["admin"]}>
+              <SystemHealthPage />
+            </ProtectedRoute>
+          }
+        />
+        
+        <Route
+          path="/diagnostics/api-errors"
+          element={
+            <ProtectedRoute roles={["admin"]}>
+              <ApiErrorLogsPage />
             </ProtectedRoute>
           }
         />

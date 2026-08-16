@@ -4,7 +4,7 @@ import { useTheme } from "@/core/theme/ThemeContext";
 import { Moon, Sun, X } from "lucide-react";
 import attendcrewLogo from "@/assets/attendCrew-logo.jpg";
 
-import {LayoutDashboard,FolderKanban,MapPin,Users,ClipboardCheck,Clock,BarChart3,LogOut,UserCog,} from "lucide-react";
+import {LayoutDashboard,FolderKanban,MapPin,Users,ClipboardCheck,Clock,BarChart3,LogOut,UserCog,Activity} from "lucide-react";
 
 const menuItems = [
   { name: "Dashboard", icon: LayoutDashboard, path: "/" },
@@ -15,6 +15,7 @@ const menuItems = [
   // { name: "Shifts", icon: Clock, path: "/shifts" },
   { name: "Reports", icon: BarChart3, path: "/reports" },
   { name: "Administration", icon: UserCog, path: "/administration", role: "admin" },
+  { name: "Diagnostics",icon: Activity,path: "/diagnostics",role: "admin",},
 ];
 
 export default function Sidebar({ onClose }) {
@@ -77,7 +78,7 @@ export default function Sidebar({ onClose }) {
         return item.role ? user?.role === item.role : true;}).map((item) => {
 
           const Icon = item.icon;
-          const isActive = location.pathname === item.path;
+          const isActive =location.pathname === item.path || location.pathname.startsWith(item.path + "/");
 
           return (
             <Link

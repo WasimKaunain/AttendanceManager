@@ -944,3 +944,415 @@ def get_payroll(
         "payment_history": payment_history_formatted,
         "earnings_history": earnings_history,
     }
+
+    @router.post("/{worker_id}/payroll/entries")
+def add_payroll_entry(
+    worker_id: str,
+    payload: dict = Body(...),
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin),
+):
+    """
+    Add an advance / deduction / bonus entry for a worker.
+    Body: { entry_type, amount, date, note, year, month }
+    """
+    worker = db.query(Worker).filter(Worker.id == worker_id).first()
+    if not worker:
+        raise HTTPException(404, "Worker not found")
+
+    entry_type = payload.get("entry_type", "advance")
+    if entry_type not in ("advance", "deduction", "bonus"):
+        raise HTTPException(400, "entry_type must be advance | deduction | bonus")
+
+    try:
+        entry_date = date.fromisoformat(payload["date"])
+    except (KeyError, ValueError):
+        raise HTTPException(400, "Invalid or missing date (YYYY-MM-DD)")
+
+    amount = float(payload.get("amount", 0))
+    if amount <= 0:
+        raise HTTPException(400, "Amount must be positive")
+
+    # Use name from JWT token; fall back to "admin"
+    performer_name = current_user.get("name") or current_user.get("sub", "admin")
+
+    entry = PayrollEntry(
+        worker_id  = worker_id,
+        year       = payload.get("year",  entry_date.year),
+        month      = payload.get("month", entry_date.month),
+        entry_type = entry_type,
+        amount     = amount,
+        date       = entry_date,
+        note       = payload.get("note", ""),
+        created_by = performer_name,
+    )
+    db.add(entry)
+    db.commit()
+    db.refresh(entry)
+
+    log_action(
+        db=db,
+        action="payroll_entry_add",
+        entity_type="worker",
+        entity_id=worker_id,
+        details=f"{entry_type.capitalize()} of ₹{amount} added for {worker.full_name} ({entry_date.strftime('%b %Y')}). Note: {payload.get('note', '')}",
+        **_audit_user(current_user),
+    )
+
+    return {
+        "id":         str(entry.id),
+        "entry_type": entry.entry_type,
+        "amount":     entry.amount,
+        "date":       str(entry.date),
+        "note":       entry.note,
+        "created_by": entry.created_by,
+    }
+
+
+@router.delete("/{worker_id}/payroll/entries/{entry_id}")
+def delete_payroll_entry(
+    worker_id: str,
+    entry_id:  str,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin),
+):
+    """Delete a specific payroll entry by ID."""
+    import uuid as _uuid
+    entry = db.query(PayrollEntry).filter(
+        PayrollEntry.id        == _uuid.UUID(entry_id),
+        PayrollEntry.worker_id == worker_id,
+    ).first()
+    if not entry:
+        raise HTTPException(404, "Entry not found")
+
+    worker = db.query(Worker).filter(Worker.id == worker_id).first()
+    worker_name = worker.full_name if worker else worker_id
+
+    entry_info = f"{entry.entry_type} of ₹{entry.amount} on {entry.date}"
+    db.delete(entry)
+    db.commit()
+
+    log_action(
+        db=db,
+        action="payroll_entry_delete",
+        entity_type="worker",
+        entity_id=worker_id,
+        details=f"Payroll entry deleted for {worker_name}: {entry_info}",
+        **_audit_user(current_user),
+    )
+
+    return {"message": "Entry deleted"}
+
+@router.post("/bulk-validate")
+def bulk_validate_workers(
+    payload: WorkerBulkRequest,
+    db: Session = Depends(get_db)
+):
+
+    rows = payload.rows
+    selected_project_id = payload.project_id
+    selected_site_id = payload.site_id
+
+    if not isinstance(rows, list):
+        raise HTTPException(400, "Expected a JSON array of rows")
+
+    if len(rows) > MAX_BULK_ROWS:
+        raise HTTPException(400, f"Max {MAX_BULK_ROWS} rows allowed")
+
+    valid = []
+    invalid = []
+
+    # Pre-fetch project/site if selected globally
+    selected_project = None
+    selected_site = None
+
+    if selected_project_id:
+        selected_project = db.query(Project).filter(
+            Project.id == selected_project_id,
+            Project.is_deleted == False
+        ).first()
+
+        if not selected_project:
+            raise HTTPException(400, "Selected project not found")
+
+        selected_site = db.query(Site).filter(
+            Site.id == selected_site_id,
+            Site.project_id == selected_project.id,
+            Site.is_deleted == False
+        ).first()
+
+        if not selected_site:
+            raise HTTPException(400, "Selected site not found for project")
+
+    for idx, row in enumerate(rows):
+
+        row_errors = []
+
+        try:
+
+            row = dict(row)
+
+            for k, v in row.items():
+                if v == "":
+                    row[k] = None
+
+            if row.get("mobile") is not None:
+                row["mobile"] = str(row["mobile"]).strip()
+
+            if row.get("id_number") is not None:
+                row["id_number"] = str(row["id_number"]).strip()
+
+            # duplicate checks
+            if db.query(Worker).filter(Worker.mobile == row.get("mobile")).first():
+                row_errors.append({"field": "mobile", "message": "Mobile already exists"})
+
+            if db.query(Worker).filter(Worker.id_number == row.get("id_number")).first():
+                row_errors.append({"field": "id_number", "message": "ID number already exists"})
+
+            # -----------------------------
+            # Resolve project/site
+            # -----------------------------
+
+            if selected_project:
+                project = selected_project
+                site = selected_site
+
+                row.pop("project", None)
+                row.pop("site", None)
+            else:
+
+                project_name = row.pop("project", None)
+                site_name = row.pop("site", None)
+
+                project = None
+                site = None
+
+                if project_name:
+                    project = db.query(Project).filter(
+                        func.lower(Project.name) == project_name.lower(),
+                        Project.is_deleted == False
+                    ).first()
+
+                if not project:
+                    row_errors.append({"field": "project", "message": "Project not found"})
+
+                if project and site_name:
+                    site = db.query(Site).filter(
+                        Site.name == site_name,
+                        Site.project_id == project.id,
+                        Site.is_deleted == False
+                    ).first()
+
+                if project and not site:
+                    row_errors.append({"field": "site", "message": "Site not found for selected project"})
+
+            # -----------------------------
+            # Schema validation
+            # -----------------------------
+
+            if not row_errors:
+                row["project_id"] = project.id
+                row["site_id"] = site.id
+
+                obj = WorkerCreate(**row)
+                data = obj.model_dump()
+
+                data["project_id"] = project.id
+                data["site_id"] = site.id
+
+            # -----------------------------
+            # FINAL
+            # -----------------------------
+
+            if row_errors:
+                invalid.append({
+                    "index": idx,
+                    "row": row,
+                    "errors": row_errors
+                })
+            else:
+                valid.append({
+                    "index": idx,
+                    "data": data
+                })
+
+        except ValidationError as e:
+            formatted_errors = []
+
+            FIELD_MAP = {
+                "project_id": "project",
+                "site_id": "site"
+            }
+
+            for err in e.errors():
+                field = err.get("loc", [])[-1] if err.get("loc") else None
+                field = FIELD_MAP.get(field, field)
+
+                formatted_errors.append({
+                    "field": field,
+                    "message": err.get("msg", "Invalid value")
+                })
+
+            invalid.append({
+                "index": idx,
+                "row": row,
+                "errors": formatted_errors
+            })
+
+        except Exception as e:
+            msg = str(e)
+
+            if ":" in msg:
+                field, message = msg.split(":", 1)
+                field = field.strip()
+                message = message.strip()
+            else:
+                field = None
+                message = msg
+
+            invalid.append({
+                "index": idx,
+                "row": row,
+                "errors": [{
+                    "field": field,
+                    "message": message
+                }]
+            })
+
+    return {"valid": valid, "invalid": invalid}
+
+
+@router.post("/bulk-create")
+def bulk_create_workers(
+    payload: WorkerBulkRequest,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin),
+):
+
+    rows = payload.rows
+
+    if not isinstance(rows, list):
+        raise HTTPException(400, "Expected a JSON array of rows")
+
+    if len(rows) > MAX_BULK_ROWS:
+        raise HTTPException(400, f"Max {MAX_BULK_ROWS} rows allowed")
+
+    created = []
+    failed = []
+
+    for idx, row in enumerate(rows):
+
+        try:
+            data = WorkerCreate(**row).model_dump()
+
+        except ValidationError as e:
+            failed.append({
+                "index": idx,
+                "row": row,
+                "errors": e.errors()
+            })
+            continue
+
+        except Exception as e:
+            failed.append({
+                "index": idx,
+                "row": row,
+                "errors": [str(e)]
+            })
+            continue
+
+        try:
+
+            last3_mobile = str(data.get("mobile", ""))[-3:]
+            last3_id = str(data.get("id_number", ""))[-3:]
+            worker_id = f"E{last3_mobile}{last3_id}"
+
+            existing = db.query(Worker).filter(
+                Worker.id == worker_id
+            ).first()
+
+            if existing:
+                failed.append({
+                    "index": idx,
+                    "row": row,
+                    "errors": ["Worker ID conflict"]
+                })
+                continue
+
+            mobile_exists = db.query(Worker).filter(
+                Worker.mobile == data.get("mobile")
+            ).first()
+
+            if mobile_exists:
+                failed.append({
+                    "index": idx,
+                    "row": row,
+                    "errors": ["Mobile already registered"]
+                })
+                continue
+
+            id_exists = db.query(Worker).filter(
+                Worker.id_number == data.get("id_number")
+            ).first()
+
+            if id_exists:
+                failed.append({
+                    "index": idx,
+                    "row": row,
+                    "errors": ["ID number already registered"]
+                })
+                continue
+
+            worker = Worker(
+                id=worker_id,
+                joining_date=date.today(),
+                **data
+            )
+
+            db.add(worker)
+            db.commit()
+            db.refresh(worker)
+
+            log_action(
+                db=db,
+                action="worker_create_bulk",
+                entity_type="worker",
+                entity_id=worker.id,
+                details=f"Worker created via bulk import: {worker.full_name} ({worker.mobile})",
+                **_audit_user(current_user),
+            )
+
+            created.append({
+                "index": idx,
+                "id": worker.id,
+                "name": worker.full_name,
+            })
+
+        except IntegrityError:
+            db.rollback()
+
+            failed.append({
+                "index": idx,
+                "row": row,
+                "errors": ["Database integrity error"]
+            })
+
+        except Exception as e:
+            db.rollback()
+
+            failed.append({
+                "index": idx,
+                "row": row,
+                "errors": [str(e)]
+            })
+
+    log_action(
+        db=db,
+        action="worker_bulk_import_summary",
+        entity_type="worker",
+        entity_id=None,
+        details=f"Bulk import completed: {len(created)} created, {len(failed)} failed",
+        **_audit_user(current_user),
+    )
+
+    return {"created": created, "failed": failed}
